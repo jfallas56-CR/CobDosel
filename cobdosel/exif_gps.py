@@ -15,6 +15,26 @@ Autor: Jorge Fallas (jfallas56@gmail.com)
 import datetime
 import logging
 from PIL import Image, ImageOps
+
+# v0.14.39: soporte HEIC/HEIF (fotos de iPhone) registrado aquí, en el módulo que usan todas las ventanas
+# y el procesamiento por sitio. Antes solo lo registraban la ventana principal y la de medición, y el lote
+# abierto directamente desde el menú no podía leer fotos HEIC.
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    HEIF_SUPPORTED = True
+except ImportError:
+    HEIF_SUPPORTED = False
+
+HEIF_MISSING_MSG = ("Las fotos HEIC/HEIF (formato predeterminado del iPhone) requieren el paquete «pillow-heif», "
+                    "que no está instalado en este QGIS. Instálelo (Windows: OSGeo4W Shell → "
+                    "python -m pip install pillow-heif) o configure el iPhone para guardar en JPEG "
+                    "(Ajustes → Cámara → Formatos → «Más compatible»).")
+
+
+def _check_heif(path):
+    if str(path).lower().endswith((".heic", ".heif")) and not HEIF_SUPPORTED:
+        raise RuntimeError(HEIF_MISSING_MSG)
 from PIL.ExifTags import TAGS, GPSTAGS
 
 _LOG = logging.getLogger("CobDosel")
@@ -65,6 +85,7 @@ def load_oriented_rgb_image(image_path, max_dim=None):
         tupla (pil_image, scale_factor, original_size_wh)
         donde scale_factor = nuevo_ancho / ancho_original_orientado
     """
+    _check_heif(image_path)
     img = Image.open(image_path)
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")

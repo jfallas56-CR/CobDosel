@@ -32,6 +32,8 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_review_v01438.py` | Correcciones de la revisión independiente: centro en «Revisar cortes…», aceptación en bloque, filtro de calidad, medición en otra foto, sin calibración, nombres de modelo, Lineal imposible, foto girada |
 | `test_respuesta_v01438.py` | El resultado responde a cada entrada (corte, máscara, modelo, D, H); parámetros incoherentes rechazados; Otsu |
 | `test_hechos_v01438.py` | Hechos verificados (lecturas de la app GLAMA, Pixel 10 con tres círculos, decisiones) y revisión de textos |
+| `test_teclado_v01439.py` | Intro no pulsa botones (medición, corte, ventana principal); flechas; quitar puntos (clic derecho, Supr, botón) |
+| `test_heic_v01439.py` | Fotos HEIC del iPhone en el lote sin abrir la ventana principal; mensaje sin «pillow-heif» |
 | `consistency_v01423.py` | Coherencia del análisis con fotos reales (requiere fotos reales) |
 
 Las dos últimas pruebas necesitan fotos reales, que no se incluyen en el repositorio: `COBDOSEL_FOTOS=<carpeta> bash tests/run_all.sh PyQt5`.

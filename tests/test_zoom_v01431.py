@@ -68,8 +68,8 @@ app.sendEvent(cv, ev)
 QtTest.QTest.mouseRelease(cv, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, QtCore.QPoint(x1, y1))
 app.processEvents()
 vp = dlg.scroll.viewport()
-exp = min((vp.width() - 4) / ((x1 - x0) / s), (vp.height() - 4) / ((y1 - y0) / s))
-check("10 rectángulo (botón derecho) amplía", abs(cv.display_scale - min(exp, MAX_SCALE)) < 0.02, round(cv.display_scale, 2))
+exp = min((vp.width() - 4) / ((x1 - x0 + 1) / s), (vp.height() - 4) / ((y1 - y0 + 1) / s))   # QRect incluye ambos extremos
+check("10 rectángulo (botón derecho) amplía", abs(cv.display_scale - min(exp, MAX_SCALE)) < 0.02, (round(cv.display_scale, 2), round(exp, 2), vp.width(), vp.height(), dlg.scroll.verticalScrollBar().isVisible()))
 cx, cy = cv.view_center()
 check("11 rectángulo queda centrado", abs(cx - 3000) < 15 and abs(cy - 700) < 15, (round(cx), round(cy)))
 check("12 no añadió puntos", cv.points == [])
@@ -90,7 +90,9 @@ dlg._on_zoom_reset(); app.processEvents(); s = cv.display_scale
 QtTest.QTest.mousePress(cv, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier, QtCore.QPoint(int(1000 * s), int(500 * s)))
 QtTest.QTest.mouseRelease(cv, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier, QtCore.QPoint(int(1400 * s), int(800 * s)))
 app.processEvents()
-vp = dlg.scroll.viewport(); exp16 = min((vp.width() - 4) / 400.0, (vp.height() - 4) / 300.0)
+vp = dlg.scroll.viewport()
+_w = (int(1400 * s) - int(1000 * s) + 1) / s; _h = (int(800 * s) - int(500 * s) + 1) / s     # QRect incluye ambos extremos
+exp16 = min((vp.width() - 4) / _w, (vp.height() - 4) / _h)
 check("16 Mayús + arrastrar amplía sin marcar punto", abs(cv.display_scale - exp16) < 0.02 and len(cv.points) == 1, (round(cv.display_scale, 2), round(exp16, 2)))
 # Rectángulo minúsculo (clic accidental) se ignora
 sc_before = cv.display_scale

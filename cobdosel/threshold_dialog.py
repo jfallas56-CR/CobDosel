@@ -34,6 +34,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget, QComboBox, QRadioButton, QButtonGroup, QMessageBox, QRubberBand,
 )
 
+from .ui_keys import disable_enter_buttons
 from ._version import fmt_int
 from .visualization import GLAMA_TEAL
 from .canopy_analysis import (
@@ -518,6 +519,12 @@ class ThresholdPreviewCanvas(QLabel):
 
 class ThresholdDialog(QDialog):
     """Diálogo interactivo de umbralización con vista previa en vivo estilo GLAMA."""
+
+
+    def showEvent(self, event):  # noqa: N802 (API de Qt)
+        """v0.14.39: Intro confirma el valor de una casilla y nunca pulsa un botón."""
+        disable_enter_buttons(self)
+        super().showEvent(event)
 
     def __init__(self, pil_image, gray_array=None,
                  initial_threshold=128,

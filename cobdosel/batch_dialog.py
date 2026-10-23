@@ -24,6 +24,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsField
 
+from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_num
 from .calibration_store import list_calibrations, load_calibration, save_calibration, get_last_calibration
 from .camera_check import camera_label
@@ -50,6 +51,12 @@ def _exec(dlg):
 
 class CobDoselBatchDialog(QDialog):
     """Procesamiento de un sitio completo (parcelas × 5 fotos)."""
+
+
+    def showEvent(self, event):  # noqa: N802 (API de Qt)
+        """v0.14.39: Intro confirma el valor de una casilla y nunca pulsa un botón."""
+        disable_enter_buttons(self)
+        super().showEvent(event)
 
     def __init__(self, iface=None, parent=None):
         super().__init__(parent)

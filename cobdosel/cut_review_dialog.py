@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QGraphicsView, QGraphicsScene, QWidget, QMessageBox, QFormLayout, QSizePolicy, QRubberBand,
 )
 
+from .ui_keys import disable_enter_buttons
 from .exif_gps import load_oriented_rgb_image
 from .lens_calibration import scale_calibration_to_image
 from .canopy_analysis import extract_channel, compute_radius_grid, compute_zenith_grid, threshold_image
@@ -190,6 +191,12 @@ class _HistogramWidget(QWidget):
 
 class CutReviewDialog(QDialog):
     """Revisión visual de los cortes de las fotos de un lote."""
+
+
+    def showEvent(self, event):  # noqa: N802 (API de Qt)
+        """v0.14.39: Intro confirma el valor de una casilla y nunca pulsa un botón."""
+        disable_enter_buttons(self)
+        super().showEvent(event)
 
     def __init__(self, items, folder, calibration, channel_mode, decisions=None, sky_is_bright=True,
                  operator="", parent=None, title_suffix=""):

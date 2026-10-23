@@ -83,6 +83,7 @@ try:
 except ImportError:
     HEIF_SUPPORTED = False
 
+from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_int
 from .exif_gps import extract_exif, load_oriented_rgb_image
 from .lens_calibration import (
@@ -204,6 +205,12 @@ def _exec_dialog(dlg):
 
 class CobDoselDialog(QDialog):
     """Diálogo principal de CobDosel (basado en Tichý 2016). Redimensionable H y V."""
+
+
+    def showEvent(self, event):  # noqa: N802 (API de Qt)
+        """v0.14.39: Intro confirma el valor de una casilla y nunca pulsa un botón."""
+        disable_enter_buttons(self)
+        super().showEvent(event)
 
     def __init__(self, iface, parent=None):
         super().__init__(parent)

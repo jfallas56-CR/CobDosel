@@ -34,9 +34,10 @@ from qgis.PyQt.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QFont
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
     QFileDialog, QMessageBox, QScrollArea, QGroupBox, QSizePolicy, QComboBox, QDoubleSpinBox,
-    QSpinBox, QRubberBand, QSplitter, QWidget,
+    QSpinBox, QRubberBand, QSplitter, QWidget, QStyle,
 )
 
+from .ui_keys import disable_enter_buttons
 from .exif_gps import load_oriented_rgb_image
 from .circle_measure import measure, MAX_POINTS
 
@@ -88,7 +89,10 @@ class ImageCanvas(QLabel):
         self.scroll_area = None
         self._band = None
         self._band_origin = None
+        self._band_button = None
         self._pan = None
+        self._insert_at = None          # v0.14.39: hueco que deja un punto borrado (modo dos diámetros)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     # ------------------------------------------------------------------ imagen
     def load_image(self, path):
@@ -116,6 +120,7 @@ class ImageCanvas(QLabel):
 
     def reset_points(self):
         self.points = []
+        self._insert_at = None
         self._redraw()
         self._notify()
 
@@ -289,6 +294,7 @@ class ImageCanvas(QLabel):
         # Rectángulo de zoom: botón derecho, o Mayús + botón izquierdo
         if btn == Qt.MouseButton.RightButton or (btn == Qt.MouseButton.LeftButton and shift):
             self._band_origin = self._pos(event)
+            self._band_button = btn
             if self._band is None:
                 self._band = QRubberBand(QRubberBand.Shape.Rectangle, self)
             self._band.setGeometry(QRect(self._band_origin, QSize()))
@@ -314,8 +320,14 @@ class ImageCanvas(QLabel):
         x_img = max(0.0, min(float(iw - 1), x_img))
         y_img = max(0.0, min(float(ih - 1), y_img))
 
-        self.points.append((x_img, y_img))
         limit = MAX_POINTS.get(self.mode, 2)
+        if self._insert_at is not None and self._insert_at <= len(self.points) and len(self.points) < limit:
+            # v0.14.39: el punto nuevo ocupa el lugar del borrado (en «dos diámetros» importa el orden 1–2, 3–4)
+            self.points.insert(self._insert_at, (x_img, y_img))
+            self._insert_at = None
+        else:
+            self.points.append((x_img, y_img))
+            self._insert_at = None
         if len(self.points) > limit:
             self.points = self.points[-limit:] if limit <= 2 else self.points[:limit]
 
@@ -345,6 +357,13 @@ class ImageCanvas(QLabel):
                 sc = self.display_scale
                 self.zoom_to_image_rect(QRectF(rect.x() / sc, rect.y() / sc,
                                                rect.width() / sc, rect.height() / sc))
+            elif self._band_button == Qt.MouseButton.RightButton:
+                # v0.14.39: clic derecho sin arrastrar sobre un punto = quitar ese punto
+                p = self._pos(event)
+                i = self.point_near(p.x(), p.y())
+                if i is not None:
+                    self.remove_point(i)
+            self._band_button = None
             event.accept()
             return
         if self._pan is not None:
@@ -354,6 +373,57 @@ class ImageCanvas(QLabel):
             return
         super().mouseReleaseEvent(event)
 
+    # ------------------------------------------------------------------ puntos (v0.14.39)
+    def point_near(self, x_widget, y_widget, tol_px=12):
+        """Índice del punto marcado más cercano al clic (en píxeles de pantalla), o None."""
+        best, best_d = None, float(tol_px)
+        for i, (xi, yi) in enumerate(self.points):
+            d = math.hypot(xi * self.display_scale - x_widget, yi * self.display_scale - y_widget)
+            if d <= best_d:
+                best, best_d = i, d
+        return best
+
+    def remove_point(self, i):
+        """Quita el punto i. En «dos diámetros» el siguiente clic ocupa su lugar (se conserva 1–2, 3–4)."""
+        if not (0 <= i < len(self.points)):
+            return
+        del self.points[i]
+        self._insert_at = i if (self.mode == "cruz" and i < len(self.points)) else None
+        self._redraw()
+        self._notify()
+
+    def remove_last_point(self):
+        if self.points:
+            self.remove_point(len(self.points) - 1)
+
+    def keyPressEvent(self, event):  # noqa: N802 (API de Qt)
+        """Flechas = mover la imagen (Mayús = paso mayor); Supr o Retroceso = quitar el último punto."""
+        key = event.key()
+        K = Qt.Key
+        if key in (K.Key_Delete, K.Key_Backspace) or (
+                key == K.Key_Z and event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            self.remove_last_point()
+            event.accept()
+            return
+        area = self.scroll_area
+        if area is not None and key in (K.Key_Left, K.Key_Right, K.Key_Up, K.Key_Down):
+            vp = area.viewport()
+            big = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            step_x = int(vp.width() * (0.5 if big else 0.1))
+            step_y = int(vp.height() * (0.5 if big else 0.1))
+            hb, vb = area.horizontalScrollBar(), area.verticalScrollBar()
+            if key == K.Key_Left:
+                hb.setValue(hb.value() - step_x)
+            elif key == K.Key_Right:
+                hb.setValue(hb.value() + step_x)
+            elif key == K.Key_Up:
+                vb.setValue(vb.value() - step_y)
+            else:
+                vb.setValue(vb.value() + step_y)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     # ------------------------------------------------------------------ zoom
     def zoom_to_image_rect(self, rect):
         """Amplía para que el rectángulo (coordenadas de la imagen) llene la ventana y lo centra."""
@@ -362,6 +432,14 @@ class ImageCanvas(QLabel):
         vw, vh = self._viewport_size()
         if vw <= 0 or vh <= 0:
             return
+        # v0.14.39: al ampliar aparecen las barras de desplazamiento y tapan parte de la ventana; se
+        # descuentan desde el principio para que el rectángulo quede entero a la vista.
+        area = self.scroll_area
+        if area is not None:
+            # tamaño sin barras (maximumViewportSize) menos las dos barras, que aparecerán al ampliar
+            ext = area.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent)
+            ms = area.maximumViewportSize()
+            vw, vh = ms.width() - 4 - ext, ms.height() - 4 - ext
         self.set_scale(min(vw / rect.width(), vh / rect.height()))
         self.center_on(rect.center().x(), rect.center().y())
         if callable(self.on_zoom_rect):
@@ -479,7 +557,8 @@ class MeasureCircleDialog(QDialog):
             "línea hasta el centro de la foto con el desplazamiento en % del diámetro.\n"
             "Clic en el centro de la línea del círculo; puntos repartidos alrededor de todo el "
             "círculo.\nZoom: clic derecho y arrastrar (o Mayús + arrastrar) = ampliar esa zona · "
-            "escriba el % en «Zoom» · Ctrl + rueda = acercar/alejar · botón central = mover."
+            "escriba el % en «Zoom» · Ctrl + rueda = acercar/alejar · botón central o flechas = mover.\n"
+            "Quitar un punto: clic derecho sobre él · Supr, Retroceso o «Quitar último punto» = el último."
         )
         info.setWordWrap(True)
         layout.addWidget(info)
@@ -511,6 +590,13 @@ class MeasureCircleDialog(QDialog):
         self.reset_btn = QPushButton("Reiniciar puntos")
         self.reset_btn.clicked.connect(self._on_reset)
         toolbar.addWidget(self.reset_btn)
+
+        # v0.14.39: quitar un punto, como en el georreferenciador
+        self.undo_btn = QPushButton("Quitar último punto")
+        self.undo_btn.setToolTip("Quita el último punto marcado (también Supr, Retroceso o Ctrl+Z).\n"
+                                 "Para quitar cualquier otro punto: clic derecho sobre él.")
+        self.undo_btn.clicked.connect(lambda: (self.canvas.remove_last_point(), self.canvas.setFocus()))
+        toolbar.addWidget(self.undo_btn)
 
         self.zoom_in_btn = QPushButton("Acercar (+)")
         self.zoom_in_btn.clicked.connect(self._on_zoom_in)
@@ -545,6 +631,8 @@ class MeasureCircleDialog(QDialog):
             "Ctrl + rueda = acercar/alejar en el puntero; botón central y arrastrar = mover.".format(
                 int(MIN_SCALE * 100), int(MAX_SCALE * 100)))
         self.zoom_spin.valueChanged.connect(self._set_zoom_pct)
+        # v0.14.39: tras escribir el zoom y pulsar Intro, el teclado vuelve a la imagen (flechas = mover)
+        self.zoom_spin.editingFinished.connect(lambda: self.canvas.setFocus())
         toolbar.addWidget(self.zoom_spin)
         self.zoom_label = QLabel("ajustado")
         self.zoom_label.setMinimumWidth(60)
@@ -697,6 +785,7 @@ class MeasureCircleDialog(QDialog):
             self._update_zoom_label()
 
     def showEvent(self, event):  # noqa: N802 (API de Qt)
+        disable_enter_buttons(self)       # v0.14.39: Intro no abre «Cargar imagen…»
         super().showEvent(event)
         if self.canvas.original_pil is not None and self.canvas.fit_mode:
             self.canvas.set_fit()
