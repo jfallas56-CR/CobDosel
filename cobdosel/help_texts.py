@@ -81,6 +81,7 @@ SHORT_HELP_TOPICS = {
   <li><b>CaCo frente a fracción de claros:</b> la fracción de claros es un conteo de píxeles sin ponderar por el ángulo cenital; no es la cobertura ni se compara con la «apertura del dosel» de otros estudios (con fotos de teléfono, el conteo sin ponderar fue 165 % de la apertura ponderada en Bianchi et al. 2017).</li>
   <li><b>Sectores:</b> fracción de claros por anillo × sector de acimut (S1 arriba, horario).</li>
   <li><b>Geometría de pantalla de GLAMA:</b> opción solo para estudios de transición; reproduce los sesgos de la app.</li>
+  <li><b>Orientación como GLAMA:</b> GLAMA no aplica la etiqueta EXIF de orientación. Deje marcado «Píxeles en el orden guardado» y marque las mismas casillas «180°», «90°», «Tr.» que en la app. «Comparar con GLAMA (tabla)…» separa la diferencia en residuo, efecto del corte y efecto de la geometría.</li>
   <li><b>Anillos cenitales:</b> anillos cada 5° o 10° con etiqueta, cielo en naranja, zona enmascarada en verde azulado, contorno de la máscara y sectores.</li>
   <li><b>LAI efectivo:</b> rango cenital propio (por defecto 0–60°); con rangos &lt; 45° es indicativo.</li>
 </ul>
@@ -195,6 +196,8 @@ FULL_HELP_HTML = """
   <li><b>Franja negra:</b> si el círculo de la máscara sale de la foto, GLAMA cuenta la franja negra de su vista como dosel; CobDosel la excluye e informa el % visible.</li>
   <li><b>Resolución:</b> GLAMA clasifica la imagen reducida de su pantalla; CobDosel usa la foto original.</li>
   <li><b>Centro desplazado:</b> en la vista de GLAMA el centro del hemisferio está ≈ 39 px (de 1080) por debajo del centro de la foto; por eso aparece la franja negra solo abajo. El modo «geometría de pantalla de GLAMA» lo reproduce (valor ajustable).</li>
+  <li><b>Orientación:</b> GLAMA muestra los píxeles en el orden guardado, sin aplicar la etiqueta EXIF de orientación (una foto vertical aparece girada 90°); sus casillas «180°» y «90°» (cuarto de vuelta antihorario) la giran. Como la franja negra queda siempre en el mismo borde de la vista, el giro cambia el CaCo de GLAMA; el de CobDosel no cambia. La reproducción usa por defecto el orden guardado y las casillas que se marquen.</li>
+  <li><b>Comparar con GLAMA (tabla):</b> para cada foto, A = CaCo de la app; B = reproducción con el corte de GLAMA (B − A ≈ 0 comprueba la reproducción); C = la misma reproducción con el corte de CobDosel (C − B = efecto del corte, único cambio); D = CobDosel (D − C = efecto de la geometría). Use las fotos originales del teléfono, con su EXIF, y anote en GLAMA el corte, el CaCo, las casillas de giro, el radio, la máscara y el canal.</li>
   <li>Con la misma geometría, CobDosel y GLAMA coinciden en ≈ 1–2 puntos de CaCo en las pruebas del autor; la opción «geometría de pantalla de GLAMA» permite estudios pareados de transición.</li>
 </ul>
 

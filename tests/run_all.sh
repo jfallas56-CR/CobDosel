@@ -31,6 +31,7 @@ check respuesta_v01438   python3 tests/test_respuesta_v01438.py . "$OUT/respuest
 check hechos_v01438      python3 tests/test_hechos_v01438.py .
 check teclado_v01439     python3 tests/test_teclado_v01439.py . "$OUT/teclado" "$QT"
 check heic_v01439        python3 tests/test_heic_v01439.py . "$OUT/heic"
+check glama_cmp_v01441   python3 tests/test_glama_cmp_v01441.py . "$OUT/glama_cmp" "$QT" ${COBDOSEL_FOTOS:-}
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>
 if [ -n "${COBDOSEL_FOTOS:-}" ]; then

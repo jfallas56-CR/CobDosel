@@ -34,6 +34,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_hechos_v01438.py` | Hechos verificados (lecturas de la app GLAMA, Pixel 10 con tres círculos, decisiones) y revisión de textos |
 | `test_teclado_v01439.py` | Intro no pulsa botones (medición, corte, ventana principal); flechas; quitar puntos (clic derecho, Supr, botón) |
 | `test_heic_v01439.py` | Fotos HEIC del iPhone en el lote sin abrir la ventana principal; mensaje sin «pillow-heif» |
+| `test_glama_cmp_v01441.py` | Comparación GLAMA ↔ CobDosel: orden guardado de los píxeles, casillas de giro de GLAMA, descomposición residuo + corte + geometría, tabla y ventana; con fotos reales, el ejemplo verificado de la app (± 0.1) |
 | `consistency_v01423.py` | Coherencia del análisis con fotos reales (requiere fotos reales) |
 
 Las dos últimas pruebas necesitan fotos reales, que no se incluyen en el repositorio: `COBDOSEL_FOTOS=<carpeta> bash tests/run_all.sh PyQt5`.

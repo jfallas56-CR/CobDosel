@@ -251,8 +251,9 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     geo = results.get("glama_geometry")
     geometry_banner = (
         "<div class='warn-box'><strong>Geometría de pantalla de GLAMA activada</strong> (estudio de "
-        "transición): los índices reproducen la app con sus sesgos. CaCo con la geometría correcta = "
-        "<strong>{:.2f}%</strong>. No use este informe para el valor oficial.</div>".format(
+        "transición): los índices reproducen la app con sus sesgos. Orientación: {}. CaCo con la "
+        "geometría correcta = <strong>{:.2f}%</strong>. No use este informe para el valor oficial.</div>".format(
+            html.escape(geo.get("orientation") or "posición de CobDosel"),
             geo["correct_caco_pct"]) if geo else "")
     run_warnings_html = "".join(
         "<div class='warn-box'>⚠ {}</div>".format(html.escape(w))

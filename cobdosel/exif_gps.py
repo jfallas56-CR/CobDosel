@@ -101,6 +101,38 @@ def load_oriented_rgb_image(image_path, max_dim=None):
     return img, scale, (orig_w, orig_h)
 
 
+def load_stored_rgb_image(image_path, max_dim=None):
+    """
+    Carga la imagen SIN aplicar la orientación EXIF: los píxeles en el orden en que están
+    guardados (orden del sensor en los teléfonos). Es lo que muestra la app GLAMA, que no lee
+    la etiqueta de orientación (v0.14.41).
+
+    Returns:
+        tupla (pil_image, scale_factor, stored_size_wh, orientation_tag, note)
+        orientation_tag: etiqueta EXIF 274 (1–8) o None; note: texto si el orden guardado no se
+        puede recuperar (HEIC: pillow-heif ya aplica el giro al abrir), si no "".
+    """
+    _check_heif(image_path)
+    img = Image.open(image_path)
+    tag = None
+    try:
+        tag = img.getexif().get(274)
+    except Exception:
+        tag = None
+    note = ""
+    if image_path.lower().endswith((".heic", ".heif")):
+        note = ("HEIC: el orden guardado de los píxeles no se puede recuperar (la imagen se abre ya "
+                "girada); la orientación puede no coincidir con la de GLAMA")
+    img = img.convert("RGB")
+    w0, h0 = img.size
+    scale = 1.0
+    if max_dim is not None and max(w0, h0) > max_dim:
+        scale = float(max_dim) / float(max(w0, h0))
+        img = img.resize((max(1, int(round(w0 * scale))), max(1, int(round(h0 * scale)))),
+                         Image.LANCZOS)
+    return img, scale, (w0, h0), tag, note
+
+
 def extract_exif(image_path):
     """
     Extrae coordenadas GPS, altitud, fecha/hora de captura y modelo de cámara.

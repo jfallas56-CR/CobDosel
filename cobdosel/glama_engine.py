@@ -341,6 +341,46 @@ def glama_view_image(image_rgb, view_w=GLAMA_VIEW_W, view_h=GLAMA_VIEW_H, center
     return view, (view_w / 2.0, view_h / 2.0 + float(center_dy))
 
 
+# Casillas de la pantalla «Rotate and transpose image» de GLAMA (v0.14.41). Comprobado con capturas
+# de la app (Pixel 10): GLAMA muestra los píxeles en el orden guardado (no lee la etiqueta EXIF de
+# orientación); «90°» gira un cuarto de vuelta en sentido antihorario y «180°» media vuelta.
+# «Tr.» (transponer: intercambiar filas y columnas) se aplica después de los giros; ese orden NO
+# está comprobado con la app.
+def glama_rotate(image_rgb, rot180=False, rot90=False, transpose=False):
+    """Aplica las casillas de giro de GLAMA a la imagen en el orden guardado."""
+    arr = np.asarray(image_rgb)
+    k = (2 if rot180 else 0) + (1 if rot90 else 0)
+    if k:
+        arr = np.rot90(arr, k)
+    if transpose:
+        arr = np.swapaxes(arr, 0, 1)
+    return np.ascontiguousarray(arr)
+
+
+def glama_boxes_label(rot180=False, rot90=False, transpose=False):
+    """Texto de las casillas marcadas, p. ej. «180° + 90°» o «sin giro»."""
+    parts = [n for n, v in (("180°", rot180), ("90°", rot90), ("Tr.", transpose)) if v]
+    return " + ".join(parts) if parts else "sin giro"
+
+
+def glama_screen_indices(display_rgb, glama_radius_px, zenith_max_deg, cut_level, channel_mode,
+                         projection="polar", center_dy=GLAMA_CENTER_DY, sky_is_bright=True,
+                         view_w=GLAMA_VIEW_W, view_h=GLAMA_VIEW_H):
+    """
+    Índices tal como los calcula la pantalla de GLAMA para la imagen que muestra la app
+    (display_rgb: ya con las casillas de giro aplicadas). Recorte cuadrado central → vista de
+    view_w × view_h, centro desplazado center_dy, franjas negras contadas como dosel, clasificación
+    «gris ≥ corte» = cielo. Devuelve el dict de glama_indices().
+    """
+    from .canopy_analysis import extract_channel
+    view, vcen = glama_view_image(display_rgb, view_w, view_h, center_dy)
+    gray = extract_channel(view, channel_mode)
+    sky = (gray >= int(cut_level)) if sky_is_bright else (gray < int(cut_level))
+    counts = glama_ring_counts(sky, vcen, float(glama_radius_px), zenith_max_deg,
+                               calibration=None, projection=projection)
+    return glama_indices(counts, radius_px=float(glama_radius_px))
+
+
 def glama_cut_details(histogram, current_cut):
     """
     Nivel de corte recomendado (cruce de dos log-normales; procedimiento del «Recommended cut level»

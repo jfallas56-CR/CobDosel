@@ -85,7 +85,7 @@ except ImportError:
 
 from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_int
-from .exif_gps import extract_exif, load_oriented_rgb_image
+from .exif_gps import extract_exif, load_oriented_rgb_image, load_stored_rgb_image
 from .lens_calibration import (
     HAS_CV2,
     detect_fisheye_circle,
@@ -137,6 +137,8 @@ from .glama_engine import (
     glama_ring_counts_with_gray,
     GLAMA_CUT_START,
     glama_view_image,
+    glama_rotate,
+    glama_boxes_label,
     GLAMA_VIEW_W,
     GLAMA_VIEW_H,
     GLAMA_CENTER_DY,
@@ -758,6 +760,35 @@ class CobDoselDialog(QDialog):
         geo_row.addWidget(self.glama_dy_spin)
         zen_layout.addRow("", geo_row)
 
+        # v0.14.41: orientación como en la app (GLAMA no lee la etiqueta EXIF de orientación)
+        orient_row = QHBoxLayout()
+        self.glama_stored_check = QCheckBox("Píxeles en el orden guardado (como GLAMA)")
+        self.glama_stored_check.setChecked(True)
+        self.glama_stored_check.setToolTip(
+            "GLAMA muestra la foto tal como está guardada, sin aplicar la etiqueta EXIF de\n"
+            "orientación; CobDosel la aplica. Marcado: la reproducción usa el orden guardado,\n"
+            "como la app. Desmarcado: usa la foto en la posición en que la muestra CobDosel.")
+        orient_row.addWidget(self.glama_stored_check)
+        orient_row.addWidget(QLabel("Casillas de GLAMA:"))
+        self.glama_rot180_check = QCheckBox("180°")
+        self.glama_rot90_check = QCheckBox("90°")
+        self.glama_tr_check = QCheckBox("Tr.")
+        for cb in (self.glama_rot180_check, self.glama_rot90_check, self.glama_tr_check):
+            cb.setToolTip(
+                "Marque las mismas casillas que en la pantalla «Rotate and transpose image» de\n"
+                "GLAMA. «90°» gira un cuarto de vuelta en sentido antihorario y «180°» media vuelta\n"
+                "(comprobado con la app). «Tr.» se aplica después de los giros (orden no comprobado).\n"
+                "El giro cambia el CaCo de GLAMA porque mueve la franja contada como dosel.")
+            orient_row.addWidget(cb)
+        orient_row.addStretch(1)
+        self.glama_compare_btn = QPushButton("Comparar con GLAMA (tabla)…")
+        self.glama_compare_btn.setToolTip(
+            "Compara varias fotos con los valores anotados de la app GLAMA y separa la diferencia\n"
+            "en residuo de la reproducción, efecto del corte y efecto de la geometría.")
+        self.glama_compare_btn.clicked.connect(self._on_glama_compare)
+        orient_row.addWidget(self.glama_compare_btn)
+        zen_layout.addRow("", orient_row)
+
         self.lai_zenith_max = QDoubleSpinBox()
         self.lai_zenith_max.setRange(10.0, 90.0)
         self.lai_zenith_max.setDecimals(1)
@@ -1094,6 +1125,16 @@ class CobDoselDialog(QDialog):
 
     def _current_channel_mode(self):
         return self.channel_combo.currentData()
+
+    def _on_glama_compare(self):
+        """v0.14.41: comparación por tabla con los valores anotados de la app GLAMA."""
+        from .glama_compare_dialog import GlamaCompareDialog
+        folder = os.path.dirname(self.image_path) if self.image_path else ""
+        dlg = GlamaCompareDialog(self.calibration, self._cal_name, self._current_channel_mode(),
+                                 self.glama_dy_spin.value(), self.sky_bright_check.isChecked(), folder,
+                                 parent=self)
+        runner = getattr(dlg, "exec", None) or getattr(dlg, "exec_")
+        runner()
 
     def _populate_projections(self, is_fisheye, keep=None):
         """Llena «Modelo de proyección» solo con los modelos del tipo de lente (v0.14.26).
@@ -2678,7 +2719,22 @@ class CobDoselDialog(QDialog):
             elif self.glama_geometry_check.isChecked():
                 r_glama = self.calibration.get("glama_radius_px") or glama_equivalent_radius(
                     self.calibration, w, h)
-                view, vcen = glama_view_image(self.image_array, GLAMA_VIEW_W, GLAMA_VIEW_H,
+                g_boxes = (self.glama_rot180_check.isChecked(), self.glama_rot90_check.isChecked(),
+                           self.glama_tr_check.isChecked())
+                g_note = ""
+                if self.glama_stored_check.isChecked():
+                    s_img, _s, _wh, s_tag, g_note = load_stored_rgb_image(
+                        self.image_path, max_dim=MAX_ANALYSIS_DIM)
+                    g_src = np.asarray(s_img)
+                    g_orient = "orden guardado (EXIF {}), casillas: {}".format(
+                        s_tag if s_tag is not None else "sin etiqueta", glama_boxes_label(*g_boxes))
+                else:
+                    g_src = self.image_array
+                    g_orient = "posición de CobDosel, casillas: {}".format(glama_boxes_label(*g_boxes))
+                if g_note:
+                    report_warnings.append(g_note)
+                    self._log(g_note, "WARN")
+                view, vcen = glama_view_image(glama_rotate(g_src, *g_boxes), GLAMA_VIEW_W, GLAMA_VIEW_H,
                                               self.glama_dy_spin.value())
                 v_gray = extract_channel(view, channel_mode)
                 v_sky = threshold_image(v_gray, thr, sky_is_bright=self.sky_bright_check.isChecked())
@@ -2690,6 +2746,7 @@ class CobDoselDialog(QDialog):
                     "glama_radius_px": float(r_glama),
                     "view_w": GLAMA_VIEW_W, "view_h": GLAMA_VIEW_H,
                     "center_dy": float(self.glama_dy_spin.value()),
+                    "orientation": g_orient,
                     "correct_caco_pct": metrics["canopy_cover_index_pct"],
                     "correct_mod_caco_pct": metrics["modified_caco_index_pct"],
                 }
@@ -2702,9 +2759,10 @@ class CobDoselDialog(QDialog):
                 metrics["spherical_cover_pct"] = v_idx["spherical_cover_pct"]
                 metrics["modified_caco_index_pct"] = v_idx["spherical_cover_pct"]
                 wmsg = ("Geometría de pantalla de GLAMA activada (radio GLAMA {:.0f} px, centro "
-                        "{:+.1f} px): los índices reproducen la app, con sus sesgos; CaCo con la "
+                        "{:+.1f} px, {}): los índices reproducen la app, con sus sesgos; CaCo con la "
                         "geometría correcta = {:.2f} %. No use este modo para el valor oficial.").format(
-                            r_glama, glama_geometry["center_dy"], glama_geometry["correct_caco_pct"])
+                            r_glama, glama_geometry["center_dy"], g_orient,
+                            glama_geometry["correct_caco_pct"])
                 report_warnings.append(wmsg)
                 self._log(wmsg, "WARN")
 
