@@ -359,7 +359,9 @@ class CutReviewDialog(QDialog):
         arr = np.asarray(img.convert("RGB"))
         h, w = arr.shape[:2]
         cal = scale_calibration_to_image(self.calibration, w, h)
-        c = (w / 2.0, h / 2.0)
+        # v0.14.38: centro de la calibración, como el procesamiento por sitio (antes, centro de la imagen)
+        cc = cal.get("center_xy")
+        c = (float(cc[0]), float(cc[1])) if cc is not None else (w / 2.0, h / 2.0)
         zen = compute_zenith_grid(compute_radius_grid((h, w), c), cal)
         inside = zen <= float(it["cenit_max"])
         gray = extract_channel(arr, self.channel_mode)
@@ -415,12 +417,12 @@ class CutReviewDialog(QDialog):
             self.caco_label.setText("CaCo no disponible: {}".format(e))
 
     # ------------------------------------------------------------------
-    def _record(self, decision, cut=None):
+    def _record(self, decision, cut=None, note=None):
         it = self.items[self.idx]
         self.decisions[it["archivo"]] = {
             "decision": decision, "corte": int(cut) if cut is not None else None,
             "corte_auto": it.get("corte_auto"), "operador": self.operator_edit.text().strip(),
-            "nota": self.note_edit.text().strip(), "canal": self.channel_mode,
+            "nota": self.note_edit.text().strip() if note is None else note, "canal": self.channel_mode,
             "parcela": it.get("parcela"), "punto": it.get("punto"),
             "fecha": datetime.datetime.now().isoformat(timespec="seconds"),
         }
@@ -459,7 +461,8 @@ class CutReviewDialog(QDialog):
         for i, it in enumerate(self.items):
             if not it.get("revisar") and it["archivo"] not in self.decisions and it.get("corte_auto") is not None:
                 self.idx = i
-                self._record("aceptado", it["corte_auto"])
+                # v0.14.38: la nota de la foto en pantalla no se copia a las demás
+                self._record("aceptado", it["corte_auto"], note="aceptada en bloque, sin revisión individual")
                 n += 1
         self.idx = keep
         self._load(keep)

@@ -25,6 +25,11 @@ check orientacion_v01432 python3 tests/test_orient_v01432.py . "$OUT/orientacion
 check focal_v01433       python3 tests/test_focal_v01433.py . "$OUT/focal" "$QT"
 check revision_zoom_v01433 python3 tests/test_review_zoom_v01433.py . "$OUT/revision_zoom" "$QT"
 check modelo_v01434      python3 tests/test_projsync_v01434.py . "$OUT/modelo" "$QT"
+check sincronia_v01438   python3 tests/test_sync_v01438.py . "$OUT/sincronia" "$QT"
+check revision_v01438    python3 tests/test_review_v01438.py . "$OUT/revision" "$QT"
+check respuesta_v01438   python3 tests/test_respuesta_v01438.py . "$OUT/respuesta"
+check hechos_v01438      python3 tests/test_hechos_v01438.py .
+check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>
 if [ -n "${COBDOSEL_FOTOS:-}" ]; then
   check area_v01435        python3 tests/test_area_v01435.py . "$OUT/area" "$QT" "$COBDOSEL_FOTOS"

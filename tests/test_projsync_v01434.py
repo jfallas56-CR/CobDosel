@@ -146,13 +146,14 @@ chk("cargar calibración Lineal: se aplica tal cual, sin recalcular", d.calibrat
 # Calibración con el radio de GLAMA: no se recalcula, se explica
 d._on_calibrate_glama_radius(); g_R = d.calibration["virtual_radius_px"]; g_proj = d.calibration["projection"]
 d._set_projection_by_code("rectilinear" if g_proj != "rectilinear" else "angular")
-chk("radio de GLAMA: el cambio de modelo no la modifica y se explica", d.calibration["virtual_radius_px"] == g_R
-    and d.calibration["projection"] == g_proj and "conserva el modelo de GLAMA" in d.calib_result.text())
+chk("radio de GLAMA: otro modelo no la modifica; queda en espera y se explica (0.14.38)", d.calibration is None
+    and d._parked_cal[0]["virtual_radius_px"] == g_R and d._parked_cal[0]["projection"] == g_proj
+    and "conserva el modelo de GLAMA" in d.calib_result.text())
 # Cambio de tipo de lente con una calibración D/H activa
 d.circle_diameter.setValue(12.1); d.pixel_diameter.setValue(886.64); d._set_projection_by_code("rectilinear"); d._on_calibrate()
 d.lens_combo.setCurrentIndex(0)
-chk("lente ojo de pez con calibración D/H activa: no cambia y se advierte", d.calibration["projection"] == "rectilinear"
-    and "no corresponde a este tipo de lente" in d.calib_result.text())
+chk("lente ojo de pez con calibración D/H activa: queda en espera y no se usa (0.14.38)", d.calibration is None
+    and "queda en espera" in d.calib_result.text())
 d.lens_combo.setCurrentIndex(1)
 chk("de vuelta a lente regular: la lista muestra el modelo de la calibración activa", d._current_projection_code() == "rectilinear")
 d._set_projection_by_code("angular"); d._on_calibrate(); d.lens_combo.setCurrentIndex(0); d.lens_combo.setCurrentIndex(1)

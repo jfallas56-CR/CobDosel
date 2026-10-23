@@ -273,8 +273,12 @@ def calibrate_regular_lens(circle_diameter_cm, camera_height_cm,
         theta_max_deg = math.degrees(theta_max_rad)
 
         if theta_max_deg > 90.0:
-            theta_max_deg = 90.0
-            theta_max_rad = math.radians(90.0)
+            # v0.14.38: antes se limitaba a 90° y el borde del círculo de referencia dejaba de estar en
+            # su ángulo (p. ej. 12° en lugar de 51°). Un ángulo mayor que 90° en el borde del lado corto
+            # es imposible con una lente regular: D, H o el diámetro medido están mal.
+            raise ValueError(
+                "Con estos valores el borde del lado corto de la foto quedaría a {:.0f}° del cenit (más de 90°): "
+                "revise el diámetro real D, la distancia H y el diámetro medido en píxeles.".format(theta_max_deg))
         if theta_max_deg < 1.0:
             raise ValueError(
                 "El semiángulo de visión calculado es demasiado pequeño ({:.2f}°). "
@@ -491,9 +495,22 @@ def scale_calibration_to_image(calibration, target_width_px, target_height_px):
         if cal.get(key) is not None:
             cal[key] = float(cal[key]) * scale
 
+    rotated = (cal_w != cal_h) and ((cal_w > cal_h) != (target_width_px > target_height_px))
     if cal.get("center_xy") is not None:
         cx, cy = cal["center_xy"]
-        cal["center_xy"] = [float(cx) * scale_x, float(cy) * scale_y]
+        if not rotated:
+            cal["center_xy"] = [float(cx) * scale_x, float(cy) * scale_y]
+        else:
+            # v0.14.38: foto girada 90° respecto de la calibración. Un centro desplazado (ojo de pez
+            # detectado fuera del centro) no se puede trasladar sin saber el sentido del giro; antes se
+            # escalaban x e y por separado y el centro quedaba mal. Se usa el centro de la imagen y se avisa.
+            off = math.hypot(float(cx) - cal_w / 2.0, float(cy) - cal_h / 2.0)
+            cal["center_xy"] = [target_width_px / 2.0, target_height_px / 2.0]
+            if off * scale > 0.005 * min(target_width_px, target_height_px):
+                cal["center_note"] = (
+                    "foto girada 90° respecto de la foto de calibración y centro de la calibración desplazado "
+                    "{:.0f} px: se usa el centro de la imagen; detecte de nuevo el círculo en una foto con esta "
+                    "orientación para un resultado exacto".format(off * scale))
     else:
         cal["center_xy"] = [target_width_px / 2.0, target_height_px / 2.0]
 

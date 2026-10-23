@@ -12,7 +12,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | Prueba | Qué comprueba |
 |---|---|
 | `check_metodos.py` | Cada llamada `self.metodo()` existe en su clase (o es heredada de Qt) |
-| `check_unbound.py` | Heurística: variables asignadas en un `try` y usadas después de un `except` que no sale |
+| `check_unbound.py` | (en run_all.sh como «sin_variables») Heurística: variables asignadas en un `try` y usadas después de un `except` que no sale |
 | `test_v0145.py` | Medición del círculo: modos, avisos y veredicto |
 | `test_batch_v013.py` | Lote: formulario, emparejamiento, máscaras y medias; genera las fotos sintéticas del lote |
 | `smoke_dialog_v011.py` | Diálogo principal completo: calibración, corte, análisis, informes y CSV |
@@ -28,9 +28,12 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_review_zoom_v01433.py` | Zoom por rectángulo y zoom escrito en «Revisar cortes…» |
 | `test_projsync_v01434.py` | Cambiar el modelo de proyección recalcula la calibración activa |
 | `test_area_v01435.py` | La ventana de corte muestra y cuenta solo el área analizada (requiere fotos reales) |
+| `test_sync_v01438.py` | Escenarios: la lista de modelos y el modelo del análisis nunca difieren (tipo de lente, radio de GLAMA, ojo de pez detectado); corte desactualizado |
+| `test_review_v01438.py` | Correcciones de la revisión independiente: centro en «Revisar cortes…», aceptación en bloque, filtro de calidad, medición en otra foto, sin calibración, nombres de modelo, Lineal imposible, foto girada |
+| `test_respuesta_v01438.py` | El resultado responde a cada entrada (corte, máscara, modelo, D, H); parámetros incoherentes rechazados; Otsu |
+| `test_hechos_v01438.py` | Hechos verificados (lecturas de la app GLAMA, Pixel 10 con tres círculos, decisiones) y revisión de textos |
 | `consistency_v01423.py` | Coherencia del análisis con fotos reales (requiere fotos reales) |
 
 Las dos últimas pruebas necesitan fotos reales, que no se incluyen en el repositorio: `COBDOSEL_FOTOS=<carpeta> bash tests/run_all.sh PyQt5`.
-| `test_audit_v01423.py` | Correcciones de la auditoría de v0.14.23 (método Mínimo, mediciones degeneradas, centro en el lote, reemplazo de calibraciones) |
 
 Las pruebas no sustituyen la verificación manual en QGIS 3.x y 4.x antes de publicar.

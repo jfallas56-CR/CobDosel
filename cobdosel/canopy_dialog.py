@@ -86,6 +86,7 @@ except ImportError:
 from ._version import VERSION, fmt_int
 from .exif_gps import extract_exif, load_oriented_rgb_image
 from .lens_calibration import (
+    HAS_CV2,
     detect_fisheye_circle,
     calibrate_regular_lens,
     calibrate_fisheye_from_radius,
@@ -158,6 +159,13 @@ from .focal_check import check_focal, calibration_focal_mm
 _ORIENTATION_TEXT = {2: "espejo horizontal", 3: "girada 180°", 4: "espejo vertical",
                      5: "espejo y giro 90°", 6: "girada 90° a la derecha", 7: "espejo y giro 270°",
                      8: "girada 90° a la izquierda"}
+
+def _proj_label(cal):
+    """v0.14.38: nombre del modelo para el usuario (CSV, capas, registro); nunca el código interno."""
+    cal = cal or {}
+    code = cal.get("projection")
+    return str(cal.get("projection_label") or dict(list_projections()).get(code, code or ""))
+
 
 # Tipos de campo compatibles con QGIS 3.28 LTR (QVariant) y QGIS >= 3.38 / 4.x (QMetaType)
 _FIELD_TYPES_SET = False
@@ -944,11 +952,27 @@ class CobDoselDialog(QDialog):
         self.horizon_mask_spin.blockSignals(True)
         self.horizon_mask_spin.setValue(max(0.0, 90.0 - float(val)))
         self.horizon_mask_spin.blockSignals(False)
+        self._mark_cut_stale("la máscara")
 
     def _on_horizon_mask_changed(self, val):
         self.zenith_max.blockSignals(True)
         self.zenith_max.setValue(max(5.0, 90.0 - float(val)))
         self.zenith_max.blockSignals(False)
+        self._mark_cut_stale("la máscara")
+
+    def _mark_cut_stale(self, what):
+        """
+        v0.14.38: un corte automático o recomendado se calculó con el área analizada, el canal y la
+        calibración del momento. Si cambian, el método registrado lo indica hasta que se recalcule.
+        """
+        auto = getattr(self, "_cut_auto", None)
+        if auto is None or getattr(self, "_cut_for", None) != getattr(self, "image_path", None):
+            return
+        if "calculado antes de cambiar" in (self.cut_method or ""):
+            return
+        self.cut_method = "{}, calculado antes de cambiar {}".format(self.cut_method, what)
+        self._log("El nivel de corte {} se calculó antes de cambiar {}: pulse de nuevo «Recomendado» o "
+                  "«Calcular» para recalcularlo.".format(self.threshold_spin.value(), what), "WARN")
 
     def _on_apply_glama_table1(self):
         self._set_short_help_topic("glama")
@@ -1107,6 +1131,7 @@ class CobDoselDialog(QDialog):
 
     def _on_channel_changed(self, idx):
         self._set_short_help_topic("umbral")
+        self._mark_cut_stale("el canal de color")
         if self.image_array is not None:
             mode = self._current_channel_mode()
             self.gray_array = extract_channel(self.image_array, mode)
@@ -1129,7 +1154,8 @@ class CobDoselDialog(QDialog):
           círculo inscrito, como GLAMA).
         include_horizon_mask=True limita además al área no enmascarada (cenit ≤ máscara,
         única o por direcciones): es el área que usan Otsu y la vista previa del umbral.
-        Sin calibración se excluyen los píxeles casi negros (borde de un ojo de pez).
+        Sin calibración: toda la foto con «Lente regular»; con «Ojo de pez» se excluyen los píxeles
+        casi negros (esquinas fuera del círculo de imagen).
         Devuelve None si todo el fotograma es válido.
         """
         if self.image_array is None:
@@ -1157,6 +1183,10 @@ class CobDoselDialog(QDialog):
             else:
                 unmasked = zen <= float(self.zenith_max.value()) + 1e-9
             return unmasked if base is None else (base & unmasked)
+        # v0.14.38: sin calibración y con «Lente regular» se usa toda la foto (antes se excluían los
+        # píxeles casi negros también aquí, y en dosel denso eso quitaba sombra real del histograma).
+        if self.lens_combo.currentIndex() != 0:
+            return None
         if self.image_array.ndim == 3:
             non_black = self.image_array.max(axis=2) > 8
         else:
@@ -1358,19 +1388,40 @@ class CobDoselDialog(QDialog):
         self.measure_image_btn.setEnabled(not is_fisheye)
         self.measure_file_btn.setEnabled(not is_fisheye)
 
-        # v0.14.34: si la calibración activa es de este tipo de lente, se muestra su modelo
+        # v0.14.38: la lista de modelos muestra siempre el modelo de la calibración activa. Si la
+        # calibración activa es de otro tipo de lente, queda «en espera» (no se usa) y vuelve al
+        # elegir de nuevo su tipo; así la lista y el análisis nunca difieren.
+        cal = self.calibration
+        parked = getattr(self, "_parked_cal", None)
+        if cal is not None and is_fisheye_projection(cal.get("projection")) != is_fisheye:
+            self._parked_cal = (cal, self._cal_name, self.center_xy)
+            self.calibration = None
+            self.center_xy = None
+            self.save_cal_btn.setEnabled(False)
+            name = self._cal_name or "sin guardar"
+            tipo = "Ojo de pez" if not is_fisheye else "Lente regular / smartphone"
+            msg = ("Sin calibración para este tipo de lente. La calibración «{}» ({}) queda en espera: no se usa "
+                   "en el análisis y vuelve al elegir de nuevo «{}».".format(
+                       name, cal.get("projection_label", cal.get("projection")), tipo))
+            self._calib_base = msg
+            if getattr(self, "calib_result", None):
+                self.calib_result.setText(msg)
+            self._log(msg, "WARN")
+            self._update_run_button()
+        elif cal is None and parked and is_fisheye_projection(parked[0].get("projection")) == is_fisheye:
+            self.calibration, self._cal_name, self.center_xy = parked
+            self._parked_cal = None
+            self.save_cal_btn.setEnabled(True)
+            self._show_calibration_summary(self.calibration, "Calibración recuperada («{}»)".format(
+                self._cal_name or "sin guardar"))
+            self._log("Calibración en espera recuperada al volver al tipo de lente.")
+            self._update_run_button()
         cal_proj = (self.calibration or {}).get("projection")
         self._proj_sync_off = True
         try:
             self._populate_projections(is_fisheye, keep=cal_proj)
         finally:
             self._proj_sync_off = False
-        if cal_proj and self._current_projection_code() != cal_proj and getattr(self, "calib_result", None):
-            note = ("ⓘ La calibración activa usa el modelo «{}», que no corresponde a este tipo de lente. "
-                    "El análisis sigue usando esa calibración hasta que calcule una nueva.".format(
-                        self.calibration.get("projection_label", cal_proj)))
-            self.calib_result.setText(self.calib_result.text() + "\n" + note)
-            self._log(note, "WARN")
 
     def _on_projection_changed(self, *_a):
         """
@@ -1382,21 +1433,45 @@ class CobDoselDialog(QDialog):
             return
         cal = self.calibration
         code = self._current_projection_code()
+        parked = getattr(self, "_parked_cal", None)
+        if cal is None and parked and code and parked[0].get("projection") == code:
+            # vuelve el modelo de la calibración en espera → se recupera
+            self.calibration, self._cal_name, self.center_xy = parked
+            self._parked_cal = None
+            self.save_cal_btn.setEnabled(True)
+            self._show_calibration_summary(self.calibration, "Calibración recuperada («{}»)".format(
+                self._cal_name or "sin guardar"))
+            self._update_run_button()
+            return
         if not cal or not code or cal.get("projection") == code:
             return
         label = dict(list_projections()).get(code, code)
+        meas_mode = (cal.get("measurement") or {}).get("mode")
+        is_glama = bool(cal.get("glama_radius_px")) or meas_mode == "glama_radius"
         is_circle = bool(cal.get("circle_diameter_cm") and cal.get("camera_height_cm")
-                         and cal.get("pixel_diameter_px") and not cal.get("glama_radius_px")
-                         and (cal.get("measurement") or {}).get("mode") != "glama_radius")
+                         and cal.get("pixel_diameter_px") and not is_glama)
+        is_detected = (not is_circle and not is_glama and cal.get("lens_type") == "fisheye"
+                       and cal.get("r_image_half_px") and is_fisheye_projection(code))
+        if is_detected:
+            self._recalc_detected_fisheye(cal, code, label)
+            return
         if not is_circle:
-            how = ("la calibración con el radio de GLAMA conserva el modelo de GLAMA"
-                   if cal.get("glama_radius_px") else
-                   "pulse «Detectar círculo automáticamente» para calibrar con el modelo nuevo"
-                   if is_fisheye_projection(code) else "calcule una calibración nueva con el círculo de referencia")
-            note = ("ⓘ El modelo elegido («{}») no cambia la calibración activa («{}»): {}. El análisis sigue "
-                    "usando la calibración activa.".format(label, cal.get("projection_label", cal.get("projection")), how))
-            self.calib_result.setText(self.calib_result.text() + "\n" + note)
-            self._log(note, "WARN")
+            # v0.14.38: la calibración con el radio de GLAMA no se puede recalcular con otro modelo. Queda en
+            # espera (no se usa); el modelo elegido se aplica a la próxima calibración y, si se vuelve a elegir
+            # el modelo de GLAMA, se recupera. Así la lista y el análisis nunca difieren.
+            self._parked_cal = (cal, self._cal_name, self.center_xy)
+            self.calibration = None
+            self.center_xy = None
+            self.save_cal_btn.setEnabled(False)
+            old_label = cal.get("projection_label", cal.get("projection"))
+            msg = ("Sin calibración con «{}». La calibración con el radio de GLAMA («{}», {}) conserva el modelo de "
+                   "GLAMA y queda en espera: no se usa en el análisis y vuelve al elegir de nuevo «{}». Para usar "
+                   "«{}», calibre con el círculo de referencia.".format(
+                       label, self._cal_name or "sin guardar", old_label, old_label, label))
+            self._calib_base = msg
+            self.calib_result.setText(msg)
+            self._log(msg, "WARN")
+            self._update_run_button()
             return
         old_label = cal.get("projection_label", cal.get("projection"))
         try:
@@ -1428,7 +1503,34 @@ class CobDoselDialog(QDialog):
                       old_label, label, new["circle_diameter_cm"], new["camera_height_cm"],
                       new["pixel_diameter_px"], new.get("virtual_radius_px") or 0.0, stale))
         if stale:
-            self.calib_result.setText(self.calib_result.text() + "\nⓘ" + stale)
+            self._set_calib_note("ⓘ" + stale)
+        self._update_run_button()
+
+    def _set_calib_note(self, note):
+        """Muestra una nota debajo del resumen de la calibración (reemplaza la nota anterior)."""
+        base = getattr(self, "_calib_base", None) or self.calib_result.text()
+        self.calib_result.setText(base + ("\n" + note if note else ""))
+
+    def _recalc_detected_fisheye(self, cal, code, label):
+        """Calibración ojo de pez detectada: se recalcula con el mismo radio y centro y el modelo nuevo."""
+        try:
+            new = calibrate_fisheye_from_radius(
+                cal["r_image_half_px"], projection=code, center_xy=cal.get("center_xy"),
+                image_width_px=cal.get("image_width_px"), image_height_px=cal.get("image_height_px"))
+        except Exception as e:
+            QMessageBox.critical(self, "Error de calibración", str(e))
+            return
+        for key in ("measurement", "camera"):
+            if cal.get(key) is not None:
+                new[key] = cal[key]
+        self.calibration = new
+        self._cal_name = None
+        self.save_cal_btn.setEnabled(True)
+        self._show_calibration_summary(new, "Calibración ojo de pez recalculada con el modelo «{}»".format(label))
+        if self.last_results:
+            self._set_calib_note("ⓘ Ejecute de nuevo el análisis: los resultados mostrados usan el modelo anterior.")
+        self._log("Calibración ojo de pez recalculada con «{}» (mismo radio {:.1f} px y centro).".format(
+            label, cal["r_image_half_px"]))
         self._update_run_button()
 
     # ------------------------------------------------------------------
@@ -1452,9 +1554,19 @@ class CobDoselDialog(QDialog):
             if dist_px is not None and dist_px > 0:
                 self._set_reference_circle(dialog)
                 self._set_measured_diameter(dist_px)
-                self._calib_measure_native = None
-                self._measure_info = self._measurement_record(
-                    dialog, self.image_path, self.original_image_size)
+                # v0.14.38: si dentro de la ventana de medición se cargó otra foto, la medición es de esa
+                # foto: se registra su archivo y se reescala como en «Medir desde archivo».
+                mpath = dialog.image_path or self.image_path
+                if os.path.abspath(mpath) != os.path.abspath(self.image_path):
+                    native = dialog.get_native_measurement()
+                    self._calib_measure_native = native
+                    self._measure_info = self._measurement_record(dialog, mpath, native[1] if native else None)
+                    self._log("La medición se hizo en otra foto ({}); se reescala a la foto de análisis.".format(
+                        os.path.basename(mpath)))
+                else:
+                    self._calib_measure_native = None
+                    self._measure_info = self._measurement_record(
+                        dialog, self.image_path, self.original_image_size)
                 self._log(
                     "Diámetro del círculo medido en imagen: {:.2f} px ({}).".format(
                         dist_px, self._measure_info.get("summary", "")
@@ -1565,6 +1677,7 @@ class CobDoselDialog(QDialog):
         self._calib_measure_native = native
         self._set_reference_circle(dialog)
         self._set_measured_diameter(dist_px)
+        path = dialog.image_path or path      # v0.14.38: la foto realmente medida
         self._measure_info = self._measurement_record(
             dialog, path, native[1] if native else None)
         self._log(
@@ -1601,8 +1714,12 @@ class CobDoselDialog(QDialog):
             )
             QMessageBox.warning(
                 self, "Detección fallida",
-                "No se pudo detectar automáticamente el borde circular ojo de pez.\n\n"
-                "Utilice el método del círculo de diámetro conocido."
+                ("La detección automática requiere OpenCV (paquete «opencv-python»), que no está instalado en "
+                 "este QGIS." if not HAS_CV2 else
+                 "No se pudo detectar automáticamente el borde circular ojo de pez.") + "\n\n"
+                "Compruebe que la foto muestra el círculo de imagen completo, rodeado de esquinas negras. Si la "
+                "foto llena todo el fotograma (cámara normal del teléfono), elija «Lente regular / smartphone» "
+                "y calibre con el círculo de referencia."
             )
             return
 
@@ -1643,6 +1760,8 @@ class CobDoselDialog(QDialog):
                 cal.get("focal_length_px", 0.0),
             )
         )
+        self._calib_base = msg
+        self._parked_cal = None
         self.calib_result.setText(msg)
         self._log(msg.replace("\n", " | "))
         self._update_run_button()
@@ -1709,7 +1828,7 @@ class CobDoselDialog(QDialog):
             "Calibración completada ({}): proy={}, D={} cm, H={} cm, D_px={:.2f} px, "
             "θ_máx={:.2f}°, R={:.1f} px, f={:.1f} px; medición: {}.".format(
                 "compatible GLAMA" if cal.get("glama_compat") else "geometría exacta",
-                proj_code,
+                _proj_label(cal),
                 self.circle_diameter.value(),
                 self.camera_height.value(),
                 self.pixel_diameter.value(),
@@ -1838,7 +1957,10 @@ class CobDoselDialog(QDialog):
                 "; {:+.1f} %".format(fc["diff_pct"]) if fc.get("diff_pct") is not None else ""))
         lines.append("  Máscara con el círculo de análisis dentro de la foto: ≥ {:.1f}° — no se aplica "
                      "automáticamente".format(cal.get("glama_recommended_horizon_deg", 90.0 - half_fov)))
-        self.calib_result.setText("\n".join(lines))
+        self._calib_base = "\n".join(lines)
+        self._mark_cut_stale("la calibración")
+        self._parked_cal = None          # una calibración nueva o recuperada reemplaza a la que estaba en espera
+        self.calib_result.setText(self._calib_base)
 
     def _pixel_diameter_for_analysis(self):
         """
@@ -1993,6 +2115,9 @@ class CobDoselDialog(QDialog):
                 self.image_array.shape[1],
                 self.image_array.shape[0],
             )
+        center_note = cal.pop("center_note", None)
+        if center_note:
+            self._log("Calibración «{}»: {}.".format(name, center_note), "WARN")
 
         self.calibration = cal
         proj = cal.get("projection", "angular")
@@ -2579,6 +2704,7 @@ class CobDoselDialog(QDialog):
                 "original_image_size": self.original_image_size,
                 "exif": self.exif_data,
                 "calibration": self.calibration,
+                "calibration_name": self._cal_name,
                 "center_xy": self.center_xy,
                 "threshold": thr,
                 "cut_method": self.cut_method,
@@ -2681,6 +2807,13 @@ class CobDoselDialog(QDialog):
             lines.append("    CaCo con la geometría correcta = {:.2f} %  (no use este modo"
                          " para el valor oficial)".format(res["glama_geometry"]["correct_caco_pct"]))
             lines.append("")
+        # v0.14.38: la calibración realmente usada, arriba, para ver de inmediato con qué modelo se analizó
+        _c = res.get("calibration") or {}
+        _dh = (" · D = {:g} cm a H = {:g} cm".format(_c["circle_diameter_cm"], _c["camera_height_cm"])
+               if _c.get("circle_diameter_cm") and _c.get("camera_height_cm") else "")
+        lines.append("Calibración usada: «{}» · {}{} · R = {:.1f} px".format(
+            res.get("calibration_name") or "sin guardar", _proj_label(_c), _dh, float(_c.get("virtual_radius_px") or 0)))
+        lines.append("")
         lines.append("── RESULTADOS (basado en Tichý 2016) ─────────────────────────────")
         lines.append(
             "  N.º total de píxeles en el círculo (en fotograma): {} px ({} px)".format(
@@ -2914,6 +3047,7 @@ class CobDoselDialog(QDialog):
 
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         error = None
+        out_path, report_warnings = None, []
         try:
             out_path = generate_html_report(
                 self.last_results, path, include_images=True, log=self._log
@@ -3030,7 +3164,7 @@ class CobDoselDialog(QDialog):
                 exif.get("longitude"),
                 exif.get("elevation_m"),
                 exif.get("capture_datetime"),
-                cal.get("projection"),
+                _proj_label(cal),
                 cal.get("circle_diameter_cm"),
                 cal.get("camera_height_cm"),
                 cal.get("pixel_diameter_px"),
@@ -3313,7 +3447,7 @@ class CobDoselDialog(QDialog):
             lat,
             lon,
             float(exif["elevation_m"]) if exif.get("elevation_m") is not None else None,
-            str(cal.get("projection", "")),
+            _proj_label(cal),
             float(cal.get("max_zenith_deg", 90.0)),
             float(res.get("horizon_mask_deg", 0.0)),
             float(metrics["hemisphere_fraction_pct"]),

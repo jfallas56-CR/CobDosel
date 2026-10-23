@@ -153,7 +153,13 @@ def compute_otsu_threshold(gray_image, valid_mask=None):
         variance_between, nan=0.0, posinf=0.0, neginf=0.0
     )
 
-    return int(np.clip(np.argmax(variance_between), 1, 254))
+    # v0.14.38: argmax k separa «≤ k» (oscuro) de «> k» (claro). CobDosel clasifica cielo = valor ≥ corte,
+    # así que el corte es k + 1; antes los píxeles iguales a k se contaban como cielo. Con una meseta de
+    # varianza máxima (dos valores separados) se toma su punto medio.
+    vmax = variance_between.max()
+    ks = np.flatnonzero(variance_between >= vmax - 1e-9 * max(vmax, 1.0))
+    k = int(round((ks[0] + ks[-1]) / 2.0))
+    return int(np.clip(k + 1, 1, 255))
 
 
 # Métodos automáticos de nivel de corte (código, etiqueta en la interfaz)

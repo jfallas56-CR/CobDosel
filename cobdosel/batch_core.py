@@ -8,8 +8,8 @@ Diseño de ejemplo (cualquier diseño sirve: el formulario indica parcela y punt
 - valor del sitio = media de las medias de parcela (Índice CaCo).
 
 Entradas: carpeta de fotos (nombres de la cámara), formulario de campo digital (CSV o Excel con las
-columnas de la plantilla), calibración guardada, máscara de horizonte (fija, 63° por defecto según
-Tichý 2016; u opcionalmente desde una altura del dosel del sitio) y el número de parcelas planificadas.
+columnas de la plantilla), calibración guardada, máscara de horizonte (fija, 63° por defecto, el estándar
+de CobDosel; Tichý 2016 usó 60°; u opcionalmente desde una altura del dosel del sitio) y el número de parcelas planificadas.
 El protocolo no mide alturas: los árboles se asignan a grupos de dosel (CANOPY_GROUPS). El nivel de corte de cada foto es el recomendado
 (cruce de dos log-normales, método de la app GLAMA; iterado hasta estabilizarse desde 128); si no hay
 recomendación se usa Otsu.
@@ -90,8 +90,16 @@ _COLUMN_ALIASES = {
     "calidad": ("calidad", "estado"),
     "observaciones": ("observaciones", "obs", "comentarios"),
 }
-# Calidades que excluyen la foto del cálculo
-_BAD_QUALITY = ("sol", "movida", "repetir", "mala", "descartar", "no valida", "invalida")
+# Calidades que excluyen la foto del cálculo. v0.14.38: se compara el valor completo (o cada parte
+# separada por «,», «;» o «/»), no fragmentos: «sin sol» o «buena (no repetir)» ya no excluyen la foto.
+_BAD_QUALITY = ("sol", "sol directo", "movida", "foto movida", "desenfocada", "repetir", "mala",
+                "descartar", "excluir", "excluida", "no valida", "invalida")
+
+
+def quality_excludes(value):
+    """True si la calidad anotada excluye la foto (valor completo o una de sus partes)."""
+    parts = re.split(r"[,;/]", str(value or ""))
+    return any(_norm(p).replace("_", " ") in _BAD_QUALITY for p in parts if p.strip())
 
 
 def _norm(text):
@@ -258,8 +266,7 @@ def read_field_form(path):
         if rec["hora_captura"] not in (None, "") and rec["hora_dt"] is None:
             warnings.append("Fila {}: hora «{}» no reconocida (use DD/MM/AAAA HH:MM:SS).".format(
                 n, rec["hora_captura"]))
-        q = _norm(rec["calidad"]).replace("_", " ")
-        rec["excluida_por_calidad"] = bool(q) and any(b in q for b in _BAD_QUALITY)
+        rec["excluida_por_calidad"] = quality_excludes(rec["calidad"])
         rows.append(rec)
     return rows, warnings
 
@@ -455,6 +462,13 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     Analiza una foto con la calibración dada y la máscara (cenit máximo, grados). Devuelve dict con
     caco, modif_caco, apertura, cierre, fraccion_claros, corte, metodo_corte, visible_pct, tamaño y avisos.
     """
+    # v0.14.38: sin parámetros ignorados en silencio
+    if cut_rule == "fixed" and fixed_cut is None:
+        raise ValueError("cut_rule='fixed' requiere fixed_cut.")
+    if cut_rule != "fixed" and fixed_cut is not None:
+        raise ValueError("fixed_cut solo se usa con cut_rule='fixed' (se recibió cut_rule={!r}).".format(cut_rule))
+    if cut_rule not in ("glama", "otsu", "fixed"):
+        raise ValueError("cut_rule desconocido: {!r}".format(cut_rule))
     img, _scale, orig = load_oriented_rgb_image(path, max_dim=MAX_ANALYSIS_DIM)
     arr = np.asarray(img)
     h, w = arr.shape[:2]
@@ -469,6 +483,8 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     proj = cal.get("projection", "polar")
     gray = extract_channel(arr, channel_mode)
     warns = []
+    if cal.pop("center_note", None):
+        warns.append("foto girada respecto de la calibración con centro desplazado: se usó el centro de la imagen")
     meas = calibration.get("measurement") or {}
     ref = meas.get("image_size")
     if ref:
@@ -487,7 +503,7 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     revisar = False
     if cut_rule == "fixed":
         t = int(fixed_cut)
-        method = "revisado por el operador"
+        method = "fijo"          # el lote lo cambia a «revisado por el operador» si viene de la revisión
     elif cut_rule == "otsu":
         rp = compute_radius_grid((h, w), c)
         area = compute_zenith_grid(rp, cal) <= zenith_max_deg
@@ -627,7 +643,7 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                     use_fixed = dec and dec.get("decision") in ("aceptado", "ajustado")
                     res = analyze_photo(ph["ruta"], calibration, zen, channel_mode, sky_is_bright,
                                         "fixed" if use_fixed else cut_rule,
-                                        int(dec["corte"]) if use_fixed else fixed_cut)
+                                        int(dec["corte"]) if use_fixed else (fixed_cut if cut_rule == "fixed" else None))
                     rec.update(res)
                     rec["valida"] = True
                     if use_fixed:
@@ -636,6 +652,7 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                         if rec["decision"] == "ajustado":
                             rec["decision"] = "ajustado ({} → {})".format(res.get("corte_auto"), int(dec["corte"]))
                         rec["operador"], rec["nota"] = dec.get("operador", ""), dec.get("nota", "")
+                        rec["metodo_corte"] = "revisado por el operador"
                         rec["revisar"] = False
                         res["avisos"] = [a for a in res["avisos"] if not a.startswith("revisar el corte")]
                     elif cut_rule == "glama":

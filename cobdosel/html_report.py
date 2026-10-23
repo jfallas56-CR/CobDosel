@@ -242,6 +242,12 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         exif.get("orientation") or "—",
         " / {:.0f}° ({})".format(exif["image_direction_deg"], exif.get("image_direction_ref") or "ref. ?")
         if exif.get("image_direction_deg") is not None else "")
+    # v0.14.38: calibración realmente usada, junto al resultado
+    _dh = ("D = {:g} cm a H = {:g} cm · ".format(cal["circle_diameter_cm"], cal["camera_height_cm"])
+           if cal.get("circle_diameter_cm") and cal.get("camera_height_cm") else "")
+    cal_used = "«{}» · {} · {}R = {:.1f} px".format(
+        results.get("calibration_name") or "sin guardar",
+        cal.get("projection_label") or cal.get("projection") or "—", _dh, float(cal.get("virtual_radius_px") or 0))
     geo = results.get("glama_geometry")
     geometry_banner = (
         "<div class='warn-box'><strong>Geometría de pantalla de GLAMA activada</strong> (estudio de "
@@ -667,6 +673,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   <section class="card">
     <h2>1. Resultados (basado en Tichý 2016 — <a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>)</h2>
     {geometry_banner}
+    <p><strong>Calibración usada:</strong> {cal_used}</p>
     <div class="caco-box">
       <div class="caco-label">Cobertura del dosel — Índice CaCo</div>
       <div class="caco-val">{caco_index_pct:.2f}%</div>
@@ -874,6 +881,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         lai_rows="\n        ".join(lai_rows_html),
         images_section=images_section_html,
         geometry_banner=geometry_banner,
+        cal_used=html.escape(cal_used),
         run_warnings_html=run_warnings_html,
         frame_max_str=html.escape(frame_max_str),
         visible_str=html.escape(visible_str),
