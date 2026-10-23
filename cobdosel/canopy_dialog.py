@@ -405,6 +405,11 @@ class CobDoselDialog(QDialog):
             "Ojo de pez (circular 180°)",
             "Lente regular / smartphone (círculo de diámetro conocido)",
         ])
+        self.lens_combo.setToolTip(
+            "Lente regular / smartphone: cámara principal (1x) de teléfonos Android y iPhone (iOS), o cualquier\n"
+            "cámara cuya foto llena el fotograma; se calibra con el círculo de diámetro conocido D a la distancia H.\n"
+            "Ojo de pez (circular 180°): la foto muestra el círculo de imagen completo con esquinas negras\n"
+            "(lente ojo de pez adicional o cámara hemisférica); se calibra detectando ese círculo.")
         cal_layout.addRow("Tipo de lente:", self.lens_combo)
 
         self.projection_combo = QComboBox()
