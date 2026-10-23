@@ -1,0 +1,45 @@
+"""Zoom de «Revisar cortes…» (0.14.33): rectángulo y valor escrito. Uso: <plugin_padre> <out> <PyQt5|PyQt6>"""
+import sys, types, os, importlib
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+sys.path.insert(0, sys.argv[1]); QT = sys.argv[3]
+QtCore = importlib.import_module(QT + ".QtCore"); QtGui = importlib.import_module(QT + ".QtGui")
+QtWidgets = importlib.import_module(QT + ".QtWidgets"); QtTest = importlib.import_module(QT + ".QtTest")
+q = types.ModuleType("qgis"); qp = types.ModuleType("qgis.PyQt")
+sys.modules.update({"qgis": q, "qgis.PyQt": qp, "qgis.PyQt.QtCore": QtCore, "qgis.PyQt.QtGui": QtGui, "qgis.PyQt.QtWidgets": QtWidgets})
+Qt = QtCore.Qt
+app = QtWidgets.QApplication([])
+from cobdosel.cut_review_dialog import _ZoomView
+ok = []
+def chk(n, c, x=""):
+    ok.append(bool(c)); print(("  ✓ " if c else "  ✗ ") + n + ("  — " + str(x) if x != "" else ""))
+img = QtGui.QImage(1600, 1200, QtGui.QImage.Format.Format_RGB888); img.fill(QtGui.QColor(230, 230, 230))
+p = QtGui.QPainter(img); p.fillRect(1190, 290, 20, 20, QtGui.QColor(255, 0, 0)); p.end()
+v = _ZoomView(); v.resize(800, 600); v.show(); v.set_pixmap(QtGui.QPixmap.fromImage(img)); app.processEvents()
+seen = []; v.zoomChanged.connect(seen.append)
+s0 = v.current_scale()
+chk("ajustada a la ventana (< 50 %)", s0 < 0.5, round(s0, 3))
+v.set_scale(2.0); app.processEvents()
+chk("zoom escrito 200 %", abs(v.current_scale() - 2.0) < 1e-6 and seen and abs(seen[-1] - 2.0) < 1e-6)
+v.set_scale(50); chk("límite 800 %", abs(v.current_scale() - 8.0) < 1e-6)
+v.fit(); app.processEvents(); s = v.current_scale()
+a = v.mapFromScene(QtCore.QPointF(1150, 250)); b = v.mapFromScene(QtCore.QPointF(1250, 350))
+QtTest.QTest.mousePress(v.viewport(), Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, a)
+QtTest.QTest.mouseRelease(v.viewport(), Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, b)
+app.processEvents()
+c = v.mapToScene(v.viewport().rect().center())
+chk("rectángulo (clic derecho) amplía", v.current_scale() > 4 * s, round(v.current_scale(), 2))
+chk("rectángulo centrado en el cuadro rojo", abs(c.x() - 1200) < 15 and abs(c.y() - 300) < 15, (round(c.x()), round(c.y())))
+g = v.viewport().grab().toImage(); col = QtGui.QColor(g.pixel(v.viewport().width() // 2, v.viewport().height() // 2))
+chk("cuadro rojo visible en el centro", col.red() > 200 and col.green() < 80, (col.red(), col.green()))
+v.fit(); app.processEvents(); s = v.current_scale()
+QtTest.QTest.mousePress(v.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier, a)
+QtTest.QTest.mouseRelease(v.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier, b)
+chk("Mayús + arrastrar también amplía", v.current_scale() > 4 * s)
+sc = v.current_scale()
+QtTest.QTest.mousePress(v.viewport(), Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, QtCore.QPoint(50, 50))
+QtTest.QTest.mouseRelease(v.viewport(), Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, QtCore.QPoint(52, 52))
+chk("clic derecho sin arrastrar no cambia el zoom", v.current_scale() == sc)
+v.set_scale(1.0); cen0 = v.mapToScene(v.viewport().rect().center()); v.zoom(1.25)
+cen1 = v.mapToScene(v.viewport().rect().center())
+chk("botón + mantiene el centro", abs(cen0.x() - cen1.x()) < 3 and abs(cen0.y() - cen1.y()) < 3)
+n = sum(ok); print("\n{}/{} correctas ({})".format(n, len(ok), QT)); sys.exit(0 if n == len(ok) else 1)

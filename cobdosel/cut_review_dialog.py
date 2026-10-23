@@ -14,11 +14,11 @@ import os
 
 import numpy as np
 
-from qgis.PyQt.QtCore import Qt, QTimer, QRectF
+from qgis.PyQt.QtCore import Qt, QTimer, QRectF, QRect, QPoint, QSize, pyqtSignal
 from qgis.PyQt.QtGui import QImage, QPixmap, QPainter, QColor, QPen
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSlider, QSpinBox, QCheckBox, QLineEdit,
-    QGraphicsView, QGraphicsScene, QWidget, QMessageBox, QFormLayout, QSizePolicy,
+    QGraphicsView, QGraphicsScene, QWidget, QMessageBox, QFormLayout, QSizePolicy, QRubberBand,
 )
 
 from .exif_gps import load_oriented_rgb_image
@@ -39,7 +39,13 @@ def _qimage_from_rgb(arr):
 
 
 class _ZoomView(QGraphicsView):
-    """Vista con zoom (rueda del ratón) y desplazamiento arrastrando."""
+    """
+    Vista con zoom (rueda del ratón, centrado en el puntero) y desplazamiento arrastrando.
+    0.14.33: rectángulo de zoom con el botón derecho (o Mayús + izquierdo) y zoom fijable en %.
+    """
+
+    zoomChanged = pyqtSignal(float)
+    MIN_SCALE, MAX_SCALE = 0.05, 8.0
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -48,6 +54,9 @@ class _ZoomView(QGraphicsView):
         drag = getattr(QGraphicsView, "ScrollHandDrag", None) or QGraphicsView.DragMode.ScrollHandDrag
         self.setDragMode(drag)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self._band = None
+        self._band_origin = None
 
     def set_pixmap(self, pix, keep_view=False):
         if self._item is None:
@@ -59,16 +68,77 @@ class _ZoomView(QGraphicsView):
                 self.fit()
         self.scene().setSceneRect(QRectF(pix.rect()))
 
+    def current_scale(self):
+        return float(self.transform().m11())
+
     def fit(self):
         if self._item is not None:
             mode = getattr(Qt, "KeepAspectRatio", None) or Qt.AspectRatioMode.KeepAspectRatio
             self.fitInView(self._item, mode)
+            self.zoomChanged.emit(self.current_scale())
 
-    def zoom(self, factor):
+    def zoom(self, factor, at_center=True):
+        new = max(self.MIN_SCALE, min(self.MAX_SCALE, self.current_scale() * factor))
+        factor = new / self.current_scale()
+        if at_center:
+            self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.scale(factor, factor)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.zoomChanged.emit(self.current_scale())
+
+    def set_scale(self, scale):
+        """Escala absoluta (1.0 = 100 % de la vista previa), manteniendo el centro."""
+        cur = self.current_scale()
+        if cur > 0:
+            self.zoom(float(scale) / cur, at_center=True)
+
+    def zoom_to_rect(self, view_rect):
+        """Amplía para que el rectángulo dibujado (coordenadas de la ventana) la llene."""
+        if self._item is None or view_rect.width() < 6 or view_rect.height() < 6:
+            return
+        scene_rect = self.mapToScene(view_rect).boundingRect()
+        mode = getattr(Qt, "KeepAspectRatio", None) or Qt.AspectRatioMode.KeepAspectRatio
+        self.fitInView(scene_rect, mode)
+        if self.current_scale() > self.MAX_SCALE:
+            self.set_scale(self.MAX_SCALE)
+        self.centerOn(scene_rect.center())
+        self.zoomChanged.emit(self.current_scale())
 
     def wheelEvent(self, event):  # noqa: N802 (API de Qt)
-        self.zoom(1.25 if event.angleDelta().y() > 0 else 0.8)
+        self.zoom(1.25 if event.angleDelta().y() > 0 else 0.8, at_center=False)
+
+    def mousePressEvent(self, event):  # noqa: N802 (API de Qt)
+        btn = event.button()
+        shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        if btn == Qt.MouseButton.RightButton or (btn == Qt.MouseButton.LeftButton and shift):
+            p = event.position() if hasattr(event, "position") else event.pos()
+            self._band_origin = QPoint(int(p.x()), int(p.y()))
+            if self._band is None:
+                self._band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
+            self._band.setGeometry(QRect(self._band_origin, QSize()))
+            self._band.show()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):  # noqa: N802 (API de Qt)
+        if self._band_origin is not None:
+            p = event.position() if hasattr(event, "position") else event.pos()
+            self._band.setGeometry(QRect(self._band_origin, QPoint(int(p.x()), int(p.y()))).normalized())
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):  # noqa: N802 (API de Qt)
+        if self._band_origin is not None:
+            p = event.position() if hasattr(event, "position") else event.pos()
+            rect = QRect(self._band_origin, QPoint(int(p.x()), int(p.y()))).normalized()
+            self._band_origin = None
+            self._band.hide()
+            self.zoom_to_rect(rect)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 class _HistogramWidget(QWidget):
@@ -163,7 +233,20 @@ class CutReviewDialog(QDialog):
         bfit = QPushButton("Ajustar a la ventana")
         bfit.clicked.connect(self.view.fit)
         zr.addWidget(bfit)
-        zr.addWidget(QLabel("(rueda del ratón = zoom; arrastrar = mover)"))
+        zr.addWidget(QLabel("Zoom:"))
+        self.zoom_spin = QSpinBox()
+        self.zoom_spin.setRange(int(_ZoomView.MIN_SCALE * 100), int(_ZoomView.MAX_SCALE * 100))
+        self.zoom_spin.setSuffix(" %")
+        self.zoom_spin.setSingleStep(25)
+        self.zoom_spin.setKeyboardTracking(False)
+        self.zoom_spin.setToolTip("Zoom de la vista (100 % = vista previa de hasta {} px de lado).\n"
+                                  "Escriba un valor y pulse Intro. Clic derecho y arrastrar (o Mayús +\n"
+                                  "arrastrar) = ampliar la zona del rectángulo.".format(VIEW_MAX_DIM))
+        self.zoom_spin.valueChanged.connect(lambda v: self.view.set_scale(v / 100.0)
+                                            if abs(v / 100.0 - self.view.current_scale()) >= 0.005 else None)
+        self.view.zoomChanged.connect(self._sync_zoom_spin)
+        zr.addWidget(self.zoom_spin)
+        zr.addWidget(QLabel("(rueda = zoom · arrastrar = mover · clic derecho y arrastrar = ampliar zona)"))
         zr.addStretch(1)
         self.caco_label = QLabel("")
         zr.addWidget(self.caco_label)
@@ -239,6 +322,11 @@ class CutReviewDialog(QDialog):
         if self.only_flagged.isChecked():
             return [i for i, it in enumerate(self.items) if it.get("revisar")]
         return list(range(len(self.items)))
+
+    def _sync_zoom_spin(self, scale):
+        self.zoom_spin.blockSignals(True)
+        self.zoom_spin.setValue(int(round(scale * 100)))
+        self.zoom_spin.blockSignals(False)
 
     def _on_filter(self, *_a):
         vis = self._visible_indices()

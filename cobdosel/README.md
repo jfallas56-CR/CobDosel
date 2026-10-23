@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.25-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.37-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -47,7 +47,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 - **Diseño:** cualquiera; el formulario indica parcela y punto de cada foto (ejemplo: parcelas de 500 m² con 5 fotos: Centro, N-O, N-E, S-E, S-O a 8.9 m). El número de parcelas lo indica el usuario.
 - **Entradas:** carpeta de fotos originales (sin renombrar), **formulario de fotos** (Excel/CSV; plantilla en `plantillas/`, o «Crear formulario desde las fotos…», que lo prellena con ID y hora de todas las fotos), calibración guardada en el diálogo principal, máscara de horizonte y n.º de parcelas planificadas.
 - **Emparejamiento:** por ID de fotografía (nombre del archivo) y, como respaldo, por hora de captura (DD/MM/AAAA HH:MM:SS) frente a la hora EXIF, con tolerancia y desfase de reloj.
-- **Máscara:** fija en **60°** por defecto (Tichý 2016; cenit ≤ 30°). Opcional: desde la altura del dosel, cenit = atan(6.31 / (altura − 1.3)), con la altura de referencia del estrato de dosel dominante (3 → 10 m, 4 → 22.5 m, 5 → 30 m) o escrita a mano.
+- **Máscara:** fija en **63°** por defecto (estándar de CobDosel; cenit ≤ 27°, círculo completo con teléfonos de 23–25 mm; Tichý 2016 usó 60°). Opcional: desde la altura del dosel, cenit = atan(6.31 / (altura − 1.3)), con la altura de referencia del estrato de dosel dominante (3 → 10 m, 4 → 22.5 m, 5 → 30 m) o escrita a mano.
 - **Nivel de corte:** recomendado (log-normal) en cada foto, partiendo de 128 (convención de CobDosel), con comprobación del método; las fotos que no la pasan quedan «a revisar».
 - **Revisión visual («Revisar cortes…»):** como la pantalla de corte de GLAMA (cielo en naranja, zoom, histograma, control deslizante, CaCo en vivo); aceptar, ajustar o excluir cada foto. Decisiones guardadas en `CobDosel_revision_cortes.json` y registradas en el CSV y el informe.
 - **Resultado:** media por parcela (fotos válidas disponibles) y media del sitio (Índice CaCo); parcelas de reemplazo registradas; fotos de otra cámara/lente excluidas; CSV, informe HTML y capa de parcelas unida por ID.
@@ -67,13 +67,25 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
   - GLAMA clasifica la imagen reducida de su pantalla.
 
   Con la misma geometría, CobDosel y GLAMA coinciden en ≈ 1–2 puntos de CaCo. La opción «geometría de pantalla de GLAMA» reproduce la app para estudios pareados de transición; no debe usarse para el valor oficial.
-- **Calibración:** geometría exacta `atan(D/2H)` por defecto; la de GLAMA, `atan(D/H)/2`, sobrestima el radio (+1 % con D/H = 0.2, +10.6 % con 0.714).
+- **Calibración:** geometría exacta `atan(D/2H)`, la misma que usa la app GLAMA (comprobado: el radio del hemisferio de la app coincide con esa fórmula en 15 combinaciones de *D* y *H*). Modelo predeterminado «Rectilínea»; «Lineal» equivale al «Polar» de GLAMA. Las calibraciones antiguas con la aproximación `atan(D/H)/2` se siguen leyendo.
 - **Nivel de corte:** todos los índices dependen del umbral cielo/dosel; fije un criterio y regístrelo.
 - **Validación pendiente:** ni GLAMA ni CobDosel se han validado en Costa Rica contra una referencia independiente (tubo de observación vertical o LiDAR).
 - **Formato numérico:** punto decimal y espacio como separador de miles en pantalla e informe; el CSV guarda números sin separador.
 
 ## Historial
 
+- **0.14.37 (2026-10-22):** descripción emergente de «Modelo de proyección» corregida.
+- **0.14.36 (2026-10-22):** documentación: GLAMA usa la fórmula exacta atan(D/2H), como CobDosel.
+- **0.14.35 (2026-10-22):** la ventana de nivel de corte muestra solo el área analizada (fuera, en verde azulado), como GLAMA.
+- **0.14.34 (2026-10-22):** cambiar el modelo de proyección recalcula la calibración activa (antes la lista y la calibración podían no coincidir); ayuda actualizada.
+- **0.14.33 (2026-10-22):** «Rectilínea» como modelo predeterminado para lente regular; comprobación de la distancia focal al calibrar; zoom por rectángulo en «Revisar cortes…»; modelo y focal en la línea de calibración del lote.
+- **0.14.32 (2026-10-21):** «Añadir imagen original» añade la foto con la orientación EXIF aplicada, igual que los anillos y la superposición.
+- **0.14.31 (2026-10-21):** zoom por rectángulo (clic derecho y arrastrar) y valor de zoom escrito en la medición del círculo y en la ventana de umbral; zoom alto sin copia gigante de la foto.
+- **0.14.30 (2026-10-21):** la medición del círculo pide D y H; corrección de la sobrescritura de la medición por la calibración recordada.
+- **0.14.29 (2026-10-21):** máscara estándar de 63° (cenit 0–27°) en ambas ventanas.
+- **0.14.28 (2026-10-21):** diámetro del círculo «sin medir» en lugar de 1975 px fijos.
+- **0.14.27 (2026-10-20):** la calibración se mantiene entre fotos y se recuerda la última; máscara predeterminada de 60°; registro de la calibración en el lote.
+- **0.14.26 (2026-10-20):** modelos de proyección filtrados por tipo de lente; corrección de «math domain error» con el círculo entero dentro de la foto.
 - **0.14.25 (2026-10-20):** ayuda: interpretación de la prueba de dos círculos.
 - **0.14.24 (2026-10-19):** ayuda: recomendación para teléfonos y círculos de tamaño GLAMA.
 - **0.14.23 (2026-10-19):** auditoría: método Mínimo con dosel saturado, centro de la calibración en el lote, mediciones degeneradas, error del botón recomendado, confirmación al reemplazar calibraciones, CSV con BOM.

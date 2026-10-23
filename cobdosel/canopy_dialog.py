@@ -95,6 +95,8 @@ from .lens_calibration import (
     GLAMA_VIEW_WIDTH_PX,
     scale_calibration_to_image,
     list_projections,
+    PROJECTIONS_REGULAR,
+    PROJECTIONS_FISHEYE,
     projection_note,
     is_fisheye_projection,
 )
@@ -143,12 +145,19 @@ from .calibration_store import (
     load_calibration,
     list_calibrations,
     calibration_path,
+    get_last_calibration,
+    set_last_calibration,
 )
-from .visualization import render_glama_rings, render_threshold_overlay
+from .visualization import render_glama_rings, render_threshold_overlay, oriented_copy_for_qgis
 from .threshold_dialog import ThresholdDialog
 from .html_report import generate_html_report
 from .help_texts import SHORT_HELP_TOPICS, FULL_HELP_HTML
 from .camera_check import camera_fingerprint, camera_label, compare_cameras
+from .focal_check import check_focal, calibration_focal_mm
+
+_ORIENTATION_TEXT = {2: "espejo horizontal", 3: "girada 180°", 4: "espejo vertical",
+                     5: "espejo y giro 90°", 6: "girada 90° a la derecha", 7: "espejo y giro 270°",
+                     8: "girada 90° a la izquierda"}
 
 # Tipos de campo compatibles con QGIS 3.28 LTR (QVariant) y QGIS >= 3.38 / 4.x (QMetaType)
 _FIELD_TYPES_SET = False
@@ -321,6 +330,19 @@ class CobDoselDialog(QDialog):
         self.lens_combo.blockSignals(False)
         self._on_lens_changed(self.lens_combo.currentIndex(), update_help=False)
 
+        # v0.14.27: la última calibración usada se aplica al cargar la primera foto
+        self._cal_name = None
+        self._autoload_done = False
+        last = get_last_calibration()
+        if not last:
+            self.calib_result.setText(
+                "Sin calibrar. Cargue una calibración guardada («Cargar calibración…») o mida el "
+                "círculo de referencia; la que use quedará recordada para las próximas sesiones.")
+        if last:
+            self.calib_result.setText(
+                "Sin calibrar. Última calibración usada: «{}»; se aplicará al cargar la foto "
+                "(o use «Cargar calibración…» para elegir otra).".format(last))
+
     def _build_parameters_tab(self):
         param_tab = QWidget()
         param_tab_layout = QVBoxLayout(param_tab)
@@ -371,17 +393,14 @@ class CobDoselDialog(QDialog):
         cal_layout.addRow("Tipo de lente:", self.lens_combo)
 
         self.projection_combo = QComboBox()
-        for code, label in list_projections():
-            self.projection_combo.addItem(label, userData=code)
-        codes = [
-            self.projection_combo.itemData(i)
-            for i in range(self.projection_combo.count())
-        ]
-        if "angular" in codes:
-            self.projection_combo.setCurrentIndex(codes.index("angular"))
+        # v0.14.26: solo los modelos que corresponden al tipo de lente (lente regular por defecto)
+        self._populate_projections(is_fisheye=False)
         self.projection_combo.currentIndexChanged.connect(
             self._update_projection_tooltip
         )
+        # v0.14.34: cambiar el modelo actualiza la calibración activa (círculo D/H) o lo advierte
+        self._proj_sync_off = False
+        self.projection_combo.currentIndexChanged.connect(self._on_projection_changed)
         self._update_projection_tooltip()
         cal_layout.addRow("Modelo de proyección:", self.projection_combo)
 
@@ -394,21 +413,24 @@ class CobDoselDialog(QDialog):
         self.circle_diameter = QDoubleSpinBox()
         self.circle_diameter.setRange(0.1, 1000.0)
         self.circle_diameter.setDecimals(2)
-        self.circle_diameter.setValue(12.2)
+        self.circle_diameter.setValue(33.0)      # v0.14.27: valores del manual (antes 12,2 y 25,7 de GLAMA)
         self.circle_diameter.setSuffix(" cm")
         cal_layout.addRow("Diámetro del círculo de referencia:", self.circle_diameter)
 
         self.camera_height = QDoubleSpinBox()
         self.camera_height.setRange(0.1, 1000.0)
         self.camera_height.setDecimals(2)
-        self.camera_height.setValue(25.7)
+        self.camera_height.setValue(40.0)
         self.camera_height.setSuffix(" cm")
         cal_layout.addRow("Distancia / altura del lente al círculo:", self.camera_height)
 
         self.pixel_diameter = QDoubleSpinBox()
-        self.pixel_diameter.setRange(1.0, 100000.0)
+        self.pixel_diameter.setRange(0.0, 100000.0)
         self.pixel_diameter.setDecimals(2)
-        self.pixel_diameter.setValue(1975.0)
+        # v0.14.27: sin calibración el campo muestra «sin medir» (antes 1975 px fijos, que parecían
+        # una medición y no correspondían a los D y H mostrados)
+        self.pixel_diameter.setSpecialValueText("sin medir")
+        self.pixel_diameter.setValue(0.0)
         self.pixel_diameter.setSuffix(" px")
         # pixel_diameter.valueChanged connected after UI build
 
@@ -425,13 +447,12 @@ class CobDoselDialog(QDialog):
         cal_layout.addRow("Diámetro medido del círculo:", pixel_row)
 
         self.glama_cal_check = QCheckBox(
-            "Calibración compatible con GLAMA (semiángulo = atan(D/H)/2)"
+            "Fórmula aproximada (semiángulo = atan(D/H)/2), solo calibraciones antiguas"
         )
         self.glama_cal_check.setToolTip(
-            "Reproduce el botón «Calculate» de la app GLAMA. Por defecto CobDosel usa la\n"
-            "geometría exacta atan(D/2H); la fórmula de GLAMA sobrestima el radio del\n"
-            "hemisferio (+1 % con D/H = 0.2, +5 % con 0.475, +10.6 % con 0.714).\n"
-            "Actívela solo para comparar resultados con la app."
+            "Oculta. CobDosel y la app GLAMA usan la geometría exacta atan(D/2H) (comprobado con\n"
+            "la app en 2026-10). La aproximación sobrestima el radio del hemisferio (+1 % con\n"
+            "D/H = 0.2, +10.6 % con 0.714); se conserva solo para leer calibraciones antiguas."
         )
         self.glama_cal_check.setChecked(False)
         self.glama_cal_check.setVisible(False)   # la calibración usa siempre la geometría exacta atan(D/2H)
@@ -477,8 +498,9 @@ class CobDoselDialog(QDialog):
         glama_row.addWidget(self.glama_side_combo, stretch=1)
         self.glama_radius_btn = QPushButton("Calibrar con radio GLAMA")
         self.glama_radius_btn.setToolTip(
-            "Crea la calibración a partir del radio de GLAMA (proyección «Polar», o «Angular»\n"
-            "si el modelo de proyección elegido es Ortográfica).")
+            "Crea la calibración a partir del radio de GLAMA: proyección «Polar» de GLAMA\n"
+            "(Lineal en CobDosel), o «Angular» de GLAMA si elige Tipo de lente «Ojo de pez»\n"
+            "y el modelo Ortográfica.")
         self.glama_radius_btn.clicked.connect(self._on_calibrate_glama_radius)
         glama_row.addWidget(self.glama_radius_btn)
         cal_layout.addRow("Opcional — radio de la app GLAMA:", glama_row)
@@ -594,7 +616,7 @@ class CobDoselDialog(QDialog):
         self.zenith_max = QDoubleSpinBox()
         self.zenith_max.setRange(5.0, 90.0)
         self.zenith_max.setDecimals(1)
-        self.zenith_max.setValue(45.0)
+        self.zenith_max.setValue(27.0)            # v0.14.29: máscara estándar de 63° (cenit 0–27°), igual que el lote
         self.zenith_max.setSuffix(" ° (cenital máx.)")
         self.zenith_max.setToolTip(
             "Ángulo cenital máximo medido desde el cenit (0° = vertical hacia arriba).\n"
@@ -608,7 +630,7 @@ class CobDoselDialog(QDialog):
         self.horizon_mask_spin = QDoubleSpinBox()
         self.horizon_mask_spin.setRange(0.0, 85.0)
         self.horizon_mask_spin.setDecimals(1)
-        self.horizon_mask_spin.setValue(45.0)
+        self.horizon_mask_spin.setValue(63.0)
         self.horizon_mask_spin.setSuffix(" ° sobre horizonte")
         self.horizon_mask_spin.setToolTip(
             "Máscara de horizonte artificial en grados desde el horizonte hacia arriba.\n"
@@ -730,8 +752,9 @@ class CobDoselDialog(QDialog):
 
         preset_row = QHBoxLayout()
         for label, val in [
-            ("0–30° (Másc. 60°)", 30.0),
-            ("★ 0–45° (Óptimo Tichý >45°)", 45.0),
+            ("★ 0–27° (Másc. 63°, estándar)", 27.0),
+            ("0–30° (Másc. 60°, Tichý 2016)", 30.0),
+            ("0–45° (Másc. 45°)", 45.0),
             ("0–60° (Másc. 30°)", 60.0),
             ("0–75° (Másc. 15°)", 75.0),
             ("0–90° (Sin máscara)", 90.0),
@@ -1036,6 +1059,24 @@ class CobDoselDialog(QDialog):
     def _current_channel_mode(self):
         return self.channel_combo.currentData()
 
+    def _populate_projections(self, is_fisheye, keep=None):
+        """Llena «Modelo de proyección» solo con los modelos del tipo de lente (v0.14.26).
+
+        Lente regular / smartphone: Rectilínea (por defecto) y Lineal (compatible con Polar de GLAMA).
+        Ojo de pez: Polar (por defecto), Equisólida, Ortográfica y Estereográfica.
+        """
+        allowed = PROJECTIONS_FISHEYE if is_fisheye else PROJECTIONS_REGULAR
+        labels = dict(list_projections())
+        target = keep if keep in allowed else allowed[0]
+        self.projection_combo.blockSignals(True)
+        self.projection_combo.clear()
+        for code in allowed:
+            self.projection_combo.addItem(labels[code], userData=code)
+        self.projection_combo.setCurrentIndex(allowed.index(target))
+        self.projection_combo.blockSignals(False)
+        if hasattr(self, "lens_combo"):
+            self._update_projection_tooltip()
+
     def _set_projection_by_code(self, code):
         codes = [
             self.projection_combo.itemData(i)
@@ -1047,16 +1088,22 @@ class CobDoselDialog(QDialog):
     def _update_projection_tooltip(self):
         code = self._current_projection_code()
         note = projection_note(code)
-        self.projection_combo.setToolTip(
-            "Modelo de proyección de su lente ojo de pez o regular:\n\n"
-            "• Polar (equidistante): Nikkor 8mm y la mayoría de ojo de pez científicos\n"
-            "• Equisólida (igual área): Nikkor 10.5mm, Sigma 8mm\n"
-            "• Ortográfica: diseños clásicos de ojo de pez\n"
-            "• Estereográfica: algunos ojo de pez y gran angular\n"
-            "• Rectilínea (geométrica): lente regular de cámara/teléfono\n"
-            "• Lineal: lente regular de teléfono, r ∝ θ (recomendada para teléfonos)\n\n"
-            "Seleccionado: " + str(code) + "\n" + str(note)
-        )
+        if is_fisheye_projection(code):
+            head = ("Modelos para lente ojo de pez:\n\n"
+                    "• Polar (equidistante): Nikkor 8mm y la mayoría de ojo de pez científicos\n"
+                    "• Equisólida (igual área): Nikkor 10.5mm, Sigma 8mm\n"
+                    "• Ortográfica: diseños clásicos de ojo de pez («Angular» de GLAMA)\n"
+                    "• Estereográfica: algunos ojo de pez y gran angular\n\n")
+        else:
+            head = ("Modelos para lente regular / smartphone:\n\n"
+                    "• Rectilínea (geométrica), predeterminado: r = f·tan θ. Es la geometría de la cámara\n"
+                    "  principal (1x) de los teléfonos, que corrigen la distorsión por software; si la lente es\n"
+                    "  rectilínea, es exacta en todos los ángulos y con cualquier tamaño de círculo\n"
+                    "  (Pixel 10: misma focal con círculos de 12,1, 20,6 y 23,4 cm, ±0,2 %).\n"
+                    "• Lineal (compatible con Polar de GLAMA): θ ∝ r, exacto solo en el borde del círculo de\n"
+                    "  calibración; para comparar con resultados de GLAMA o con calibraciones anteriores.\n\n")
+        label = dict(list_projections()).get(code, code)
+        self.projection_combo.setToolTip(head + "Seleccionado: «" + str(label) + "»\n" + str(note))
 
     def _on_channel_changed(self, idx):
         self._set_short_help_topic("umbral")
@@ -1209,7 +1256,9 @@ class CobDoselDialog(QDialog):
             self._cut_auto = None
             self._cut_for = None
 
-        # Reiniciar estado aguas abajo
+        # Reiniciar estado aguas abajo. La calibración se conserva (v0.14.27): se vuelve a aplicar
+        # a esta foto al final, si es de la misma cámara y proporción.
+        prev_cal = self.calibration
         self.calibration = None
         self.center_xy = None
         self.sky_mask = None
@@ -1225,8 +1274,61 @@ class CobDoselDialog(QDialog):
         self.results_text.clear()
         self.adjust_btn.setEnabled(True)
 
+        self._carry_calibration(prev_cal)
         self._update_run_button()
         return True
+
+    def _calibration_photo_aspect(self, cal):
+        """Proporción (lado mayor / menor) de la foto en la que se midió la calibración, o None."""
+        meta = cal.get("calibration_metadata") or {}
+        meas = cal.get("measurement") or meta.get("measurement") or {}
+        ref = (meas.get("image_size") or meta.get("original_image_size") or meta.get("image_size")
+               or ([cal.get("image_width_px"), cal.get("image_height_px")]
+                   if cal.get("image_width_px") and cal.get("image_height_px") else None))
+        if not ref:
+            return None
+        return max(float(ref[0]), float(ref[1])) / min(float(ref[0]), float(ref[1]))
+
+    def _carry_calibration(self, prev_cal):
+        """
+        v0.14.27: conserva la calibración de la foto anterior (reescalada a esta foto) o, en la primera
+        foto, aplica la última calibración usada. No se aplica si la foto es de otra cámara/lente o de
+        otra proporción: se avisa y se pide calibrar.
+        """
+        source, origin = prev_cal, "se mantiene de la foto anterior"
+        if source is None and not self._autoload_done:
+            self._autoload_done = True
+            last = get_last_calibration()
+            if last:
+                try:
+                    source = load_calibration(last)
+                    self._cal_name = last
+                    origin = "última calibración usada, aplicada automáticamente"
+                except Exception as e:      # archivo dañado o borrado: se sigue sin calibrar
+                    self._log("No se pudo aplicar la última calibración «{}»: {}".format(last, e), "WARN")
+                    source = None
+        if source is None:
+            return
+        name = self._cal_name or "sin guardar"
+        h, w = self.image_array.shape[:2]
+        reasons = []
+        a_ref = self._calibration_photo_aspect(source)
+        a_now = max(w, h) / float(min(w, h))
+        if a_ref and abs(a_ref - a_now) > 0.01 * a_now:
+            reasons.append("proporción de la foto distinta ({:.3f} frente a {:.3f})".format(a_now, a_ref))
+        cam_ok, cam_why = compare_cameras(source.get("camera"), self._current_camera())
+        if cam_ok is False:
+            reasons.extend(cam_why)
+        if reasons:
+            self._cal_name = None
+            msg = ("La calibración «{}» no corresponde a esta foto: {}.\nCargue o calcule la calibración de "
+                   "esta cámara.").format(name, "; ".join(reasons))
+            self._log(msg, "WARN")
+            self.calib_result.setText("Sin calibrar. " + msg.replace("\n", " "))
+            QMessageBox.warning(self, "Calibración no aplicable", msg)
+            return
+        self._apply_calibration(source, name, interactive=False,
+                                title="Calibración «{}» ({})".format(name, origin))
 
     # ------------------------------------------------------------------
     # Carga de imagen y cambio de lente
@@ -1256,10 +1358,78 @@ class CobDoselDialog(QDialog):
         self.measure_image_btn.setEnabled(not is_fisheye)
         self.measure_file_btn.setEnabled(not is_fisheye)
 
-        if is_fisheye:
-            self._set_projection_by_code("polar")
-        else:
-            self._set_projection_by_code("angular")
+        # v0.14.34: si la calibración activa es de este tipo de lente, se muestra su modelo
+        cal_proj = (self.calibration or {}).get("projection")
+        self._proj_sync_off = True
+        try:
+            self._populate_projections(is_fisheye, keep=cal_proj)
+        finally:
+            self._proj_sync_off = False
+        if cal_proj and self._current_projection_code() != cal_proj and getattr(self, "calib_result", None):
+            note = ("ⓘ La calibración activa usa el modelo «{}», que no corresponde a este tipo de lente. "
+                    "El análisis sigue usando esa calibración hasta que calcule una nueva.".format(
+                        self.calibration.get("projection_label", cal_proj)))
+            self.calib_result.setText(self.calib_result.text() + "\n" + note)
+            self._log(note, "WARN")
+
+    def _on_projection_changed(self, *_a):
+        """
+        v0.14.34: el modelo elegido debe ser el de la calibración activa. Con una calibración por
+        círculo D/H se recalcula con los mismos D, H y diámetro medido; con otras calibraciones
+        (radio de GLAMA, círculo de 180° detectado) se indica cómo aplicar el modelo nuevo.
+        """
+        if self._proj_sync_off:
+            return
+        cal = self.calibration
+        code = self._current_projection_code()
+        if not cal or not code or cal.get("projection") == code:
+            return
+        label = dict(list_projections()).get(code, code)
+        is_circle = bool(cal.get("circle_diameter_cm") and cal.get("camera_height_cm")
+                         and cal.get("pixel_diameter_px") and not cal.get("glama_radius_px")
+                         and (cal.get("measurement") or {}).get("mode") != "glama_radius")
+        if not is_circle:
+            how = ("la calibración con el radio de GLAMA conserva el modelo de GLAMA"
+                   if cal.get("glama_radius_px") else
+                   "pulse «Detectar círculo automáticamente» para calibrar con el modelo nuevo"
+                   if is_fisheye_projection(code) else "calcule una calibración nueva con el círculo de referencia")
+            note = ("ⓘ El modelo elegido («{}») no cambia la calibración activa («{}»): {}. El análisis sigue "
+                    "usando la calibración activa.".format(label, cal.get("projection_label", cal.get("projection")), how))
+            self.calib_result.setText(self.calib_result.text() + "\n" + note)
+            self._log(note, "WARN")
+            return
+        old_label = cal.get("projection_label", cal.get("projection"))
+        try:
+            new = calibrate_regular_lens(
+                circle_diameter_cm=cal["circle_diameter_cm"],
+                camera_height_cm=cal["camera_height_cm"],
+                pixel_diameter_px=cal["pixel_diameter_px"],
+                image_width_px=cal.get("image_width_px") or self.image_array.shape[1],
+                image_height_px=cal.get("image_height_px") or self.image_array.shape[0],
+                projection=code,
+                glama_compat=bool(cal.get("glama_compat")),
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error de calibración", str(e))
+            self._log("No se pudo recalcular la calibración con «{}»: {}".format(label, e), "ERROR")
+            return
+        for key in ("measurement", "camera", "center_xy"):
+            if cal.get(key) is not None and new.get(key) is None:
+                new[key] = cal[key]
+        fc = self._focal_check(new)
+        new["focal_check"] = {k: fc[k] for k in ("level", "focal_mm", "ref_kind", "ref_name", "ref_mm", "diff_pct")}
+        self.calibration = new
+        self._cal_name = None      # calibración modificada: «sin guardar» hasta que se guarde
+        self.save_cal_btn.setEnabled(True)
+        self._show_calibration_summary(new, "Calibración recalculada con el modelo «{}»".format(label))
+        stale = " Ejecute de nuevo el análisis: los resultados mostrados usan el modelo anterior." if self.last_results else ""
+        self._log("Calibración recalculada al cambiar el modelo: «{}» → «{}» (mismos D = {:g} cm, H = {:g} cm y "
+                  "diámetro {:.2f} px); R = {:.1f} px.{}".format(
+                      old_label, label, new["circle_diameter_cm"], new["camera_height_cm"],
+                      new["pixel_diameter_px"], new.get("virtual_radius_px") or 0.0, stale))
+        if stale:
+            self.calib_result.setText(self.calib_result.text() + "\nⓘ" + stale)
+        self._update_run_button()
 
     # ------------------------------------------------------------------
     # Medición del círculo de referencia
@@ -1274,11 +1444,13 @@ class CobDoselDialog(QDialog):
             return
 
         dialog = MeasureCircleDialog(
-            self.image_path, parent=self, max_dim=MAX_ANALYSIS_DIM
+            self.image_path, parent=self, max_dim=MAX_ANALYSIS_DIM,
+            diameter_cm=self.circle_diameter.value(), height_cm=self.camera_height.value(),
         )
         if _exec_dialog(dialog) == QDialog.DialogCode.Accepted:
             dist_px = dialog.get_pixel_diameter()
             if dist_px is not None and dist_px > 0:
+                self._set_reference_circle(dialog)
                 self._set_measured_diameter(dist_px)
                 self._calib_measure_native = None
                 self._measure_info = self._measurement_record(
@@ -1290,11 +1462,17 @@ class CobDoselDialog(QDialog):
                 )
                 QMessageBox.information(
                     self, "Medición aceptada",
-                    "Diámetro en píxeles: {:.2f} px\n{}\n\n"
+                    "Círculo de D = {:.2f} cm a H = {:.2f} cm: {:.2f} px\n{}\n\n"
                     "Haga clic en 'Calcular calibración' para finalizar.".format(
-                        dist_px, self._measure_info.get("summary", ""))
+                        dialog.get_diameter_cm(), dialog.get_height_cm(), dist_px,
+                        self._measure_info.get("summary", ""))
                 )
                 self._update_run_button()
+
+    def _set_reference_circle(self, dialog):
+        """v0.14.30: D y H escritos en el diálogo de medición pasan a la ventana principal."""
+        self.circle_diameter.setValue(dialog.get_diameter_cm())
+        self.camera_height.setValue(dialog.get_height_cm())
 
     def _set_measured_diameter(self, dist_px):
         """
@@ -1367,7 +1545,8 @@ class CobDoselDialog(QDialog):
             return
 
         dialog = MeasureCircleDialog(
-            path, parent=self, max_dim=MAX_ANALYSIS_DIM
+            path, parent=self, max_dim=MAX_ANALYSIS_DIM,
+            diameter_cm=self.circle_diameter.value(), height_cm=self.camera_height.value(),
         )
         if _exec_dialog(dialog) != QDialog.DialogCode.Accepted:
             return
@@ -1376,8 +1555,15 @@ class CobDoselDialog(QDialog):
         if dist_px is None or dist_px <= 0:
             return
 
+        # v0.14.30: si no hay foto, se carga ANTES de escribir la medición. Al cargar la primera foto se
+        # aplica la última calibración usada, que sobrescribía el diámetro recién medido, D y H.
+        loaded_now = False
+        if self.image_path is None:
+            loaded_now = self._load_image_into_dialog(path)
+
         native = dialog.get_native_measurement()
         self._calib_measure_native = native
+        self._set_reference_circle(dialog)
         self._set_measured_diameter(dist_px)
         self._measure_info = self._measurement_record(
             dialog, path, native[1] if native else None)
@@ -1389,21 +1575,13 @@ class CobDoselDialog(QDialog):
             )
         )
 
-        if self.image_path is None:
-            loaded = self._load_image_into_dialog(path)
-            if loaded:
-                QMessageBox.information(
-                    self, "Medición aceptada",
-                    "Diámetro en píxeles: {:.2f} px\n\n"
-                    "La foto de calibración se cargó en CobDosel.\n"
-                    "Haga clic en 'Calcular calibración' para continuar.".format(dist_px)
-                )
-        else:
-            QMessageBox.information(
-                self, "Medición aceptada",
-                "Diámetro en píxeles: {:.2f} px\n\n"
-                "Haga clic en 'Calcular calibración' para aplicar este valor.".format(dist_px)
-            )
+        QMessageBox.information(
+            self, "Medición aceptada",
+            "Círculo de D = {:.2f} cm a H = {:.2f} cm: {:.2f} px\n\n{}"
+            "Haga clic en 'Calcular calibración' para aplicar este valor.".format(
+                dialog.get_diameter_cm(), dialog.get_height_cm(), dist_px,
+                "La foto de calibración se cargó en CobDosel.\n" if loaded_now else "")
+        )
         self._update_run_button()
 
     # ------------------------------------------------------------------
@@ -1434,7 +1612,11 @@ class CobDoselDialog(QDialog):
         proj_code = self._current_projection_code()
         if not is_fisheye_projection(proj_code):
             proj_code = "polar"
-            self._set_projection_by_code("polar")
+            self._proj_sync_off = True     # la calibración nueva reemplaza a la activa
+            try:
+                self._set_projection_by_code("polar")
+            finally:
+                self._proj_sync_off = False
 
         try:
             cal = calibrate_fisheye_from_radius(
@@ -1450,6 +1632,7 @@ class CobDoselDialog(QDialog):
             return
 
         self.calibration = cal
+        self._cal_name = None      # calibración nueva: «sin guardar» hasta que se guarde
         self.save_cal_btn.setEnabled(True)
 
         msg = (
@@ -1503,13 +1686,24 @@ class CobDoselDialog(QDialog):
             "mode": "manual", "summary": "diámetro escrito a mano (sin medición registrada)"}
         cal["camera"] = (cal["measurement"].get("camera") if measured else None) or self._current_camera()
 
+        # v0.14.33: comprobación de la focal equivalente (calibración propia de la misma cámara o EXIF)
+        fc = self._focal_check(cal)
+        cal["focal_check"] = {k: fc[k] for k in ("level", "focal_mm", "ref_kind", "ref_name", "ref_mm", "diff_pct")}
+
         self.calibration = cal
+        self._cal_name = None      # calibración nueva: «sin guardar» hasta que se guarde
         self.center_xy = (
             self.image_array.shape[1] / 2.0,
             self.image_array.shape[0] / 2.0,
         )
         self.save_cal_btn.setEnabled(True)
         self._show_calibration_summary(cal, "Calibración")
+        self._log(fc["text"], "WARN" if fc["level"] in ("note", "warn") else "INFO")
+        if fc["level"] == "warn":
+            QMessageBox.warning(
+                self, "Comprobación de la distancia focal",
+                fc["text"] + "\n\nLa calibración se puede guardar igualmente; este aviso solo orienta. "
+                "Consulte «Comprobación de la distancia focal» en la ayuda.")
         half_fov = cal.get("max_zenith_deg", 90.0)
         self._log(
             "Calibración completada ({}): proy={}, D={} cm, H={} cm, D_px={:.2f} px, "
@@ -1552,8 +1746,10 @@ class CobDoselDialog(QDialog):
                 "lado menor" if cal["glama_scale_side"] == "short" else "lado mayor")}
         cal["camera"] = self._current_camera()
         self.calibration = cal
+        self._cal_name = None      # calibración nueva: «sin guardar» hasta que se guarde
         self.center_xy = (w / 2.0, h / 2.0)
-        self.lens_combo.setCurrentIndex(1)       # antes del modelo: el cambio de lente lo restablece
+        # antes del modelo: el cambio de lente vuelve a llenar la lista de modelos
+        self.lens_combo.setCurrentIndex(0 if is_fisheye_projection(cal["projection"]) else 1)
         self._set_projection_by_code(cal["projection"])
         self.save_cal_btn.setEnabled(True)
         self._show_calibration_summary(cal, "Calibración con radio GLAMA")
@@ -1569,6 +1765,35 @@ class CobDoselDialog(QDialog):
             return None
         h, w = self.image_array.shape[:2]
         return camera_fingerprint(self.exif_data or {}, w, h)
+
+    def _own_focal_reference(self, cal):
+        """(nombre, focal mm) de la calibración guardada más reciente de la misma cámara, o None."""
+        cam = cal.get("camera")
+        if not cam:
+            return None
+        best = None
+        for name, _path in list_calibrations():
+            try:
+                other = load_calibration(name)
+            except Exception as e:
+                self._log("[focal] No se pudo leer «{}»: {}".format(name, e), "DEBUG")
+                continue
+            fmm = calibration_focal_mm(other)
+            ocam = other.get("camera") or (other.get("measurement") or {}).get("camera")
+            if fmm is None or not ocam:
+                continue
+            same, _why = compare_cameras(ocam, cam)
+            if same is not True or not (ocam.get("model") and cam.get("model")):
+                continue
+            stamp = other.get("saved_at") or ""
+            if best is None or stamp > best[0]:
+                best = (stamp, name, fmm)
+        return (best[1], best[2]) if best else None
+
+    def _focal_check(self, cal):
+        cam = cal.get("camera") or {}
+        exif35 = cam.get("focal_length_35mm") or (self.exif_data or {}).get("focal_length_35mm")
+        return check_focal(cal, exif_35mm=exif35, own_reference=self._own_focal_reference(cal))
 
     def _show_calibration_summary(self, cal, title):
         """Texto del estado de calibración: ángulos, R y trazabilidad."""
@@ -1590,12 +1815,27 @@ class CobDoselDialog(QDialog):
             lines.append("  Radio del hemisferio (90°) R = {:.1f} px  |  f = {:.1f} px".format(
                 R, cal.get("focal_length_px", 0.0)))
         if cal.get("pixel_diameter_px") and w:
-            lines.append("  Círculo de referencia: {:.1f} px = {:.1f} % del ancho de la foto".format(
-                cal["pixel_diameter_px"], 100.0 * cal["pixel_diameter_px"] / float(w)))
+            dh = ""
+            if cal.get("circle_diameter_cm") and cal.get("camera_height_cm"):
+                dh = "D = {:.2f} cm a H = {:.2f} cm → ".format(cal["circle_diameter_cm"], cal["camera_height_cm"])
+            lines.append("  Círculo de referencia: {}{:.1f} px = {:.1f} % del ancho de la foto".format(
+                dh, cal["pixel_diameter_px"], 100.0 * cal["pixel_diameter_px"] / float(w)))
         meas = cal.get("measurement") or {}
         if meas.get("summary"):
             lines.append("  Medición: " + meas["summary"])
         lines.append("  Cámara de la calibración: " + camera_label(cal.get("camera")))
+        fc = cal.get("focal_check")
+        if fc and fc.get("focal_mm"):
+            mark = {"ok": "✓", "note": "ⓘ", "warn": "⚠"}.get(fc.get("level"), "·")
+            if fc.get("ref_kind") == "propia":
+                ref = "calibración «{}» de la misma cámara: {:.1f} mm".format(fc.get("ref_name"), fc["ref_mm"])
+            elif fc.get("ref_kind") == "exif":
+                ref = "EXIF: {:g} mm".format(fc["ref_mm"])
+            else:
+                ref = "sin referencia"
+            lines.append("  {} Focal equivalente {:.1f} mm ({}{})".format(
+                mark, fc["focal_mm"], ref,
+                "; {:+.1f} %".format(fc["diff_pct"]) if fc.get("diff_pct") is not None else ""))
         lines.append("  Máscara con el círculo de análisis dentro de la foto: ≥ {:.1f}° — no se aplica "
                      "automáticamente".format(cal.get("glama_recommended_horizon_deg", 90.0 - half_fov)))
         self.calib_result.setText("\n".join(lines))
@@ -1611,6 +1851,14 @@ class CobDoselDialog(QDialog):
         cámara y el mismo campo de visión (igual proporción de aspecto).
         """
         value = float(self.pixel_diameter.value())
+        if value <= 0.0:
+            QMessageBox.warning(
+                self, "Círculo sin medir",
+                "Mida el círculo de referencia con «Medir en imagen…» o «Medir desde archivo…»,\n"
+                "o escriba su diámetro en píxeles, antes de calcular la calibración."
+            )
+            self._log("Calibración cancelada: diámetro del círculo sin medir.", "WARN")
+            return None
         native = self._calib_measure_native
         if (native is None or self.original_image_size is None
                 or not self._diameter_is_measured()):
@@ -1680,9 +1928,10 @@ class CobDoselDialog(QDialog):
                 lens_name.strip(),
                 self.calibration,
                 metadata={
-                    "circle_diameter_cm": self.circle_diameter.value(),
-                    "camera_height_cm": self.camera_height.value(),
-                    "pixel_diameter_px": self.pixel_diameter.value(),
+                    # v0.14.27: los valores de la propia calibración (no los que haya en los campos ahora)
+                    "circle_diameter_cm": self.calibration.get("circle_diameter_cm"),
+                    "camera_height_cm": self.calibration.get("camera_height_cm"),
+                    "pixel_diameter_px": self.calibration.get("pixel_diameter_px"),
                     "center_xy": list(self.center_xy) if self.center_xy else None,
                     "image_size": [
                         self.image_array.shape[1],
@@ -1696,6 +1945,9 @@ class CobDoselDialog(QDialog):
                 },
             )
             self._log("Calibración '{}' guardada en: {}".format(lens_name.strip(), path))
+            self._cal_name = lens_name.strip()
+            self.calibration["lens_name"] = self._cal_name
+            set_last_calibration(self._cal_name)
             QMessageBox.information(
                 self, "Calibración guardada",
                 "Calibración guardada en:\n" + str(path)
@@ -1728,7 +1980,13 @@ class CobDoselDialog(QDialog):
             QMessageBox.critical(self, "Error al cargar", str(e))
             self._log("Error al cargar calibración '{}': {}".format(name, e), "ERROR")
             return
+        self._cal_name = name
+        self._autoload_done = True
+        self._apply_calibration(cal, name, interactive=True,
+                                title="Calibración cargada: {}".format(name))
 
+    def _apply_calibration(self, cal, name, interactive=True, title=None):
+        """Aplica una calibración (cargada o conservada) a la foto actual y actualiza los controles."""
         if self.image_array is not None:
             cal = scale_calibration_to_image(
                 cal,
@@ -1738,15 +1996,10 @@ class CobDoselDialog(QDialog):
 
         self.calibration = cal
         proj = cal.get("projection", "angular")
-        # v0.14.22: primero el tipo de lente y después el modelo de proyección; al cambiar el
-        # tipo de lente se restablece el modelo (Polar/Lineal) y se perdía el guardado.
-        # Calibración por círculo D/H o radio GLAMA → «Lente regular», aunque el modelo sea
-        # de ojo de pez; detección del círculo de 180° → «Ojo de pez».
-        meta = cal.get("calibration_metadata") or {}
-        by_circle = bool(cal.get("circle_diameter_cm") or meta.get("circle_diameter_cm")
-                         or cal.get("glama_radius_px") or cal.get("glama_compat"))
-        self.lens_combo.setCurrentIndex(
-            0 if (is_fisheye_projection(proj) and not by_circle) else 1)
+        # Primero el tipo de lente y después el modelo (v0.14.22). Desde v0.14.26 la lista de modelos
+        # depende del tipo de lente: un modelo de ojo de pez se carga como «Ojo de pez» (también las
+        # calibraciones antiguas hechas con el círculo D/H y un modelo de ojo de pez).
+        self.lens_combo.setCurrentIndex(0 if is_fisheye_projection(proj) else 1)
         self._set_projection_by_code(proj)
 
         meta = cal.get("calibration_metadata") or {}
@@ -1776,15 +2029,20 @@ class CobDoselDialog(QDialog):
 
         if "measurement" not in cal and isinstance(meta.get("measurement"), dict):
             cal["measurement"] = meta["measurement"]
-        self._show_calibration_summary(cal, "Calibración cargada: {}".format(name))
-        self._check_loaded_calibration_aspect(cal, meta, name)
+        self._show_calibration_summary(cal, title or "Calibración cargada: {}".format(name))
         self.save_cal_btn.setEnabled(True)
-        self._log("Calibración '{}' cargada exitosamente.".format(name))
-
-        QMessageBox.information(
-            self, "Calibración cargada",
-            "Se cargó '{}'.\nYa puede ejecutar el análisis.".format(name)
-        )
+        if name and name != "sin guardar":
+            set_last_calibration(name)
+        if interactive:
+            self._check_loaded_calibration_aspect(cal, meta, name)
+            self._log("Calibración '{}' cargada exitosamente.".format(name))
+            QMessageBox.information(
+                self, "Calibración cargada",
+                "Se cargó '{}'.\nYa puede ejecutar el análisis.".format(name)
+            )
+        else:
+            self._log("{} — R = {:.1f} px.".format(
+                title or name, float(cal.get("virtual_radius_px") or 0)))
         self._update_run_button()
 
     def _check_loaded_calibration_aspect(self, cal, meta, name):
@@ -2274,8 +2532,10 @@ class CobDoselDialog(QDialog):
             glama_geometry = None
             if self.glama_geometry_check.isChecked() and (
                     not r_virt or glama_mode(self.calibration.get("projection", "polar")) == "general"):
-                wmsg = ("Geometría de pantalla de GLAMA no aplicada: requiere una calibración con "
-                        "radio de hemisferio y proyección Polar/Lineal u Ortográfica (las de GLAMA).")
+                wmsg = ("Geometría de pantalla de GLAMA no aplicada: requiere una calibración con los modelos "
+                        "de GLAMA, «Lineal (compatible con Polar de GLAMA)» u Ortográfica, o una calibración con "
+                        "el radio de GLAMA. Con «Rectilínea» (predeterminado) no se puede reproducir la pantalla "
+                        "de GLAMA.")
                 report_warnings.append(wmsg)
                 self._log(wmsg, "WARN")
             elif self.glama_geometry_check.isChecked():
@@ -2963,12 +3223,22 @@ class CobDoselDialog(QDialog):
             QMessageBox.warning(self, "Sin imagen", "Cargue una imagen primero.")
             return
 
-        if self._add_raster_safely(
-            self.image_path, "CobDosel — Imagen original", is_temp=False
-        ):
+        # v0.14.32: QGIS no aplica la orientación EXIF; se añade una copia orientada como las
+        # vistas de CobDosel (antes la foto original se veía girada respecto de los resultados).
+        try:
+            path, code = oriented_copy_for_qgis(self.image_path)
+        except Exception as e:
+            self._log("[orientación] No se pudo orientar la copia: {}".format(e), "WARNING")
+            path, code = self.image_path, None
+        rotated = path != self.image_path
+        name = "CobDosel — Imagen original" + (" (orientada)" if rotated else "")
+        if self._add_raster_safely(path, name, is_temp=rotated):
             QMessageBox.information(
                 self, "Imagen añadida",
-                "La imagen original se añadió como capa ráster."
+                "La imagen original se añadió como capa ráster." + (
+                    "\nSe aplicó la orientación EXIF ({}, {}) como en el análisis y las vistas de "
+                    "CobDosel; QGIS no la aplica al abrir el JPEG directamente.".format(
+                        code, _ORIENTATION_TEXT.get(code, "")) if rotated else "")
             )
 
     def _on_add_gps_point_layer(self):

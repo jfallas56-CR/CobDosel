@@ -118,7 +118,7 @@ check("calibración guardada listada", d.cal_combo.findData("Pixel10_GLAMA") >= 
 check("capa de parcelas listada", d.layer_combo.count() == 2)
 d.layer_combo.setCurrentIndex(1)
 check("campos de la capa", [d.field_combo.itemText(i) for i in range(d.field_combo.count())] == ["id_parc", "orden"])
-check("por defecto: máscara fija 60°", d.mask_fixed_radio.isChecked() and d.fixed_mask_spin.value() == 60.0
+check("por defecto: máscara fija 63°", d.mask_fixed_radio.isChecked() and d.fixed_mask_spin.value() == 63.0
       and not d.height_spin.isEnabled())
 d.mask_height_radio.setChecked(True)
 check("grupo 4 (dosel principal) → 22.5 m", d.group_combo.currentData() == 4 and d.height_spin.value() == 22.5

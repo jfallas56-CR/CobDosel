@@ -8,7 +8,7 @@ Diseño de ejemplo (cualquier diseño sirve: el formulario indica parcela y punt
 - valor del sitio = media de las medias de parcela (Índice CaCo).
 
 Entradas: carpeta de fotos (nombres de la cámara), formulario de campo digital (CSV o Excel con las
-columnas de la plantilla), calibración guardada, máscara de horizonte (fija, 60° por defecto según
+columnas de la plantilla), calibración guardada, máscara de horizonte (fija, 63° por defecto según
 Tichý 2016; u opcionalmente desde una altura del dosel del sitio) y el número de parcelas planificadas.
 El protocolo no mide alturas: los árboles se asignan a grupos de dosel (CANOPY_GROUPS). El nivel de corte de cada foto es el recomendado
 (cruce de dos log-normales, método de la app GLAMA; iterado hasta estabilizarse desde 128); si no hay
@@ -27,6 +27,7 @@ import unicodedata
 import numpy as np
 
 from .exif_gps import load_oriented_rgb_image, extract_exif
+from .focal_check import calibration_focal_mm
 from .camera_check import camera_fingerprint, camera_label, camera_group_key, compare_cameras
 from .lens_calibration import scale_calibration_to_image, zenith_to_pixel_radius
 from .canopy_analysis import (
@@ -43,7 +44,7 @@ PLOT_RADIUS_M = 12.62            # parcela circular de 500 m²
 DEFAULT_FOOTPRINT_M = 6.31       # radio equivalente del cuadrante (125 m²) cubierto por cada foto
 DEFAULT_CAMERA_HEIGHT_M = 1.3
 DEFAULT_TOLERANCE_S = 60.0
-DEFAULT_MASK_DEG = 60.0          # máscara de horizonte recomendada por Tichý (2016): cenit ≤ 30°
+DEFAULT_MASK_DEG = 63.0          # v0.14.29: estándar de CobDosel (cenit ≤ 27°): círculo completo con teléfonos de 23–25 mm; Tichý (2016) usó 60°
 
 # Grupos de dosel del protocolo (posición del árbol; no se mide la altura). (código, nombre, min m, max m)
 CANOPY_GROUPS = (
@@ -540,7 +541,7 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
               tolerance_s=DEFAULT_TOLERANCE_S, clock_offset_s=0.0, progress=None, log=None,
               canopy_group=None, decisions=None):
     """
-    Ejecuta el lote. mask_mode: «fixed» (fixed_mask_deg sobre el horizonte; 60° por defecto) o
+    Ejecuta el lote. mask_mode: «fixed» (fixed_mask_deg sobre el horizonte; 63° por defecto) o
     «height» (máscara desde canopy_height_m, una altura de referencia del sitio, p. ej. la de un grupo
     de dosel). decisions: decisiones de la revisión visual de cortes {archivo: {decision, corte, ...}}
     (ver load_decisions). Devuelve dict con fotos, parcelas, sitio, avisos y parámetros.
@@ -654,6 +655,8 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
             "parametros": {"carpeta": photo_folder, "formulario": form_path,
                            "calibracion": calibration.get("lens_name") or calibration.get("projection_label"),
                            "camara_calibracion": camera_label(cal_cam) if cal_cam else "no registrada",
+                           # v0.14.27: la calibración completa queda registrada con el resultado
+                           **calibration_record(calibration),
                            "mascara_modo": "fija" if mask_mode == "fixed" else "altura del dosel",
                            "mascara_horizonte_deg": (float(fixed_mask_deg) if mask_mode == "fixed"
                                                      else round(90.0 - zen_height, 2)),
@@ -664,6 +667,32 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                            "canal": channel_mode, "regla_corte": cut_rule,
                            "tolerancia_s": tolerance_s, "desfase_reloj_s": clock_offset_s,
                            "parcelas_planificadas": planned_plots}}
+
+
+def calibration_record(calibration):
+    """Datos de la calibración para el registro del lote (CSV del sitio e informe HTML)."""
+    cal = calibration or {}
+    meta = cal.get("calibration_metadata") or {}
+    d = cal.get("circle_diameter_cm") or meta.get("circle_diameter_cm")
+    h = cal.get("camera_height_cm") or meta.get("camera_height_cm")
+    method = cal.get("calibration_method")
+    if method == "glama_radius":
+        method = "radio de GLAMA ({:g} px)".format(float(cal.get("glama_radius_px") or 0))
+    elif not method:
+        method = ("círculo D/H" if d else
+                  "detección del círculo de 180°" if cal.get("lens_type") == "fisheye" else "—")
+    w, hh = cal.get("image_width_px"), cal.get("image_height_px")
+    fmm = calibration_focal_mm(dict(cal, circle_diameter_cm=d, camera_height_cm=h))
+    return {
+        "calibracion_modelo": cal.get("projection_label") or cal.get("projection"),
+        "calibracion_metodo": method,
+        "circulo_D_cm": round(float(d), 2) if d else None,
+        "altura_H_cm": round(float(h), 2) if h else None,
+        "radio_hemisferio_px": round(float(cal["virtual_radius_px"]), 1) if cal.get("virtual_radius_px") else None,
+        "calibracion_foto_px": "{}×{}".format(w, hh) if w and hh else None,
+        "calibracion_guardada": cal.get("saved_at"),
+        "focal_equivalente_mm": round(fmm, 2) if fmm else None,
+    }
 
 
 CUT_RULE_LABELS = {

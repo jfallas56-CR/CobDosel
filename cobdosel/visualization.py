@@ -716,3 +716,25 @@ def render_glama_rings(image_path, calibration, center_xy=None, zenith_max_deg=4
         os.close(fd)
     out.save(output_path, "PNG")
     return output_path
+
+
+def oriented_copy_for_qgis(image_path):
+    """
+    v0.14.32: QGIS (GDAL) muestra el JPEG sin aplicar la orientación EXIF, mientras que el
+    análisis y las vistas de CobDosel sí la aplican. Si la foto tiene una orientación distinta
+    de 1, devuelve (ruta de una copia PNG temporal ya orientada, código de orientación); si no
+    hace falta girarla, devuelve (image_path, código o None).
+    """
+    from PIL import ImageOps
+    with Image.open(image_path) as im:
+        try:
+            code = im.getexif().get(0x0112)
+        except Exception:
+            code = None
+        if code in (None, 1):
+            return image_path, code
+        out = ImageOps.exif_transpose(im).convert("RGB")
+    fd, output_path = tempfile.mkstemp(suffix=".png", prefix="cobdosel_original_")
+    os.close(fd)
+    out.save(output_path, "PNG")
+    return output_path, code

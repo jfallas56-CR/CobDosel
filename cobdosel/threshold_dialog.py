@@ -24,17 +24,18 @@ Autor: Jorge Fallas (jfallas56@gmail.com)
 import numpy as np
 from PIL import Image
 
-from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QPoint, QRect, QSize
 from qgis.PyQt.QtGui import (
     QImage, QPixmap, QPainter, QPen, QColor, QFont,
 )
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QSpinBox, QCheckBox, QGroupBox, QScrollArea, QSizePolicy,
-    QWidget, QComboBox, QRadioButton, QButtonGroup, QMessageBox,
+    QWidget, QComboBox, QRadioButton, QButtonGroup, QMessageBox, QRubberBand,
 )
 
 from ._version import fmt_int
+from .visualization import GLAMA_TEAL
 from .canopy_analysis import (
     threshold_image,
     clean_binary_mask,
@@ -201,6 +202,7 @@ class ThresholdPreviewCanvas(QLabel):
         self.zoom = 1.0
         self.valid_mask_full = None
         self.valid_mask = None
+        self.only_analysis_area = True   # v0.14.35: fuera del área analizada, en verde azulado (como GLAMA)
         self.setMouseTracking(True)
 
     def set_image(self, pil_image, gray_array=None, max_dim=1400, valid_mask=None):
@@ -251,6 +253,10 @@ class ThresholdPreviewCanvas(QLabel):
         self.overlay_alpha = max(0.0, min(1.0, float(alpha)))
         self._redraw()
 
+    def set_only_analysis_area(self, only):
+        self.only_analysis_area = bool(only)
+        self._redraw()
+
     def set_cleanup(self, do_cleanup):
         self.apply_cleanup = bool(do_cleanup)
         self._redraw()
@@ -284,16 +290,73 @@ class ThresholdPreviewCanvas(QLabel):
                 bar.setValue(int(bar.value() + (f - 1.0) * p))
         event.accept()
 
+    def _offset(self):
+        """Desplazamiento de la imagen dentro del lienzo (centrada cuando es menor que la ventana)."""
+        pm = self.pixmap()
+        if pm is None or pm.isNull():
+            return 0, 0
+        return max(0, (self.width() - pm.width()) // 2), max(0, (self.height() - pm.height()) // 2)
+
     def mousePressEvent(self, event):  # noqa: N802 (API de Qt)
-        """Arrastrar con el botón izquierdo = mover la imagen ampliada."""
+        """Arrastrar con el botón izquierdo = mover; botón derecho (o Mayús + izquierdo) = rectángulo de zoom."""
+        btn = event.button()
+        shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        if self.display_pil is not None and (
+                btn == Qt.MouseButton.RightButton or (btn == Qt.MouseButton.LeftButton and shift)):
+            p = event.position() if hasattr(event, "position") else event.pos()
+            self._band_origin = QPoint(int(p.x()), int(p.y()))
+            if getattr(self, "_band", None) is None:
+                self._band = QRubberBand(QRubberBand.Shape.Rectangle, self)
+            self._band.setGeometry(QRect(self._band_origin, QSize()))
+            self._band.show()
+            event.accept()
+            return
         area = getattr(self, "scroll_area", None)
-        if area is not None and event.button() == Qt.MouseButton.LeftButton:
+        if area is not None and btn == Qt.MouseButton.LeftButton:
             gp = event.globalPosition() if hasattr(event, "globalPosition") else event.globalPos()
             self._drag = (gp.x(), gp.y(), area.horizontalScrollBar().value(), area.verticalScrollBar().value())
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event.accept()
             return
         super().mousePressEvent(event)
+
+    def zoom_to_widget_rect(self, rect):
+        """v0.14.31: amplía para que el rectángulo dibujado (coordenadas del lienzo) llene la ventana."""
+        area = getattr(self, "scroll_area", None)
+        if self.display_pil is None or area is None or rect.width() < 6 or rect.height() < 6:
+            return
+        ox, oy = self._offset()
+        z = self.zoom
+        x0, y0 = (rect.x() - ox) / z, (rect.y() - oy) / z
+        w, h = rect.width() / z, rect.height() / z
+        vp = area.viewport()
+        self.set_zoom(min((vp.width() - 8) / w, (vp.height() - 8) / h))
+        self.center_on(x0 + w / 2.0, y0 + h / 2.0)
+
+    def center_on(self, dx, dy):
+        """Centra la ventana en el punto (dx, dy) de la vista previa (sin zoom)."""
+        area = getattr(self, "scroll_area", None)
+        if area is None:
+            return
+        ox, oy = self._offset()
+        vp = area.viewport()
+        area.horizontalScrollBar().setValue(int(round(dx * self.zoom + ox - vp.width() / 2.0)))
+        area.verticalScrollBar().setValue(int(round(dy * self.zoom + oy - vp.height() / 2.0)))
+
+    def view_center(self):
+        area = getattr(self, "scroll_area", None)
+        if area is None or self.display_pil is None:
+            return None
+        ox, oy = self._offset()
+        vp = area.viewport()
+        return ((area.horizontalScrollBar().value() + vp.width() / 2.0 - ox) / self.zoom,
+                (area.verticalScrollBar().value() + vp.height() / 2.0 - oy) / self.zoom)
+
+    def zoom_keep_center(self, zoom):
+        c = self.view_center()
+        self.set_zoom(zoom)
+        if c is not None:
+            self.center_on(*c)
 
     def inspect_at(self, x_widget, y_widget):
         """
@@ -342,6 +405,10 @@ class ThresholdPreviewCanvas(QLabel):
         pos = event.position() if hasattr(event, "position") else event.pos()
         info = self.inspect_at(pos.x(), pos.y())
         self.pixelInspected.emit(info or "Inspector: mueva el puntero sobre la foto.")
+        if getattr(self, "_band_origin", None) is not None:
+            self._band.setGeometry(QRect(self._band_origin, QPoint(int(pos.x()), int(pos.y()))).normalized())
+            event.accept()
+            return
         drag = getattr(self, "_drag", None)
         area = getattr(self, "scroll_area", None)
         if drag is not None and area is not None:
@@ -353,6 +420,14 @@ class ThresholdPreviewCanvas(QLabel):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):  # noqa: N802 (API de Qt)
+        if getattr(self, "_band_origin", None) is not None:
+            p = event.position() if hasattr(event, "position") else event.pos()
+            rect = QRect(self._band_origin, QPoint(int(p.x()), int(p.y()))).normalized()
+            self._band_origin = None
+            self._band.hide()
+            self.zoom_to_widget_rect(rect)
+            event.accept()
+            return
         if getattr(self, "_drag", None) is not None:
             self._drag = None
             self.setCursor(Qt.CursorShape.OpenHandCursor)
@@ -386,12 +461,21 @@ class ThresholdPreviewCanvas(QLabel):
             overlay_rgb = CANOPY_INVERSE_COLOR
             a = self.overlay_alpha
 
+        outside = None
+        if self.only_analysis_area and self.valid_mask is not None:
+            outside = ~self.valid_mask
+            target_mask = target_mask & self.valid_mask   # solo se tiñe lo que se analiza
         for c in range(3):
             img_np[:, :, c] = np.where(
                 target_mask,
                 img_np[:, :, c] * (1.0 - a) + overlay_rgb[c] * a,
                 img_np[:, :, c],
             )
+        if outside is not None and outside.any():
+            ta = 0.85
+            for c in range(3):
+                img_np[:, :, c] = np.where(outside, img_np[:, :, c] * (1.0 - ta) + GLAMA_TEAL[c] * ta,
+                                           img_np[:, :, c])
         result = Image.fromarray(img_np.astype("uint8"), "RGB")
 
         dw, dh = result.size
@@ -476,6 +560,9 @@ class ThresholdDialog(QDialog):
         self.canvas.set_sky_bright(initial_sky_bright)
         self.histogram_widget.set_sky_bright(initial_sky_bright)
         self.canvas.set_cleanup(initial_cleanup)
+        if valid_mask is None:
+            self.area_check.setEnabled(False)
+            self.area_check.setText("Solo el área analizada (sin calibración: se usa toda la foto)")
 
         self._compute_histogram()
         self._update_stats()
@@ -569,6 +656,16 @@ class ThresholdDialog(QDialog):
         self.cleanup_check.setChecked(True)
         options_row.addWidget(self.cleanup_check)
 
+        # v0.14.35: mostrar solo el área analizada (el histograma y las estadísticas ya la usaban)
+        self.area_check = QCheckBox("Solo el área analizada")
+        self.area_check.setChecked(True)
+        self.area_check.setToolTip(
+            "Marcado: fuera del círculo de análisis (máscara de horizonte, máscara por direcciones y\n"
+            "zona fuera de la foto) la foto se cubre de verde azulado y no se tiñe, como en GLAMA.\n"
+            "El histograma, el corte automático y las estadísticas usan siempre solo el área analizada.\n"
+            "Desmarcado: se tiñe la foto completa (solo para orientarse).")
+        options_row.addWidget(self.area_check)
+
         options_row.addStretch()
         options_row.addWidget(QLabel("Zoom:"))
 
@@ -576,10 +673,18 @@ class ThresholdDialog(QDialog):
         self.zoom_out_btn.setMaximumWidth(40)
         options_row.addWidget(self.zoom_out_btn)
 
-        self.zoom_label = QLabel("100%")
-        self.zoom_label.setMinimumWidth(60)
-        self.zoom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        options_row.addWidget(self.zoom_label)
+        # v0.14.31: zoom editable (Intro para aplicar)
+        self.zoom_spin = QSpinBox()
+        self.zoom_spin.setRange(15, 600)
+        self.zoom_spin.setSuffix(" %")
+        self.zoom_spin.setSingleStep(25)
+        self.zoom_spin.setValue(100)
+        self.zoom_spin.setKeyboardTracking(False)
+        self.zoom_spin.setToolTip(
+            "Zoom de la vista previa (100 % = vista previa de hasta 1400 px de lado).\n"
+            "Escriba un valor (15–600 %) y pulse Intro. Clic derecho y arrastrar\n"
+            "(o Mayús + arrastrar) = ampliar la zona del rectángulo.")
+        options_row.addWidget(self.zoom_spin)
 
         self.zoom_in_btn = QPushButton("+")
         self.zoom_in_btn.setMaximumWidth(40)
@@ -587,7 +692,7 @@ class ThresholdDialog(QDialog):
 
         self.zoom_fit_btn = QPushButton("Ajustar")
         options_row.addWidget(self.zoom_fit_btn)
-        options_row.addWidget(QLabel("(rueda = zoom · arrastrar = mover)"))
+        options_row.addWidget(QLabel("(rueda = zoom · arrastrar = mover · clic derecho y arrastrar = ampliar zona)"))
 
         layout.addLayout(options_row)
 
@@ -639,11 +744,13 @@ class ThresholdDialog(QDialog):
         self.otsu_btn.clicked.connect(self._on_otsu)
         self.sky_bright_check.toggled.connect(self._on_sky_bright_toggled)
         self.cleanup_check.toggled.connect(self._on_cleanup_toggled)
+        self.area_check.toggled.connect(self.canvas.set_only_analysis_area)
         self.alpha_spin.valueChanged.connect(lambda v: self.canvas.set_overlay_alpha(v / 100.0))
         self.zoom_out_btn.clicked.connect(self._on_zoom_out)
         self.zoom_in_btn.clicked.connect(self._on_zoom_in)
         self.zoom_fit_btn.clicked.connect(self._on_zoom_fit)
         self.canvas.zoomChanged.connect(lambda _: self._update_zoom_label())
+        self.zoom_spin.valueChanged.connect(self._on_zoom_typed)
 
     def _compute_histogram(self):
         if self.canvas.gray_array is None:
@@ -707,12 +814,16 @@ class ThresholdDialog(QDialog):
             QMessageBox.information(self, "Nivel de corte automático", note)
 
     def _on_zoom_in(self):
-        self.canvas.set_zoom(self.canvas.zoom * 1.25)
+        self.canvas.zoom_keep_center(self.canvas.zoom * 1.25)
         self._update_zoom_label()
 
     def _on_zoom_out(self):
-        self.canvas.set_zoom(self.canvas.zoom / 1.25)
+        self.canvas.zoom_keep_center(self.canvas.zoom / 1.25)
         self._update_zoom_label()
+
+    def _on_zoom_typed(self, pct):
+        if abs(pct / 100.0 - self.canvas.zoom) >= 0.005:
+            self.canvas.zoom_keep_center(pct / 100.0)
 
     def _on_zoom_fit(self):
         vp = self.scroll.viewport()
@@ -720,7 +831,9 @@ class ThresholdDialog(QDialog):
         self._update_zoom_label()
 
     def _update_zoom_label(self):
-        self.zoom_label.setText("{:.0f}%".format(self.canvas.zoom * 100))
+        self.zoom_spin.blockSignals(True)
+        self.zoom_spin.setValue(int(round(self.canvas.zoom * 100)))
+        self.zoom_spin.blockSignals(False)
 
     def _update_stats(self):
         n_sky, sky_pct, n_canopy, canopy_pct, total = self.canvas.get_statistics()

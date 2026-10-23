@@ -155,7 +155,7 @@ _cdm.MeasureCircleDialog, _cdm._exec_dialog = _orig_mcd, _orig_exec
 check("medición real con diámetro fraccionario (%.4f px) se guarda como medida, no «escrita a mano»"
       % md2.get_pixel_diameter(), d.calibration["measurement"].get("mode") == "cruz"
       and d.calibration["measurement"].get("file") is not None, d.calibration["measurement"].get("summary"))
-check("la máscara NO cambia al calibrar", abs(d.horizon_mask_spin.value() - 45.0) < 1e-9, d.horizon_mask_spin.value())
+check("la máscara NO cambia al calibrar", abs(d.horizon_mask_spin.value() - 63.0) < 1e-9, d.horizon_mask_spin.value())
 
 # Máscara que supera el semiángulo del lado corto: anillos hasta la máscara
 half = d.calibration["max_zenith_deg"]
@@ -244,7 +244,13 @@ check("botón «Recomendado (log-normal)» y ayuda con procedencia, pasos y refe
       d.glama_cut_btn.text() == "Recomendado (log-normal)" and "Implementación independiente" in d.full_help_browser.toPlainText() and "Kittler" in d.full_help_browser.toPlainText()
       and "Recomendado (GLAMA)" not in d.full_help_browser.toPlainText())
 # Geometría de pantalla de GLAMA
-d.glama_geometry_check.setChecked(True); d._on_run(); rg = d.last_results
+_proj0 = d._current_projection_code()
+d.glama_geometry_check.setChecked(True); d._on_run()
+check("0.14.33: con Rectilínea la geometría de GLAMA no se aplica y se explica qué modelo usar",
+      d.last_results["glama_geometry"] is None and "Lineal (compatible con Polar de GLAMA)" in d.results_text.toPlainText()
+      if _proj0 == "rectilinear" else True, _proj0)
+d._set_projection_by_code("angular"); d._on_calibrate()
+d._on_run(); rg = d.last_results
 check("modo geometría GLAMA: conteos en píxeles de la vista 1080×1836",
       rg["glama_geometry"] is not None and rg["metrics"]["total_pixels_in_frame"] <= 1080 * 1836,
       "CaCo GLAMA-geom = %.2f %% vs correcta %.2f %%" % (rg["metrics"]["canopy_cover_index_pct"],

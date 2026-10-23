@@ -1,13 +1,14 @@
 """Diálogo «Procesamiento por sitio (lote)» de CobDosel.
 
 Procesa todas las fotos de un sitio con una configuración fija: calibración guardada, máscara
-(fija, 60° por defecto; u opcional desde la altura de un grupo de dosel), canal, nivel de corte recomendado (log-normal; Otsu de respaldo)
+(fija, 63° por defecto; u opcional desde la altura de un grupo de dosel), canal, nivel de corte recomendado (log-normal; Otsu de respaldo)
 y empareja cada foto con el formulario de fotos (ID de fotografía y hora de captura).
 Resultado: media por parcela y media del sitio (Índice CaCo); CSV, HTML y capa.
 
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
+import math
 import os
 import traceback
 
@@ -24,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsField
 
 from ._version import VERSION, fmt_num
-from .calibration_store import list_calibrations, load_calibration, save_calibration
+from .calibration_store import list_calibrations, load_calibration, save_calibration, get_last_calibration
 from .camera_check import camera_label
 from .canopy_analysis import CHANNEL_MODES
 from . import batch_core as bc
@@ -121,7 +122,7 @@ class CobDoselBatchDialog(QDialog):
         rc.addWidget(b3)
         self.cam_btn = QPushButton("Registrar cámara…")
         self.cam_btn.setToolTip(
-            "Para calibraciones guardadas antes de 0.12.4: registra en la calibración la cámara (EXIF) de las\n"
+            "Para calibraciones que no registran la cámara: registra en la calibración la cámara (EXIF) de las\n"
             "fotos de la carpeta. Úselo solo si la calibración se hizo con esa misma cámara y lente.")
         self.cam_btn.clicked.connect(self._register_camera)
         rc.addWidget(self.cam_btn)
@@ -129,7 +130,10 @@ class CobDoselBatchDialog(QDialog):
         self.cal_info = QLabel("")
         self.cal_info.setWordWrap(True)
         self.cal_info.setToolTip("Las calibraciones se crean en el diálogo principal de CobDosel: calibre con una\n"
-                                 "foto de la misma cámara y pulse «Guardar calibración».")
+                                 "foto de la misma cámara y pulse «Guardar calibración».\n\n"
+                                 "Modelo: «Rectilínea» es la geometría de la cámara principal (1x) de los teléfonos y es\n"
+                                 "exacta con cualquier círculo; «Lineal» (compatible con Polar de GLAMA) es exacto solo\n"
+                                 "en el borde del círculo de calibración y sirve para comparar con resultados de GLAMA.")
         f2.addRow("", self.cal_info)
         self.cal_combo.currentIndexChanged.connect(self._on_cal_changed)
         self.channel_combo = QComboBox()
@@ -158,8 +162,9 @@ class CobDoselBatchDialog(QDialog):
         self.fixed_mask_spin.setValue(bc.DEFAULT_MASK_DEG)
         self.fixed_mask_spin.setSuffix(" ° sobre el horizonte")
         self.fixed_mask_spin.setToolTip(
-            "Máscara de horizonte. Tichý (2016) recomienda 60° (análisis hasta 30° del cenit)\n"
-            "para CaCo y Modif. CaCo. Use el mismo valor en todos los sitios.")
+            "Máscara de horizonte. Estándar de CobDosel: 63° (análisis hasta 27° del cenit), con el\n"
+            "que el círculo de análisis cabe entero en la foto de cualquier teléfono de 23–25 mm;\n"
+            "Tichý (2016) usó 60°. Use el mismo valor en todos los sitios.")
         f2.addRow("Máscara fija:", self.fixed_mask_spin)
         self.group_combo = QComboBox()
         self.group_combo.addItem("Altura escrita a mano", userData=None)
@@ -328,10 +333,21 @@ class CobDoselBatchDialog(QDialog):
         cam = cal.get("camera") or (cal.get("measurement") or {}).get("camera")
         has_cam = bool(cam and (cam.get("model") or cam.get("focal_length_mm") or cam.get("focal_length_35mm")))
         self.cam_btn.setEnabled(not has_cam)
-        self.cal_info.setText("R = {:.0f} px en {}×{} px; {}; cámara: {}".format(
-            cal.get("virtual_radius_px") or 0, cal.get("image_width_px") or 0, cal.get("image_height_px") or 0,
-            (cal.get("measurement") or {}).get("summary") or "medición sin registrar",
-            camera_label(cam) if has_cam else "no registrada (use «Registrar cámara…»)"))
+        rec = bc.calibration_record(cal)
+        parts = [rec.get("calibracion_modelo") or "modelo sin registrar"]
+        if rec.get("circulo_D_cm") and rec.get("altura_H_cm"):
+            parts.append("D = {:g} cm a H = {:g} cm (borde a {:.1f}° del cenit)".format(
+                rec["circulo_D_cm"], rec["altura_H_cm"],
+                math.degrees(math.atan(rec["circulo_D_cm"] / (2.0 * rec["altura_H_cm"])))))
+        else:
+            parts.append(rec.get("calibracion_metodo") or "—")
+        if rec.get("focal_equivalente_mm"):
+            parts.append("focal equivalente {:.1f} mm".format(rec["focal_equivalente_mm"]))
+        parts.append("R = {:.0f} px en {}×{} px".format(
+            cal.get("virtual_radius_px") or 0, cal.get("image_width_px") or 0, cal.get("image_height_px") or 0))
+        parts.append("medición: " + ((cal.get("measurement") or {}).get("summary") or "sin registrar"))
+        parts.append("cámara: " + (camera_label(cam) if has_cam else "no registrada (use «Registrar cámara…»)"))
+        self.cal_info.setText(" · ".join(parts))
 
     def _register_camera(self):
         """Añade la huella de cámara de las fotos de la carpeta a una calibración que no la tiene."""
@@ -384,9 +400,17 @@ class CobDoselBatchDialog(QDialog):
         QMessageBox.information(self, "Cámara registrada", "{}\n{}".format(camera_label(cam), path))
 
     def _refresh_calibrations(self):
+        self.cal_combo.blockSignals(True)
         self.cal_combo.clear()
         for name, path in list_calibrations():
             self.cal_combo.addItem(name, userData=name)
+        # v0.14.27: propone la última calibración usada en CobDosel
+        last = get_last_calibration()
+        if last:
+            i = self.cal_combo.findData(last)
+            if i >= 0:
+                self.cal_combo.setCurrentIndex(i)
+        self.cal_combo.blockSignals(False)
         self._on_cal_changed()
 
     def _fill_layers(self):

@@ -38,7 +38,7 @@ check("puntos del Formulario 8 normalizados", all(bc.normalize_point(k) == v for
 z = bc.zenith_from_height(21.3, 1.3, 6.31)
 check("máscara desde la altura: h=21.3, cámara 1.3, huella 6.31 → cenit 17.5°", abs(z - 17.51) < 0.02, "%.2f°" % z)
 check("grupos de dosel 3/4/5 → 10 / 22.5 / 30 m", [bc.canopy_group_height(g) for g in (3, 4, 5)] == [10.0, 22.5, 30.0])
-check("máscara por defecto 60° (Tichý 2016)", bc.DEFAULT_MASK_DEG == 60.0)
+check("máscara por defecto 63° (estándar de CobDosel)", bc.DEFAULT_MASK_DEG == 63.0)
 check("formulario sin columna de altura", "altura_dosel_m" not in bc.FORM_COLUMNS, bc.FORM_COLUMNS)
 
 print("\n=== 2. Sitio sintético: 4 parcelas × 5 fotos ===")
@@ -122,11 +122,11 @@ t1 = time.time()
 batch = bc.run_batch(photo_dir, form, cal, planned_plots=4, channel_mode="blue_red")
 print("    lote procesado en %.1f s" % (time.time() - t1))
 fotos = batch["fotos"]
-check("por defecto: máscara fija 60° en todas las fotos válidas",
-      all(abs(r["mascara_horizonte"] - 60.0) < 1e-9 for r in fotos if r["valida"]) and
-      batch["parametros"]["mascara_modo"] == "fija" and batch["parametros"]["mascara_horizonte_deg"] == 60.0)
-vis60 = [r["visible_pct"] for r in fotos if r["valida"]]
-print("    visible con máscara 60° (cenit 30°): %.1f %%" % min(vis60))
+check("por defecto: máscara fija 63° en todas las fotos válidas",
+      all(abs(r["mascara_horizonte"] - 63.0) < 1e-9 for r in fotos if r["valida"]) and
+      batch["parametros"]["mascara_modo"] == "fija" and batch["parametros"]["mascara_horizonte_deg"] == 63.0)
+vis_def = [r["visible_pct"] for r in fotos if r["valida"]]
+print("    visible con máscara 63° (cenit 27°): %.1f %%" % min(vis_def))
 try:
     bc.run_batch(photo_dir, form, cal, planned_plots=4, mask_mode="height")
     check("modo altura sin altura → error", False)

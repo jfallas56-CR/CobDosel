@@ -150,7 +150,14 @@ def _glama_counts(sky_mask, gray_cut, center_xy, radius_px, zenith_max_deg,
     ii_all = _java_trunc(X + i3_all)
     in_cols = (ii_all > 0) & (ii_all + 1 < w)
     for i3, ii in zip(i3_all[in_cols], ii_all[in_cols]):
-        j_di = R * math.sqrt((1.0 - (i3 / R) ** 2) + 1.0e-5)
+        arg = (1.0 - (i3 / R) ** 2) + 1.0e-5
+        if arg <= 0.0:
+            # v0.14.26: con R no entero la última columna queda un poco más allá de R (i3 > R) y
+            # math.sqrt fallaba («math domain error») si el círculo cabía entero en el ancho de la
+            # foto (ojo de pez, calibración reescalada). En la app la raíz da NaN y la columna no
+            # aporta píxeles: se omite igual.
+            continue
+        j_di = R * math.sqrt(arg)
         n_rows = int(math.ceil(2.0 * j_di))
         if n_rows <= 0:
             continue

@@ -93,3 +93,34 @@ def list_calibrations(directory=None):
                 _LOG.warning("[list_calibrations] %s: %s", path, e)
                 continue
     return result
+
+
+# v0.14.27: nombre de la última calibración usada (cargada o guardada), para aplicarla al abrir CobDosel
+LAST_FILE = "_ultima_calibracion.txt"
+
+
+def get_last_calibration(directory=None):
+    """Nombre de la última calibración usada, o None si no hay o ya no existe."""
+    path = os.path.join(directory or DEFAULT_DIR, LAST_FILE)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            name = f.read().strip()
+    except OSError:
+        return None
+    if not name:
+        return None
+    if not (os.path.isfile(calibration_path(name, directory))
+            or (directory is None and os.path.isfile(calibration_path(name, LEGACY_DIR)))):
+        return None
+    return name
+
+
+def set_last_calibration(name, directory=None):
+    """Recuerda el nombre de la última calibración usada (no crítico si falla)."""
+    directory = directory or DEFAULT_DIR
+    try:
+        _ensure_dir(directory)
+        with open(os.path.join(directory, LAST_FILE), "w", encoding="utf-8") as f:
+            f.write(str(name))
+    except OSError as e:
+        _LOG.warning("[set_last_calibration] %s", e)

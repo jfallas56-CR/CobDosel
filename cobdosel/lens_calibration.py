@@ -94,19 +94,22 @@ PROJECTIONS = {
         "inverse": lambda f, r: math.atan(r / f),
         "f_from_ref": lambda r_ref, theta_ref_half: r_ref / math.tan(theta_ref_half),
         "virtual_radius": lambda f: None,
-        "note": "Lente regular de smartphone o cámara digital — modelo geométrico estándar (r = f·tan(θ)).",
+        "note": ("Cámara principal (1x) de los teléfonos y lentes regulares que conservan rectas las líneas "
+                 "rectas: r = f·tan θ. La calibración da la distancia focal f; con una lente rectilínea es "
+                 "exacta en todos los ángulos y con cualquier tamaño de círculo."),
         "fisheye": False,
     },
     "angular": {
-        "label": "Lineal (lente regular)",
+        "label": "Lineal (compatible con Polar de GLAMA)",
         "forward": None,
         "inverse": None,
         "f_from_ref": None,
         "virtual_radius": None,
         "note": (
-            "Proyección lineal (r ∝ θ) para lentes regulares de campo "
-            "de visión limitado. Mapea linealmente el rango cenital observable "
-            "[0, θ_máx] sobre el círculo inscrito de la imagen."
+            "El ángulo cenital crece en proporción a la distancia al centro (θ ∝ r), anclado en el "
+            "borde del círculo de calibración: exacto en ese ángulo y aproximado fuera de él. "
+            "Equivale al modelo «Polar» de GLAMA; úselo para comparar con GLAMA o con "
+            "calibraciones anteriores hechas con este modelo."
         ),
         "fisheye": False,
     },
@@ -576,6 +579,11 @@ def pixel_radius_to_zenith(r_px, calibration):
         else:
             raise ValueError("Proyección no soportada: " + str(proj_code))
     return np.degrees(theta)
+
+
+# Modelos por tipo de lente, el primero es el predeterminado (0.14.33: Rectilínea para lente regular)
+PROJECTIONS_REGULAR = ("rectilinear", "angular")
+PROJECTIONS_FISHEYE = ("polar", "equisolid", "orthographic", "stereographic")
 
 
 def list_projections():
