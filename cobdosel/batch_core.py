@@ -261,6 +261,10 @@ def read_field_form(path):
             rec["parcela"] = rec["parcela"][:-2]
         rec["fila"] = n
         rec["punto_norm"] = normalize_point(rec["punto"]) if rec["punto"] not in (None, "") else None
+        m_foto = re.fullmatch(r"foto_?(\d+)", _norm(rec["punto"])) if rec["punto"] not in (None, "") else None
+        if rec["punto_norm"] is None and m_foto:
+            # v0.14.43: «Foto N» (diseños sin los 5 puntos y asignación automática) es un punto válido
+            rec["punto_norm"] = "Foto {}".format(int(m_foto.group(1)))
         if rec["punto"] not in (None, "") and rec["punto_norm"] is None:
             warnings.append("Fila {}: punto «{}» no reconocido.".format(n, rec["punto"]))
         rec["hora_dt"] = parse_datetime(rec["hora_captura"])

@@ -87,6 +87,11 @@ class CobDoselBatchDialog(QDialog):
         self.site_edit = QLineEdit()
         self.site_edit.setPlaceholderText("Nombre o código del sitio (aparece en el informe y en los archivos)")
         f1.addRow("Nombre del sitio:", self.site_edit)
+        self.operator_edit = QLineEdit()
+        self.operator_edit.setPlaceholderText("Nombre de quien procesa y revisa (aparece en el informe y en el CSV)")
+        self.operator_edit.setToolTip("Operador: queda registrado con el resultado del sitio y se propone en «Revisar\n"
+                                      "cortes…» para cada decisión.")
+        f1.addRow("Operador:", self.operator_edit)
         self.folder_edit = QLineEdit()
         b = QPushButton("Examinar…")
         b.clicked.connect(self._pick_folder)
@@ -543,6 +548,7 @@ class CobDoselBatchDialog(QDialog):
                 "{} decisiones ({})".format(len(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
             self.batch["parametros"]["sitio"] = self.site_edit.text().strip()
             self.batch["parametros"]["area_ha"] = self.area_spin.value() or None
+            self.batch["parametros"]["operador"] = self.operator_edit.text().strip()
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Error en el lote", str(e))
@@ -572,10 +578,11 @@ class CobDoselBatchDialog(QDialog):
             previous = {}
         items = [r for r in self.batch["fotos"] if r.get("archivo") and (r.get("valida") or r.get("decision") == "excluido")]
         dlg = CutReviewDialog(items, folder, self._last_cal, self.channel_combo.currentData(), previous,
-                              operator=getattr(self, "_operator", ""), parent=self,
+                              operator=self.operator_edit.text().strip(), parent=self,
                               title_suffix=" — " + (self.site_edit.text().strip() or os.path.basename(folder)))
         accepted = bool(_exec(dlg))
-        self._operator = dlg.operator()
+        if dlg.operator():                        # el nombre escrito en la revisión pasa a la ventana
+            self.operator_edit.setText(dlg.operator())
         # v0.14.42: las decisiones se guardan al aceptarlas; al cerrar sin «Terminar y recalcular» también se
         # recalcula si hubo cambios, para que los resultados coincidan con el archivo de decisiones.
         if not accepted and not dlg.changed:
@@ -592,6 +599,7 @@ class CobDoselBatchDialog(QDialog):
         b = self.batch
         s = b["sitio"]
         lines = ["SITIO: {}".format(self.site_edit.text().strip() or "—"),
+                 "OPERADOR: {}".format(self.operator_edit.text().strip() or "—"),
                  "Cobertura del dosel del sitio (media de parcelas, CaCo): {} %".format(
                      fmt_num(s["caco_sitio"]) if s["caco_sitio"] is not None else "—"),
                  "Parcelas con resultado: {}{} · fotos válidas {} de {}".format(
