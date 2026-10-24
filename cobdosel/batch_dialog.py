@@ -288,6 +288,12 @@ class CobDoselBatchDialog(QDialog):
         self.review_btn.clicked.connect(self._on_review)
         self.review_btn.setEnabled(False)
         rb.addWidget(self.review_btn)
+        self.clear_rev_btn = QPushButton("Borrar revisión guardada…")
+        self.clear_rev_btn.setToolTip("Las decisiones de «Revisar cortes…» se guardan junto a las fotos y se aplican cada vez\n"
+                                      "que se procesa el sitio. Este botón las retira (el archivo se renombra como copia de\n"
+                                      "seguridad) para procesar con los cortes automáticos.")
+        self.clear_rev_btn.clicked.connect(self._on_clear_review)
+        rb.addWidget(self.clear_rev_btn)
         self.csv_btn = QPushButton("Exportar CSV…")
         self.csv_btn.clicked.connect(self._on_csv)
         self.csv_btn.setEnabled(False)
@@ -556,7 +562,10 @@ class CobDoselBatchDialog(QDialog):
                 log=self._log, decisions=decisions, photos_per_plot=self.per_plot_spin.value())
             self.batch["parametros"]["calibracion"] = name
             self.batch["parametros"]["revision_cortes"] = (
-                "{} decisiones ({})".format(len(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
+                "{} ({})".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
+            if decisions:
+                self.batch["avisos"].insert(0, "Se aplicaron {} de una revisión anterior.".format(
+                    bc.decisions_summary(decisions)))
             self.batch["parametros"]["sitio"] = self.site_edit.text().strip()
             self.batch["parametros"]["area_ha"] = self.area_spin.value() or None
             self.batch["parametros"]["operador"] = self.operator_edit.text().strip()
@@ -572,7 +581,10 @@ class CobDoselBatchDialog(QDialog):
         for b in (self.csv_btn, self.html_btn, self.layer_btn, self.review_btn):
             b.setEnabled(True)
         if decisions:
-            self._log("Se aplicaron {} decisiones de revisión guardadas ({}).".format(len(decisions), bc.DECISIONS_FILE))
+            # v0.14.45: se dice de dónde vienen las decisiones (archivo de una revisión anterior) y cómo quitarlas
+            self._log("Se aplicaron {} de una revisión anterior ({} en la carpeta de fotos). Para procesar sin ellas, "
+                      "use «Borrar revisión guardada…».".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE),
+                      "WARN")
         pend = self.batch["sitio"].get("pendientes_revision") or 0
         if pend:
             QMessageBox.information(
@@ -620,6 +632,36 @@ class CobDoselBatchDialog(QDialog):
                 name, chk["mismatch"]), "WARN")
             return name
         return None
+
+    def _on_clear_review(self):
+        """v0.14.45: retira las decisiones guardadas (renombra el archivo; no lo borra)."""
+        folder = self.folder_edit.text().strip()
+        path = os.path.join(folder, bc.DECISIONS_FILE)
+        if not os.path.isfile(path):
+            QMessageBox.information(self, "Revisión guardada", "No hay decisiones de revisión guardadas en esta carpeta.")
+            return
+        try:
+            summary = bc.decisions_summary(bc.load_decisions(folder))
+        except Exception:
+            summary = "decisiones guardadas"
+        ans = QMessageBox.question(
+            self, "Borrar revisión guardada",
+            "La carpeta tiene {}.\n\nSe retirarán (el archivo se guarda como copia de seguridad) y el sitio se "
+            "procesará con los cortes automáticos. ¿Continuar?".format(summary),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        import datetime as _dt
+        bak = os.path.join(folder, "CobDosel_revision_cortes_{}.bak.json".format(
+            _dt.datetime.now().strftime("%Y%m%d_%H%M%S")))
+        try:
+            os.replace(path, bak)
+        except OSError as e:
+            QMessageBox.critical(self, "Revisión guardada", "No se pudo retirar el archivo: {}".format(e))
+            return
+        self._log("Revisión guardada retirada (copia: {}).".format(os.path.basename(bak)))
+        if self.batch is not None:
+            self._on_run()
 
     def _on_review(self):
         if not self.batch:

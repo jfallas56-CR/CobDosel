@@ -34,6 +34,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_hechos_v01438.py` | Hechos verificados (lecturas de la app GLAMA, Pixel 10 con tres círculos, decisiones) y revisión de textos |
 | `test_teclado_v01439.py` | Intro no pulsa botones (medición, corte, ventana principal); flechas; quitar puntos (clic derecho, Supr, botón) |
 | `test_heic_v01439.py` | Fotos HEIC del iPhone en el lote sin abrir la ventana principal; mensaje sin «pillow-heif» |
+| `test_v01445.py` | Informe del lote: observaciones en segunda fila, parámetros legibles, sin cita en el encabezado; decisiones guardadas con fecha y operador; «Borrar revisión guardada…» |
 | `test_v01444.py` | Comprobación de la cámara antes de procesar el sitio: propone la calibración guardada que coincide (Sí), procesar igual (No) o cancelar; sin calibración de esa cámara pide calibrarla |
 | `test_v01443.py` | Operador en la ventana del lote (parámetros, panel, CSV, revisión) y puntos «Foto N» sin avisos falsos (sin formulario, 1, 3 y 5 fotos por parcela) |
 | `test_v01442.py` | Uniformidad del cielo, motivo «separa dos brillos del cielo», lote sin formulario ni número de parcelas, ventana del lote redimensionable, revisión: pregunta por cortes sin aceptar, guardado al aceptar, opacidad; con `COBDOSEL_FOTOS_CIELO`, las 14 fotos de prueba |

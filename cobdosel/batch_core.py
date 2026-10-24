@@ -34,6 +34,7 @@ from .lens_calibration import scale_calibration_to_image, zenith_to_pixel_radius
 from .canopy_analysis import (
     extract_channel, threshold_image, compute_otsu_threshold, compute_radius_grid,
     compute_zenith_grid, analysis_circle_visibility, sky_uniformity_range, sky_uniformity_warning,
+    CHANNEL_LABELS,
 )
 from .glama_engine import (  # noqa: F401  (glama_cut_iterated se reexporta por compatibilidad)
     glama_ring_counts, glama_ring_counts_with_gray, glama_indices, glama_recommended_cut,
@@ -541,7 +542,7 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     revisar = False
     if cut_rule == "fixed":
         t = int(fixed_cut)
-        method = "fijo"          # el lote lo cambia a «revisado por el operador» si viene de la revisión
+        method = "fijo"          # el lote lo cambia a «revisado (decisión guardada)» si viene de la revisión
     elif cut_rule == "otsu":
         rp = compute_radius_grid((h, w), c)
         area = compute_zenith_grid(rp, cal) <= zenith_max_deg
@@ -706,8 +707,11 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                 if dec and dec.get("decision") == "excluido":
                     rec.update({"decision": "excluido", "operador": dec.get("operador", ""),
                                 "nota": dec.get("nota", ""), "corte_auto": dec.get("corte_auto")})
-                    rec["motivo"] = "excluida por el operador" + (
-                        " ({})".format(dec["nota"]) if dec.get("nota") else "")
+                    when = (dec.get("fecha") or "").replace("T", " ")[:16]
+                    rec["revision_guardada"] = "{}{}".format(when + ", " if when else "", dec.get("operador") or
+                                                             "operador sin nombre")
+                    rec["motivo"] = "excluida por el operador (decisión guardada: {})".format(rec["revision_guardada"]) + (
+                        " — {}".format(dec["nota"]) if dec.get("nota") else "")
                 else:
                     use_fixed = dec and dec.get("decision") in ("aceptado", "ajustado")
                     res = analyze_photo(ph["ruta"], calibration, zen, channel_mode, sky_is_bright,
@@ -721,12 +725,17 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                         if rec["decision"] == "ajustado":
                             rec["decision"] = "ajustado ({} → {})".format(res.get("corte_auto"), int(dec["corte"]))
                         rec["operador"], rec["nota"] = dec.get("operador", ""), dec.get("nota", "")
-                        rec["metodo_corte"] = "revisado por el operador"
+                        rec["metodo_corte"] = "revisado (decisión guardada)"
                         rec["revisar"] = False
                         res["avisos"] = [a for a in res["avisos"] if not a.startswith("revisar el corte")]
+                        # v0.14.45: la decisión viene del archivo de revisión guardado; se dice cuándo y quién
+                        when = (dec.get("fecha") or "").replace("T", " ")[:16]
+                        who = dec.get("operador") or "operador sin nombre"
+                        rec["revision_guardada"] = "{}{}".format(when + ", " if when else "", who)
+                        tag = "decisión guardada ({})".format(rec["revision_guardada"])
                         if res.get("motivo_revision"):   # v0.14.42: por qué el método automático no se comprobó
-                            res["avisos"].insert(0, "revisada por el operador; motivo original: " +
-                                                 res["motivo_revision"])
+                            tag += "; motivo original: " + res["motivo_revision"]
+                        res["avisos"].insert(0, tag)
                     elif cut_rule == "glama":
                         rec["decision"] = "pendiente de revisión" if res.get("revisar") else "automático"
                     if cam_unverified:
@@ -755,7 +764,9 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                            "altura_dosel_sitio_m": canopy_height_m if mask_mode == "height" else None,
                            "altura_camara_m": camera_height_m if mask_mode == "height" else None,
                            "radio_huella_m": footprint_radius_m if mask_mode == "height" else None,
-                           "canal": channel_mode, "regla_corte": cut_rule,
+                           # v0.14.45: nombres legibles, no códigos internos
+                           "canal": CHANNEL_LABELS.get(channel_mode, channel_mode),
+                           "regla_corte": CUT_RULE_LABELS.get(cut_rule, cut_rule),
                            "tolerancia_s": tolerance_s, "desfase_reloj_s": clock_offset_s,
                            "parcelas_planificadas": planned_plots or None}}
 
@@ -822,6 +833,21 @@ def load_decisions(folder):
     with open(p, "r", encoding="utf-8") as f:
         data = json.load(f)
     return dict(data.get("fotos") or {})
+
+
+def decisions_summary(decisions):
+    """v0.14.45: «7 decisiones guardadas (2026-10-24 10:40 a 10:52; operador: J. Fallas)»."""
+    if not decisions:
+        return ""
+    dates = sorted((d.get("fecha") or "").replace("T", " ")[:16] for d in decisions.values() if d.get("fecha"))
+    ops = sorted({d.get("operador") for d in decisions.values() if d.get("operador")})
+    when = ""
+    if dates:
+        when = dates[0] if dates[0] == dates[-1] else "{} a {}".format(
+            dates[0], dates[-1][11:] if dates[-1][:10] == dates[0][:10] else dates[-1])
+    return "{} decisión(es) guardada(s){}".format(
+        len(decisions), " ({}{})".format(when, "; operador: " + ", ".join(ops) if ops else "; sin nombre de operador")
+        if (when or ops) else "")
 
 
 def save_decisions(folder, decisions, version=""):
@@ -941,18 +967,21 @@ def write_html(batch, path, version="", site_name=""):
             _h.escape("reemplazo de " + str(p["reemplaza_a"])) if p.get("reemplaza_a") else "",
             p["validas"], p["fotos"], _f(p["caco_media"]), _f(p["caco_min"]), _f(p["caco_max"]))
         for p in batch["parcelas"])
-    photo_rows = "".join(
-        "<tr{}><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td class='n'>{}</td><td>{}</td><td>{}</td><td class='n'>{}</td>"
-        "<td class='n'>{}</td><td class='n'>{}</td><td>{}</td></tr>".format(
-            "" if r.get("valida") else " class='bad'",
-            _h.escape(str(r["parcela"])), _h.escape(str(r["punto"])), _h.escape(str(r["archivo"])),
+    # v0.14.45: «Observaciones» en una segunda fila bajo cada foto, a todo el ancho
+    def _photo_row(r):
+        cls = "" if r.get("valida") else " bad"
+        main = ("<tr class='ph{}'><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td class='n'>{}</td><td>{}</td>"
+                "<td>{}</td><td class='n'>{}</td><td class='n'>{}</td><td class='n'><b>{}</b></td></tr>").format(
+            cls, _h.escape(str(r["parcela"])), _h.escape(str(r["punto"])), _h.escape(str(r["archivo"])),
             _h.escape(str(r["emparejado_por"])), r.get("corte", "—"),
-            _h.escape(str(r.get("metodo_corte") or "—")),
-            _h.escape(str(r.get("decision") or "")) + (
-                " — " + _h.escape(str(r["operador"])) if r.get("operador") else ""),
-            _f(r.get("mascara_horizonte"), 1),
-            _f(r.get("visible_pct"), 1), _f(r.get("caco")), _h.escape(str(r.get("motivo") or "")))
-        for r in batch["fotos"])
+            _h.escape(str(r.get("metodo_corte") or "—")), _h.escape(str(r.get("decision") or "")),
+            _f(r.get("mascara_horizonte"), 1), _f(r.get("visible_pct"), 1), _f(r.get("caco")))
+        obs = str(r.get("motivo") or "")
+        if not obs:
+            return main.replace("class='ph", "class='ph last", 1)
+        items = "".join("<li>{}</li>".format(_h.escape(t.strip())) for t in obs.split("; ") if t.strip())
+        return main + "<tr class='obs{}'><td></td><td colspan='9'><ul>{}</ul></td></tr>".format(cls, items)
+    photo_rows = "".join(_photo_row(r) for r in batch["fotos"])
     pending = s.get("pendientes_revision") or 0
     pending_html = ("<p style='color:#9a3412;font-weight:700'>Resultado provisional: {} foto(s) pendientes de "
                     "revisión del nivel de corte.</p>".format(pending)) if pending else ""
@@ -969,9 +998,11 @@ section{{background:#fff;border:1px solid #d9e2ec;border-radius:10px;padding:16p
 table{{width:100%;border-collapse:collapse;font-size:.9rem}}
 th,td{{padding:6px 8px;border-bottom:1px solid #e4e7eb;text-align:left}}
 th{{background:#f0f4f8}} td.n{{text-align:right;font-variant-numeric:tabular-nums}} tr.bad td{{color:#9a3412}}
+tr.ph td{{border-bottom:none}} tr.ph.last td{{border-bottom:1px solid #e4e7eb}}
+tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;padding-left:18px}}
 </style></head><body><div class="c">
 <header><h1>CobDosel v{version} — Cobertura del dosel por sitio</h1>
-<div>Sitio: {site} · Basado en Tichý (2016), doi:10.1111/jvs.12350</div></header>
+<div>Sitio: {site}{op}</div></header>
 <section><div>Cobertura del dosel del sitio (media de las parcelas, Índice CaCo)</div>
 <div class="big">{mean} %</div>
 <p>Parcelas con resultado: {nok}{nplan} · Fotos válidas: {fv} de {ft}</p>
@@ -981,7 +1012,7 @@ th{{background:#f0f4f8}} td.n{{text-align:right;font-variant-numeric:tabular-num
 <th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table></section>
 <section><h2>Fotos</h2><table><tr><th>Parcela</th><th>Punto</th><th>Archivo</th><th>Emparejado por</th>
 <th class='n'>Corte</th><th>Método del corte</th><th>Decisión</th><th class='n'>Máscara (°)</th><th class='n'>Visible (%)</th><th class='n'>CaCo (%)</th>
-<th>Observaciones</th></tr>{photos}</table></section>
+</tr>{photos}</table><p style='font-size:.82rem;color:#52606d'>Debajo de cada foto, sus observaciones.</p></section>
 <section><h2>Avisos</h2><ul>{warn}</ul></section>
 <section><h2>Parámetros</h2><table>{params}</table></section>
 <footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version} —
@@ -989,6 +1020,7 @@ Jorge Fallas (jfallas56@gmail.com)</footer></div></body></html>""".format(
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
         rule=_h.escape(CUT_RULE_LABELS.get(prm.get("regla_corte"), str(prm.get("regla_corte")))),
+        op=(" · Operador: " + _h.escape(str(prm["operador"]))) if prm.get("operador") else "",
         nok=s["parcelas_con_resultado"], nplan=(" de {}".format(s["parcelas_planificadas"]) if s.get("parcelas_planificadas") else ""),
         fv=s["fotos_validas"], ft=s["fotos_total"], plots=plot_rows, photos=photo_rows, warn=warn,
         params=params)

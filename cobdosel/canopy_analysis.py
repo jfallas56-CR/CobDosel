@@ -153,7 +153,7 @@ def sky_uniformity_warning(value):
     if value is None or value <= SKY_UNIFORMITY_LIMIT:
         return ""
     return ("cielo no uniforme (rango de brillo del cielo {:.0f} > {:.0f}: nubes de distinto brillo, cielo azul, "
-            "sol o resplandor): fuera del protocolo de campo; repita la foto o exclúyala").format(
+            "sol o resplandor): fuera del protocolo de campo — repita la foto o exclúyala").format(
                 value, SKY_UNIFORMITY_LIMIT)
 
 
