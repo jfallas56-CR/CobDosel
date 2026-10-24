@@ -34,6 +34,7 @@ check heic_v01439        python3 tests/test_heic_v01439.py . "$OUT/heic"
 check glama_cmp_v01441   python3 tests/test_glama_cmp_v01441.py . "$OUT/glama_cmp" "$QT" ${COBDOSEL_FOTOS:-}
 check v01442             python3 tests/test_v01442.py . "$OUT/v01442" "$QT" ${COBDOSEL_FOTOS_CIELO:-}
 check v01443             python3 tests/test_v01443.py . "$OUT/v01443" "$QT"
+check v01444             python3 tests/test_v01444.py . "$OUT/v01444" "$QT"
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>;
 # COBDOSEL_FOTOS_CIELO=<carpeta> con las 14 fotos de la prueba de uniformidad del cielo (v0.14.42)

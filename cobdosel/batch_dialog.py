@@ -521,6 +521,15 @@ class CobDoselBatchDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Calibración", str(e))
             return
+        # v0.14.44: la calibración debe ser de la cámara de las fotos; se comprueba antes de procesar
+        self._precheck_note = None
+        pick = self._check_calibration_camera(folder, name, cal)
+        if pick is None:
+            return
+        if pick != name:
+            name = pick
+            self.cal_combo.setCurrentIndex(self.cal_combo.findData(name))
+            cal = load_calibration(name)
         height = self.height_spin.value()
         try:
             decisions = bc.load_decisions(folder)
@@ -529,6 +538,8 @@ class CobDoselBatchDialog(QDialog):
             self._log("No se pudieron leer las decisiones de revisión guardadas: {}".format(e), "WARN")
         self._last_cal = cal
         self.out.clear()
+        if self._precheck_note:
+            self._log(*self._precheck_note)
         self.progress.setValue(0)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -549,6 +560,8 @@ class CobDoselBatchDialog(QDialog):
             self.batch["parametros"]["sitio"] = self.site_edit.text().strip()
             self.batch["parametros"]["area_ha"] = self.area_spin.value() or None
             self.batch["parametros"]["operador"] = self.operator_edit.text().strip()
+            if self._precheck_note:                  # v0.14.44: queda en los avisos del sitio (panel, informe)
+                self.batch["avisos"].insert(0, self._precheck_note[0])
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Error en el lote", str(e))
@@ -566,6 +579,47 @@ class CobDoselBatchDialog(QDialog):
                 self, "Revisión de cortes",
                 "{} foto(s) necesitan revisión visual del corte (el método automático no se pudo comprobar).\n\n"
                 "Pulse «Revisar cortes…». Mientras tanto el resultado del sitio es provisional.".format(pend))
+
+    def _check_calibration_camera(self, folder, name, cal):
+        """
+        v0.14.44: compara la cámara de la calibración con las fotos de la carpeta antes de procesar. Si hay fotos
+        de otra cámara/lente, pregunta: usar una calibración guardada que coincida (si la hay), procesar igual
+        (esas fotos se excluyen) o cancelar. Devuelve el nombre de la calibración a usar, o None para cancelar.
+        """
+        saved = []
+        for n, _p in list_calibrations():
+            if n == name:
+                continue
+            try:
+                saved.append((n, load_calibration(n)))
+            except Exception:
+                continue
+        chk = bc.calibration_camera_check(folder, cal, saved)
+        if not chk["checked"] or not chk["mismatch"]:
+            return name
+        others = "\n".join("• {}: {} foto(s)".format(lbl, n) for lbl, n, st in chk["groups"] if st is False)
+        txt = ("{} de {} fotos de la carpeta son de otra cámara o lente que la calibración «{}» ({}):\n{}\n\n"
+               "Con esta calibración, esas fotos se excluyen del resultado.").format(
+                   chk["mismatch"], chk["total"], name, chk["cal_label"], others)
+        if chk["matches"]:
+            txt += ("\n\nCalibración guardada de esa cámara: «{}».\n\nSí: usar «{}».\nNo: procesar con «{}» "
+                    "(se excluyen esas fotos).\nCancelar: no procesar.").format(
+                        "», «".join(chk["matches"]), chk["matches"][0], name)
+            buttons = (QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No |
+                       QMessageBox.StandardButton.Cancel)
+        else:
+            txt += ("\n\nNo hay una calibración guardada de esa cámara: calíbrela en la ventana principal (círculo de "
+                    "referencia) y guárdela.\n\nNo: procesar igual (se excluyen esas fotos).\nCancelar: no procesar.")
+            buttons = QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+        ans = QMessageBox.question(self, "Calibración de otra cámara", txt, buttons)
+        if ans == QMessageBox.StandardButton.Yes and chk["matches"]:
+            self._precheck_note = ("Calibración cambiada a «{}» (cámara de las fotos).".format(chk["matches"][0]), "INFO")
+            return chk["matches"][0]
+        if ans == QMessageBox.StandardButton.No:
+            self._precheck_note = ("Se procesa con «{}»: {} foto(s) de otra cámara se excluyen.".format(
+                name, chk["mismatch"]), "WARN")
+            return name
+        return None
 
     def _on_review(self):
         if not self.batch:

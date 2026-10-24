@@ -384,6 +384,39 @@ def camera_groups(photos):
     return out
 
 
+def calibration_camera_check(photo_folder, calibration, saved=None):
+    """
+    v0.14.44: antes de procesar, compara la cámara de la calibración con las cámaras de las fotos de la carpeta.
+    saved: lista opcional de (nombre, calibración) guardadas, para proponer una que coincida.
+    Devuelve dict: total (fotos), mismatch (fotos de otra cámara/lente), unverified (fotos sin EXIF
+    comparable), cal_label, groups [(etiqueta, n, estado)], matches [nombres que coinciden con la cámara
+    mayoritaria de las fotos de otra cámara], checked (False si la calibración no registra la cámara).
+    """
+    photos = scan_photos(photo_folder)
+    cal_cam = calibration.get("camera") or (calibration.get("measurement") or {}).get("camera")
+    if cal_cam and not (cal_cam.get("model") or cal_cam.get("focal_length_mm") or cal_cam.get("focal_length_35mm")):
+        cal_cam = None
+    out = {"total": len(photos), "mismatch": 0, "unverified": 0, "groups": [], "matches": [],
+           "cal_label": camera_label(cal_cam) if cal_cam else "no registrada", "checked": bool(cal_cam)}
+    if not cal_cam:
+        return out
+    other = None
+    for label, n, cam in camera_groups(photos):
+        state = compare_cameras(cal_cam, cam)[0]
+        out["groups"].append((label, n, state))
+        if state is False:
+            out["mismatch"] += n
+            other = other or cam
+        elif state is None:
+            out["unverified"] += n
+    if other is not None:
+        for name, cal in (saved or []):
+            cam2 = cal.get("camera") or (cal.get("measurement") or {}).get("camera")
+            if cam2 and compare_cameras(cam2, other)[0] is True:
+                out["matches"].append(name)
+    return out
+
+
 def match_photos(rows, photos, tolerance_s=DEFAULT_TOLERANCE_S, clock_offset_s=0.0):
     """
     Empareja cada fila del formulario con una foto: primero por ID (nombre de archivo, sin
