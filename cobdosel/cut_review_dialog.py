@@ -3,7 +3,8 @@
 Revisión visual del nivel de corte de cada foto, como la pantalla de nivel de corte de GLAMA: foto con
 el cielo en naranja y la zona enmascarada en verde azulado, zoom con la rueda del ratón, histograma con
 el corte, control deslizante y CaCo aproximado en vivo. El operador acepta, ajusta o excluye cada
-foto; las decisiones se devuelven para guardarlas junto a las fotos (CobDosel_revision_cortes.json).
+foto. Desde v0.14.42 cada decisión se guarda al momento junto a las fotos (CobDosel_revision_cortes.json),
+y al dejar una foto con un corte cambiado sin aceptar se pregunta qué hacer.
 
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
@@ -22,6 +23,8 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from .ui_keys import disable_enter_buttons
+from ._version import VERSION
+from . import batch_core as bc
 from .exif_gps import load_oriented_rgb_image
 from .lens_calibration import scale_calibration_to_image
 from .canopy_analysis import extract_channel, compute_radius_grid, compute_zenith_grid, threshold_image
@@ -199,7 +202,7 @@ class CutReviewDialog(QDialog):
         super().showEvent(event)
 
     def __init__(self, items, folder, calibration, channel_mode, decisions=None, sky_is_bright=True,
-                 operator="", parent=None, title_suffix=""):
+                 operator="", parent=None, title_suffix="", autosave=True):
         """
         items: fotos del lote (dicts con archivo, parcela, punto, corte, corte_auto, revisar,
         motivo_revision, cenit_max, decision). decisions: decisiones previas {archivo: {...}}.
@@ -207,6 +210,13 @@ class CutReviewDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("CobDosel — Revisar cortes" + title_suffix)
         self.resize(1100, 860)
+        self.setMinimumSize(560, 480)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
+        self.setSizeGripEnabled(True)
+        self.autosave = autosave
+        self.changed = False            # alguna decisión registrada en esta sesión
+        self.save_error = ""
+        self._loaded_cut = None
         self.items = [it for it in items if it.get("archivo") and it.get("cenit_max") is not None]
         self.folder = folder
         self.calibration = calibration
@@ -255,6 +265,15 @@ class CutReviewDialog(QDialog):
         zr.addWidget(self.zoom_spin)
         zr.addWidget(QLabel("(rueda = zoom · arrastrar = mover · clic derecho y arrastrar = ampliar zona)"))
         zr.addStretch(1)
+        zr.addWidget(QLabel("Opacidad:"))
+        self.opacity_spin = QSpinBox()
+        self.opacity_spin.setRange(0, 100)
+        self.opacity_spin.setValue(int(round(SKY_OVERLAY_DEFAULT_ALPHA * 100)))
+        self.opacity_spin.setSuffix(" %")
+        self.opacity_spin.setToolTip("Opacidad del naranja (cielo). Todo el naranja, claro u oscuro, es cielo: el tono es\n"
+                                     "la foto que se ve a través. Con 100 % la vista es un mapa de dos colores.")
+        self.opacity_spin.valueChanged.connect(lambda _v: self._timer.start())
+        zr.addWidget(self.opacity_spin)
         self.caco_label = QLabel("")
         zr.addWidget(self.caco_label)
         lay.addLayout(zr)
@@ -298,6 +317,12 @@ class CutReviewDialog(QDialog):
         for b in (self.prev_btn, self.reset_btn, self.accept_btn, self.exclude_btn, self.next_btn):
             br.addWidget(b)
         lay.addLayout(br)
+        hint = QLabel("El corte de una foto se aplica con «Aceptar corte» y se guarda al momento. Al pasar a otra foto "
+                      "con un corte cambiado sin aceptar, CobDosel pregunta. «Terminar y recalcular» actualiza los "
+                      "resultados del sitio.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #555;")
+        lay.addWidget(hint)
         fr = QHBoxLayout()
         self.accept_all_btn = QPushButton("Aceptar todas las automáticas sin revisar")
         self.accept_all_btn.setToolTip("Registra como «revisadas sin cambio» las fotos con corte automático válido "
@@ -307,7 +332,8 @@ class CutReviewDialog(QDialog):
         fr.addStretch(1)
         self.done_btn = QPushButton("Terminar y recalcular")
         self.done_btn.clicked.connect(self._on_done)
-        cancel = QPushButton("Cancelar")
+        cancel = QPushButton("Cerrar")
+        cancel.setToolTip("Cierra la ventana. Las decisiones aceptadas ya están guardadas y el sitio se recalcula con ellas.")
         cancel.clicked.connect(self.reject)
         fr.addWidget(self.done_btn)
         fr.addWidget(cancel)
@@ -337,10 +363,33 @@ class CutReviewDialog(QDialog):
 
     def _on_filter(self, *_a):
         vis = self._visible_indices()
-        if vis and self.idx not in vis:
+        if vis and self.idx not in vis and self._confirm_leave():
             self._load(vis[0])
 
+    def _has_unaccepted(self):
+        return self._loaded_cut is not None and int(self.spin.value()) != int(self._loaded_cut)
+
+    def _confirm_leave(self):
+        """v0.14.42: corte cambiado sin aceptar → aceptar, descartar o quedarse. True si se puede salir."""
+        if not self._has_unaccepted() or not self.items:
+            return True
+        cut = int(self.spin.value())
+        ans = QMessageBox.question(
+            self, "Corte sin aceptar",
+            "Cambió el corte de esta foto a {} pero no lo aceptó.\n\n"
+            "Guardar: acepta el corte {} y sigue.\nDescartar: deja el corte anterior ({}).\n"
+            "Cancelar: vuelve a la foto.".format(cut, cut, self._loaded_cut),
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel)
+        if ans == QMessageBox.StandardButton.Cancel:
+            return False
+        if ans == QMessageBox.StandardButton.Save:
+            it = self.items[self.idx]
+            self._record("aceptado" if it.get("corte_auto") == cut else "ajustado", cut)
+        return True
+
     def _move(self, step):
+        if not self._confirm_leave():
+            return
         vis = self._visible_indices()
         if not vis:
             return
@@ -386,6 +435,7 @@ class CutReviewDialog(QDialog):
                        "zmax": float(it["cenit_max"])}
         dec = self.decisions.get(it["archivo"])
         cut = int(dec["corte"]) if dec and dec.get("corte") else int(it.get("corte_auto") or it.get("corte") or 128)
+        self._loaded_cut = cut
         self.note_edit.setText(dec.get("nota", "") if dec else "")
         self.spin.blockSignals(True)
         self.slider.blockSignals(True)
@@ -408,7 +458,7 @@ class CutReviewDialog(QDialog):
         sky = threshold_image(k["gray"], cut, sky_is_bright=self.sky_is_bright) & k["inside"]
         out = k["base"].copy()
         col = np.array(SKY_OVERLAY_DEFAULT_COLOR, np.float32)
-        a = SKY_OVERLAY_DEFAULT_ALPHA
+        a = self.opacity_spin.value() / 100.0
         out[sky] = out[sky] * (1 - a) + col * a
         self.view.set_pixmap(QPixmap.fromImage(_qimage_from_rgb(np.clip(out, 0, 255))), keep_view=not fit)
         auto = self.items[self.idx].get("corte_auto")
@@ -433,6 +483,19 @@ class CutReviewDialog(QDialog):
             "parcela": it.get("parcela"), "punto": it.get("punto"),
             "fecha": datetime.datetime.now().isoformat(timespec="seconds"),
         }
+        self._after_change()
+
+    def _after_change(self):
+        """v0.14.42: cada decisión se guarda al momento (cerrar la ventana ya no la pierde)."""
+        self.changed = True
+        if not self.autosave:
+            return
+        try:
+            bc.save_decisions(self.folder, self.decisions, VERSION)
+            self.save_error = ""
+        except Exception as e:      # el guardado no debe impedir la revisión
+            self.save_error = str(e)
+            QMessageBox.warning(self, "Revisión", "No se pudo guardar la decisión: {}".format(e))
 
     def _on_accept(self):
         it = self.items[self.idx]
@@ -448,7 +511,8 @@ class CutReviewDialog(QDialog):
 
     def _on_reset(self):
         it = self.items[self.idx]
-        self.decisions.pop(it["archivo"], None)
+        if self.decisions.pop(it["archivo"], None) is not None:
+            self._after_change()
         self._load(self.idx)
 
     def _advance_to_next_pending(self):
@@ -479,6 +543,8 @@ class CutReviewDialog(QDialog):
         return sum(1 for it in self.items if self._pending(it))
 
     def _on_done(self):
+        if not self._confirm_leave():
+            return
         n = self.pending_count()
         if n:
             ans = QMessageBox.question(
@@ -489,6 +555,19 @@ class CutReviewDialog(QDialog):
             if ans != QMessageBox.StandardButton.Yes:
                 return
         self.accept()
+
+    def reject(self):
+        """Cerrar (botón, X o Esc): pregunta por un corte cambiado sin aceptar."""
+        if not self._confirm_leave():
+            return
+        super().reject()
+
+    def closeEvent(self, event):  # noqa: N802 (API de Qt)
+        if not self._confirm_leave():
+            event.ignore()
+            return
+        self._loaded_cut = None       # ya se preguntó; reject() no vuelve a preguntar
+        super().closeEvent(event)
 
     def get_decisions(self):
         return {k: dict(v) for k, v in self.decisions.items()}

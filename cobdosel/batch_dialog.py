@@ -20,7 +20,7 @@ from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton, QLineEdit, QComboBox,
     QSpinBox, QDoubleSpinBox, QGroupBox, QFileDialog, QMessageBox, QProgressBar, QTextEdit,
-    QApplication, QRadioButton, QInputDialog,
+    QApplication, QRadioButton, QInputDialog, QScrollArea, QSplitter, QWidget,
 )
 from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsField
 
@@ -66,6 +66,7 @@ class CobDoselBatchDialog(QDialog):
         self.setWindowTitle("CobDosel v{} — Procesamiento por sitio (lote)".format(VERSION))
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
         self.resize(900, 760)
+        self.setMinimumSize(480, 360)          # v0.14.42: se puede achicar; el contenido se desplaza
         self.setSizeGripEnabled(True)
         self._build()
         self._refresh_calibrations()
@@ -74,13 +75,18 @@ class CobDoselBatchDialog(QDialog):
 
     # ------------------------------------------------------------------
     def _build(self):
-        lay = QVBoxLayout(self)
+        # v0.14.42: ventana redimensionable en ambos sentidos: la configuración va en un área con barras
+        # de desplazamiento y un divisor la separa del registro.
+        outer = QVBoxLayout(self)
+        top_w = QWidget()
+        lay = QVBoxLayout(top_w)
+        lay.setContentsMargins(0, 0, 0, 0)
 
         g1 = QGroupBox("1. Datos del sitio")
         f1 = QFormLayout(g1)
         self.site_edit = QLineEdit()
-        self.site_edit.setPlaceholderText("Nombre o código del sitio")
-        f1.addRow("Sitio:", self.site_edit)
+        self.site_edit.setPlaceholderText("Nombre o código del sitio (aparece en el informe y en los archivos)")
+        f1.addRow("Nombre del sitio:", self.site_edit)
         self.folder_edit = QLineEdit()
         b = QPushButton("Examinar…")
         b.clicked.connect(self._pick_folder)
@@ -104,13 +110,25 @@ class CobDoselBatchDialog(QDialog):
             "hora ya escritos) y asigna parcela y punto por orden. Revíselo antes de procesar.")
         b_draft.clicked.connect(self._draft_form)
         r2.addWidget(b_draft)
-        f1.addRow("Formulario de fotos (CSV / Excel):", r2)
+        self.form_edit.setPlaceholderText("(opcional) sin formulario, parcela y punto se asignan por orden de hora")
+        self.form_edit.setToolTip(
+            "Formulario de fotos (CSV o Excel), opcional. Con formulario, cada foto se empareja por su ID o su\n"
+            "hora con la parcela y el punto anotados, y se aplican las calidades («sol directo», «movida»…).\n"
+            "Sin formulario, las fotos se ordenan por hora y se asignan a parcelas de «Fotos por parcela» fotos.")
+        f1.addRow("Formulario de fotos (opcional):", r2)
+        self.per_plot_spin = QSpinBox()
+        self.per_plot_spin.setRange(1, 50)
+        self.per_plot_spin.setValue(5)
+        self.per_plot_spin.setToolTip("Sin formulario: número de fotos por parcela (5 = Centro, N-O, N-E, S-E, S-O),\n"
+                                      "asignadas por orden de hora. Con formulario no se usa.")
+        f1.addRow("Fotos por parcela (sin formulario):", self.per_plot_spin)
         self.planned_spin = QSpinBox()
         self.planned_spin.setRange(0, 999)
         self.planned_spin.setValue(0)
-        self.planned_spin.setSpecialValueText("— indique —")
-        self.planned_spin.setToolTip("Número de parcelas planificadas para el sitio (depende del área).")
-        f1.addRow("N.º de parcelas planificadas:", self.planned_spin)
+        self.planned_spin.setSpecialValueText("(opcional)")
+        self.planned_spin.setToolTip("Número de parcelas del sitio, opcional. Si se indica, el resultado dice cuántas\n"
+                                     "tienen resultado de ese total (sitio completo o incompleto).")
+        f1.addRow("Número de parcelas:", self.planned_spin)
         self.area_spin = QDoubleSpinBox()
         self.area_spin.setRange(0.0, 100000.0)
         self.area_spin.setDecimals(2)
@@ -237,6 +255,21 @@ class CobDoselBatchDialog(QDialog):
         f3.addRow("Campo ID de parcela:", self.field_combo)
         self._fill_layers()
         lay.addWidget(g3)
+        lay.addStretch(1)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(top_w)
+        scroll.setMinimumHeight(120)
+        bottom_w = QWidget()
+        lay = QVBoxLayout(bottom_w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.addWidget(scroll)
+        self.splitter.addWidget(bottom_w)
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 2)
+        self.splitter.setChildrenCollapsible(False)
+        outer.addWidget(self.splitter, 1)
 
         rb = QHBoxLayout()
         self.run_btn = QPushButton("▶ Procesar sitio")
@@ -269,10 +302,11 @@ class CobDoselBatchDialog(QDialog):
         self.out = QTextEdit()
         self.out.setReadOnly(True)
         self.out.setStyleSheet("font-family: monospace;")
+        self.out.setMinimumHeight(60)
         lay.addWidget(self.out, 1)
         close = QPushButton("Cerrar")
         close.clicked.connect(self.close)
-        lay.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
+        outer.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
 
     # ------------------------------------------------------------------
     def _pick_folder(self):
@@ -466,11 +500,12 @@ class CobDoselBatchDialog(QDialog):
     def _on_run(self):
         folder = self.folder_edit.text().strip()
         form = self.form_edit.text().strip()
-        if not os.path.isdir(folder) or not os.path.isfile(form):
-            QMessageBox.warning(self, "Datos incompletos", "Indique la carpeta de fotos y el formulario.")
+        if not os.path.isdir(folder):
+            QMessageBox.warning(self, "Datos incompletos", "Indique la carpeta de fotos.")
             return
-        if self.planned_spin.value() < 1:
-            QMessageBox.warning(self, "Parcelas planificadas", "Indique el número de parcelas planificadas.")
+        if form and not os.path.isfile(form):
+            QMessageBox.warning(self, "Formulario de fotos", "No se encuentra el formulario:\n{}\n\n"
+                                "Corrija la ruta o déjela vacía para asignar las fotos por orden de hora.".format(form))
             return
         name = self.cal_combo.currentData()
         if not name:
@@ -493,7 +528,7 @@ class CobDoselBatchDialog(QDialog):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             self.batch = bc.run_batch(
-                folder, form, cal, self.planned_spin.value(),
+                folder, form or None, cal, self.planned_spin.value() or None,
                 mask_mode="height" if self.mask_height_radio.isChecked() else "fixed",
                 canopy_height_m=height, camera_height_m=self.cam_spin.value(),
                 canopy_group=self.group_combo.currentData(),
@@ -502,7 +537,7 @@ class CobDoselBatchDialog(QDialog):
                 tolerance_s=self.tol_spin.value(), clock_offset_s=self.offset_spin.value(),
                 progress=lambda i, n: (self.progress.setValue(int(100 * i / max(n, 1))),
                                        QApplication.processEvents()),
-                log=self._log, decisions=decisions)
+                log=self._log, decisions=decisions, photos_per_plot=self.per_plot_spin.value())
             self.batch["parametros"]["calibracion"] = name
             self.batch["parametros"]["revision_cortes"] = (
                 "{} decisiones ({})".format(len(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
@@ -539,9 +574,12 @@ class CobDoselBatchDialog(QDialog):
         dlg = CutReviewDialog(items, folder, self._last_cal, self.channel_combo.currentData(), previous,
                               operator=getattr(self, "_operator", ""), parent=self,
                               title_suffix=" — " + (self.site_edit.text().strip() or os.path.basename(folder)))
-        if not _exec(dlg):
-            return
+        accepted = bool(_exec(dlg))
         self._operator = dlg.operator()
+        # v0.14.42: las decisiones se guardan al aceptarlas; al cerrar sin «Terminar y recalcular» también se
+        # recalcula si hubo cambios, para que los resultados coincidan con el archivo de decisiones.
+        if not accepted and not dlg.changed:
+            return
         try:
             path = bc.save_decisions(folder, dlg.get_decisions(), VERSION)
         except Exception as e:
@@ -556,8 +594,10 @@ class CobDoselBatchDialog(QDialog):
         lines = ["SITIO: {}".format(self.site_edit.text().strip() or "—"),
                  "Cobertura del dosel del sitio (media de parcelas, CaCo): {} %".format(
                      fmt_num(s["caco_sitio"]) if s["caco_sitio"] is not None else "—"),
-                 "Parcelas con resultado: {} de {} planificadas · fotos válidas {} de {}".format(
-                     s["parcelas_con_resultado"], s["parcelas_planificadas"], s["fotos_validas"], s["fotos_total"]),
+                 "Parcelas con resultado: {}{} · fotos válidas {} de {}".format(
+                     s["parcelas_con_resultado"],
+                     " de {}".format(s["parcelas_planificadas"]) if s.get("parcelas_planificadas") else "",
+                     s["fotos_validas"], s["fotos_total"]),
                  "Nivel de corte: " + (s.get("revision") or "—"),
                  "", "PARCELAS:"]
         if s.get("pendientes_revision"):

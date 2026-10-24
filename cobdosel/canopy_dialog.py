@@ -113,6 +113,8 @@ from .canopy_analysis import (
     compute_effective_lai,
     compute_radius_grid,
     compute_zenith_grid,
+    sky_uniformity_range,
+    sky_uniformity_warning,
     LAI_DEFAULT_ZENITH_MAX_DEG,
     LAI_MIN_RELIABLE_ZENITH_DEG,
     HAS_SCIPY,
@@ -2564,6 +2566,13 @@ class CobDoselDialog(QDialog):
                 )
                 del az_grid
 
+            # v0.14.42: uniformidad del cielo en el área analizada (aviso informativo)
+            sky_range = None
+            if self.sky_bright_check.isChecked():
+                area_u = valid_cover & (zenith_deg <= float(self.zenith_max.value()) + 1e-6)
+                sky_range = sky_uniformity_range(self.gray_array, sky_mask & area_u, area_u)
+                del area_u
+
             self.progress.setValue(50)
             QApplication.processEvents()
 
@@ -2692,6 +2701,14 @@ class CobDoselDialog(QDialog):
                         "(ver manual).").format(mask_zen, circle_visible_pct)
                 self._log(wmsg, "WARN")
 
+            sky_warn = sky_uniformity_warning(sky_range)
+            if sky_warn:
+                wmsg = sky_warn[0].upper() + sky_warn[1:] + "."
+                report_warnings.append(wmsg)
+                self._log(wmsg, "WARN")
+            elif sky_range is not None:
+                self._log("Cielo uniforme (rango de brillo del cielo {:.0f}).".format(sky_range))
+
             # Misma cámara/lente que la calibración (la resolución puede diferir)
             photo_cam = self._current_camera()
             cam_ok, cam_why = compare_cameras(self.calibration.get("camera"), photo_cam)
@@ -2793,6 +2810,7 @@ class CobDoselDialog(QDialog):
                 "horizon_angles": horizon_angles,
                 "zenith_frame_max_deg": zen_frame_max,
                 "circle_visible_pct": circle_visible_pct,
+                "sky_uniformity_range": sky_range,
                 "sectors": sectors,
                 "n_sectors": n_sectors,
                 "glama_geometry": glama_geometry,

@@ -32,8 +32,10 @@ check hechos_v01438      python3 tests/test_hechos_v01438.py .
 check teclado_v01439     python3 tests/test_teclado_v01439.py . "$OUT/teclado" "$QT"
 check heic_v01439        python3 tests/test_heic_v01439.py . "$OUT/heic"
 check glama_cmp_v01441   python3 tests/test_glama_cmp_v01441.py . "$OUT/glama_cmp" "$QT" ${COBDOSEL_FOTOS:-}
+check v01442             python3 tests/test_v01442.py . "$OUT/v01442" "$QT" ${COBDOSEL_FOTOS_CIELO:-}
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
-# Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>
+# Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>;
+# COBDOSEL_FOTOS_CIELO=<carpeta> con las 14 fotos de la prueba de uniformidad del cielo (v0.14.42)
 if [ -n "${COBDOSEL_FOTOS:-}" ]; then
   check area_v01435        python3 tests/test_area_v01435.py . "$OUT/area" "$QT" "$COBDOSEL_FOTOS"
   check consistencia_v01423 python3 tests/consistency_v01423.py . "$OUT/consistencia" "$QT" "$COBDOSEL_FOTOS"

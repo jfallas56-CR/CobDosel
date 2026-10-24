@@ -544,7 +544,7 @@ def glama_cut_diagnosis(histogram, start=None):
         res["reasons"].append("casi sin cielo ({:.2f} % de píxeles claros)".format(sky_pct))
     if 100.0 - sky_pct < CUT_MIN_CLASS_PCT:
         res["reasons"].append("casi sin dosel ({:.2f} % de píxeles oscuros)".format(100.0 - sky_pct))
-    disagree = []
+    disagree, sky_split = [], []
     for s0 in CUT_CHECK_STARTS:
         c2 = glama_cut_iterated_hist(hist, s0)
         res["starts"][s0] = c2
@@ -554,8 +554,18 @@ def glama_cut_diagnosis(histogram, start=None):
         degenerate = not (d2["dark_peak"] is not None and d2["bright_peak"] is not None
                           and d2["dark_peak"] < c2 < d2["bright_peak"])
         if not degenerate and abs(c2 - cut) > CUT_STABILITY_UNITS:
-            disagree.append("{}→{}".format(s0, c2))
+            # v0.14.42: si el otro corte está por encima y su modo oscuro también, separa dos brillos de lo
+            # que el corte ya llama cielo (nubes grises y blancas, cielo azul, sol): la foto sigue «a
+            # revisar», pero el motivo dice qué ocurre.
+            if c2 > cut and d2["dark_peak"] >= cut:
+                sky_split.append("{}→{}".format(s0, c2))
+            else:
+                disagree.append("{}→{}".format(s0, c2))
     if disagree:
         res["reasons"].append("otro punto de partida da otro corte ({})".format(", ".join(disagree)))
+    if sky_split:
+        res["reasons"].append(
+            "otro punto de partida da otro corte ({}) que separa dos brillos del cielo (nubes de distinto brillo, "
+            "cielo azul o sol): revise si la foto cumple el protocolo de campo".format(", ".join(sky_split)))
     res["ok"] = not res["reasons"]
     return res

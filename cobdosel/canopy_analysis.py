@@ -111,6 +111,52 @@ CHANNEL_LABELS = dict(CHANNEL_MODES)
 # ======================================================================
 # Umbralización
 # ======================================================================
+# Uniformidad del cielo (v0.14.42). Rango de brillo (percentil 95 − percentil 5) de los píxeles de
+# cielo alejados de los bordes del dosel: el cielo se erosiona con una ventana cuadrada de radio
+# SKY_CORE_FRAC × lado menor (≈ 9 px en 4000 × 3000) para quitar los píxeles mixtos de ramillas y
+# bordes de hojas, que inflan el rango aunque el cielo sea uniforme. Con cielo nublado uniforme el
+# rango fue 1–33 (7 fotos); con sol, resplandor o nubes de distinto brillo, 65–110 (7 fotos fuera del
+# protocolo; Pixel 10, un tipo de bosque). Límite provisional: 50. Sin núcleo suficiente (dosel muy cerrado) no se calcula.
+SKY_CORE_FRAC = 0.003
+SKY_CORE_MIN_FRAC = 0.002          # núcleo mínimo: 0,2 % del área analizada
+SKY_UNIFORMITY_LIMIT = 50.0
+
+
+def _erode_box(mask, r):
+    """Erosión binaria con ventana cuadrada (2r+1)² por imagen integral (sin scipy)."""
+    m = np.pad(mask.astype(np.int32), r + 1)
+    ii = m.cumsum(0).cumsum(1)
+    k = 2 * r + 1
+    s = ii[k:, k:] - ii[:-k, k:] - ii[k:, :-k] + ii[:-k, :-k]
+    return s[:mask.shape[0], :mask.shape[1]] == k * k
+
+
+def sky_uniformity_range(gray_image, sky_mask, area_mask=None):
+    """
+    Rango de brillo (P95 − P5) del núcleo del cielo, o None si el núcleo es muy pequeño.
+    gray_image: canal usado para el corte; sky_mask: píxeles clasificados como cielo dentro del área
+    analizada; area_mask: área analizada (para el tamaño mínimo del núcleo).
+    """
+    h, w = gray_image.shape[:2]
+    r = max(1, int(round(SKY_CORE_FRAC * min(h, w))))
+    core = _erode_box(np.asarray(sky_mask, bool), r)
+    n_area = int(np.count_nonzero(area_mask)) if area_mask is not None else h * w
+    v = gray_image[core]
+    if v.size < max(50, SKY_CORE_MIN_FRAC * n_area):
+        return None
+    p5, p95 = np.percentile(v, [5, 95])
+    return float(p95 - p5)
+
+
+def sky_uniformity_warning(value):
+    """Texto del aviso si el cielo no es uniforme, o "" si no hay aviso."""
+    if value is None or value <= SKY_UNIFORMITY_LIMIT:
+        return ""
+    return ("cielo no uniforme (rango de brillo del cielo {:.0f} > {:.0f}: nubes de distinto brillo, cielo azul, "
+            "sol o resplandor): fuera del protocolo de campo; repita la foto o exclúyala").format(
+                value, SKY_UNIFORMITY_LIMIT)
+
+
 def compute_otsu_threshold(gray_image, valid_mask=None):
     """Umbral de Otsu vectorizado en NumPy. Rápido (<200 ms en 5 MP)."""
     if valid_mask is not None:

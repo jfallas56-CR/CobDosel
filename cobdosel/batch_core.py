@@ -8,8 +8,9 @@ Diseño de ejemplo (cualquier diseño sirve: el formulario indica parcela y punt
 - valor del sitio = media de las medias de parcela (Índice CaCo).
 
 Entradas: carpeta de fotos (nombres de la cámara), formulario de campo digital (CSV o Excel con las
-columnas de la plantilla), calibración guardada, máscara de horizonte (fija, 63° por defecto, el estándar
-de CobDosel; Tichý 2016 usó 60°; u opcionalmente desde una altura del dosel del sitio) y el número de parcelas planificadas.
+columnas de la plantilla; opcional desde v0.14.42: sin formulario, parcela y punto se asignan por orden de
+hora), calibración guardada, máscara de horizonte (fija, 63° por defecto, el estándar de CobDosel; Tichý 2016
+usó 60°; u opcionalmente desde una altura del dosel del sitio) y, opcionalmente, el número de parcelas.
 El protocolo no mide alturas: los árboles se asignan a grupos de dosel (CANOPY_GROUPS). El nivel de corte de cada foto es el recomendado
 (cruce de dos log-normales, método de la app GLAMA; iterado hasta estabilizarse desde 128); si no hay
 recomendación se usa Otsu.
@@ -32,7 +33,7 @@ from .camera_check import camera_fingerprint, camera_label, camera_group_key, co
 from .lens_calibration import scale_calibration_to_image, zenith_to_pixel_radius
 from .canopy_analysis import (
     extract_channel, threshold_image, compute_otsu_threshold, compute_radius_grid,
-    compute_zenith_grid, analysis_circle_visibility,
+    compute_zenith_grid, analysis_circle_visibility, sky_uniformity_range, sky_uniformity_warning,
 )
 from .glama_engine import (  # noqa: F401  (glama_cut_iterated se reexporta por compatibilidad)
     glama_ring_counts, glama_ring_counts_with_gray, glama_indices, glama_recommended_cut,
@@ -521,6 +522,12 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
         if revisar:
             warns.append("revisar el corte: " + "; ".join(diag["reasons"]))
     sky = threshold_image(gray, t, sky_is_bright=sky_is_bright)
+    # v0.14.42: uniformidad del cielo (aviso informativo; no marca la foto «a revisar»)
+    area = compute_zenith_grid(compute_radius_grid((h, w), c), cal) <= zenith_max_deg
+    sky_range = sky_uniformity_range(gray, sky & area, area) if sky_is_bright else None
+    sky_warn = sky_uniformity_warning(sky_range)
+    if sky_warn:
+        warns.append(sky_warn)
     counts = glama_ring_counts(sky, c, R, zenith_max_deg, calibration=cal, projection=proj)
     idx = glama_indices(counts, calibration=cal, radius_px=R)
     try:
@@ -542,6 +549,7 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
         "motivo_revision": "; ".join(diag["reasons"]) if not diag["ok"] else "",
         "inicios": "; ".join("{}→{}".format(k, v) for k, v in diag.get("starts", {}).items()),
         "visible_pct": vis,
+        "cielo_rango": sky_range,
         "ancho": w, "alto": h, "original": orig,
         "avisos": warns,
     }
@@ -550,17 +558,38 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
 # ----------------------------------------------------------------------
 # Lote completo
 # ----------------------------------------------------------------------
+def _auto_form_rows(photo_folder, photos_per_plot=5):
+    """Filas del formulario creadas desde las fotos (orden de hora), sin archivo. Devuelve (filas, avisos)."""
+    import tempfile
+    fd, tmp = tempfile.mkstemp(suffix=".csv", prefix="cobdosel_form_")
+    os.close(fd)
+    try:
+        _p, nph, warns = draft_form_from_photos(photo_folder, tmp, photos_per_plot)
+        rows, w2 = read_field_form(tmp)
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+    n = max(1, int(photos_per_plot))
+    msg = ("Sin formulario de fotos: {} fotos asignadas por orden de hora a {} parcelas de {} fotos. Verifique la "
+           "asignación (o use un formulario).".format(nph, -(-nph // n), n))
+    return rows, [msg] + warns + w2
+
+
 def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fixed",
               canopy_height_m=None, camera_height_m=DEFAULT_CAMERA_HEIGHT_M,
               footprint_radius_m=DEFAULT_FOOTPRINT_M, fixed_mask_deg=DEFAULT_MASK_DEG, channel_mode="blue_red",
               sky_is_bright=True, cut_rule="glama", fixed_cut=None,
               tolerance_s=DEFAULT_TOLERANCE_S, clock_offset_s=0.0, progress=None, log=None,
-              canopy_group=None, decisions=None):
+              canopy_group=None, decisions=None, photos_per_plot=5):
     """
     Ejecuta el lote. mask_mode: «fixed» (fixed_mask_deg sobre el horizonte; 63° por defecto) o
     «height» (máscara desde canopy_height_m, una altura de referencia del sitio, p. ej. la de un grupo
     de dosel). decisions: decisiones de la revisión visual de cortes {archivo: {decision, corte, ...}}
-    (ver load_decisions). Devuelve dict con fotos, parcelas, sitio, avisos y parámetros.
+    (ver load_decisions). form_path y planned_plots son opcionales (v0.14.42): sin formulario, las fotos se
+    ordenan por hora y se asignan a parcelas de photos_per_plot fotos, como «Crear formulario desde las
+    fotos». Devuelve dict con fotos, parcelas, sitio, avisos y parámetros.
     """
     decisions = decisions or {}
     if mask_mode == "height":
@@ -577,7 +606,10 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
         if callable(log):
             log(msg, level)
 
-    rows, warnings = read_field_form(form_path)
+    if form_path:
+        rows, warnings = read_field_form(form_path)
+    else:
+        rows, warnings = _auto_form_rows(photo_folder, photos_per_plot)
     photos = scan_photos(photo_folder)
     pairs, w2 = match_photos(rows, photos, tolerance_s, clock_offset_s)
     warnings += w2
@@ -655,6 +687,9 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                         rec["metodo_corte"] = "revisado por el operador"
                         rec["revisar"] = False
                         res["avisos"] = [a for a in res["avisos"] if not a.startswith("revisar el corte")]
+                        if res.get("motivo_revision"):   # v0.14.42: por qué el método automático no se comprobó
+                            res["avisos"].insert(0, "revisada por el operador; motivo original: " +
+                                                 res["motivo_revision"])
                     elif cut_rule == "glama":
                         rec["decision"] = "pendiente de revisión" if res.get("revisar") else "automático"
                     if cam_unverified:
@@ -669,7 +704,9 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
     summary = aggregate(results, planned_plots)
     return {"fotos": results, "parcelas": summary["parcelas"], "sitio": summary["sitio"],
             "avisos": sorted(warnings + summary["avisos"], key=lambda w: not w.startswith("Resultado provisional")),
-            "parametros": {"carpeta": photo_folder, "formulario": form_path,
+            "parametros": {"carpeta": photo_folder,
+                           "formulario": form_path or "sin formulario: asignación por orden de hora, {} fotos por "
+                                                       "parcela".format(int(photos_per_plot)),
                            "calibracion": calibration.get("lens_name") or calibration.get("projection_label"),
                            "camara_calibracion": camera_label(cal_cam) if cal_cam else "no registrada",
                            # v0.14.27: la calibración completa queda registrada con el resultado
@@ -683,7 +720,7 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                            "radio_huella_m": footprint_radius_m if mask_mode == "height" else None,
                            "canal": channel_mode, "regla_corte": cut_rule,
                            "tolerancia_s": tolerance_s, "desfase_reloj_s": clock_offset_s,
-                           "parcelas_planificadas": planned_plots}}
+                           "parcelas_planificadas": planned_plots or None}}
 
 
 def calibration_record(calibration):
@@ -791,7 +828,7 @@ def aggregate(results, planned_plots):
     site_mean = float(np.mean(means)) if means else None
     n_ok = len(means)
     if planned_plots and n_ok != int(planned_plots):
-        warnings.append("Parcelas con resultado: {} de {} planificadas.".format(n_ok, int(planned_plots)))
+        warnings.append("Parcelas con resultado: {} de {}.".format(n_ok, int(planned_plots)))
     site = {
         "parcelas_planificadas": int(planned_plots) if planned_plots else None,
         "parcelas_con_resultado": n_ok,
@@ -816,7 +853,8 @@ PHOTO_CSV_COLUMNS = ("parcela", "reemplaza_a", "punto", "archivo", "id_foto", "e
                      "camara", "tamano_px",
                      "mascara_horizonte", "cenit_max", "corte", "metodo_corte", "corte_auto", "decision",
                      "operador", "nota", "motivo_revision", "inicios",
-                     "caco", "modif_caco", "apertura", "cierre", "fraccion_claros", "visible_pct")
+                     "caco", "modif_caco", "apertura", "cierre", "fraccion_claros", "visible_pct",
+                     "cielo_rango")
 PLOT_CSV_COLUMNS = ("parcela", "reemplaza_a", "fotos", "validas", "caco_media", "caco_min", "caco_max")
 
 
@@ -899,7 +937,7 @@ th{{background:#f0f4f8}} td.n{{text-align:right;font-variant-numeric:tabular-num
 <div>Sitio: {site} · Basado en Tichý (2016), doi:10.1111/jvs.12350</div></header>
 <section><div>Cobertura del dosel del sitio (media de las parcelas, Índice CaCo)</div>
 <div class="big">{mean} %</div>
-<p>Parcelas con resultado: {nok} de {nplan} planificadas · Fotos válidas: {fv} de {ft}</p>
+<p>Parcelas con resultado: {nok}{nplan} · Fotos válidas: {fv} de {ft}</p>
 <p>Método del nivel de corte: {rule}</p>
 <p>Revisión del nivel de corte: {rev}</p>{pending_html}</section>
 <section><h2>Parcelas</h2><table><tr><th>Parcela</th><th>Reemplazo</th><th class='n'>Fotos válidas</th>
@@ -914,7 +952,7 @@ Jorge Fallas (jfallas56@gmail.com)</footer></div></body></html>""".format(
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
         rule=_h.escape(CUT_RULE_LABELS.get(prm.get("regla_corte"), str(prm.get("regla_corte")))),
-        nok=s["parcelas_con_resultado"], nplan=s["parcelas_planificadas"] or "—",
+        nok=s["parcelas_con_resultado"], nplan=(" de {}".format(s["parcelas_planificadas"]) if s.get("parcelas_planificadas") else ""),
         fv=s["fotos_validas"], ft=s["fotos_total"], plots=plot_rows, photos=photo_rows, warn=warn,
         params=params)
     with open(path, "w", encoding="utf-8") as f:

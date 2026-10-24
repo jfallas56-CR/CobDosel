@@ -132,11 +132,12 @@ check("altura a mano 21.3 m → máscara 72.5°", "72.5" in d.mask_info.text() a
 d.site_edit.setText("Sitio prueba")
 shutil.copytree(os.path.join(sys.argv[4], "fotos"), os.path.join(OUTD, "fotos_sitio"))
 d.folder_edit.setText(os.path.join(OUTD, "fotos_sitio")); d.form_edit.setText(os.path.join(sys.argv[4], "formulario.xlsx"))
-d._on_run()
-check("sin parcelas planificadas → aviso y no procesa", d.batch is None and msgs and "planificadas" in str(msgs[-1][1]))
-d.planned_spin.setValue(4)
 d.cal_combo.setCurrentIndex(d.cal_combo.findData("Pixel10_GLAMA"))
 d.channel_combo.setCurrentIndex(d.channel_combo.findData("blue_red"))
+d._on_run()
+check("0.14.42: sin número de parcelas (opcional) → procesa igual", d.batch is not None
+      and d.batch["sitio"]["parcelas_planificadas"] is None and " de None" not in d.out.toPlainText())
+d.planned_spin.setValue(4)
 d._on_run()
 b = d.batch
 check("lote procesado desde el diálogo", b is not None and b["sitio"]["parcelas_con_resultado"] == 4,
