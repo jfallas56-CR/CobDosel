@@ -308,14 +308,13 @@ def scan_photos(folder):
     return out
 
 
-_POINT_AZIMUTH_LABEL = {"N-O": " (315°)", "N-E": " (45°)", "S-E": " (135°)", "S-O": " (225°)"}
 
 
 def draft_form_from_photos(folder, out_path, photos_per_plot=5, template_xlsx=None):
     """
     Crea un formulario de fotos prellenado con todas las fotos de la carpeta, ordenadas por hora EXIF
     (o por nombre si no hay hora): id_foto y hora_captura escritos; parcela y punto asignados por orden,
-    photos_per_plot fotos por parcela (con 5: Centro, N-O, N-E, S-E, S-O). El usuario debe revisarlo.
+    photos_per_plot fotos por parcela, puntos «Foto 1», «Foto 2»… El usuario debe revisarlo.
     Escribe .xlsx (desde la plantilla, con openpyxl) o .csv. Devuelve (ruta, n.º de fotos, avisos).
     """
     photos = scan_photos(folder)
@@ -332,11 +331,8 @@ def draft_form_from_photos(folder, out_path, photos_per_plot=5, template_xlsx=No
     rows = []
     for i, ph in enumerate(photos):
         k = i % n
-        if n == len(POINTS):
-            punto = POINTS[k] + _POINT_AZIMUTH_LABEL.get(POINTS[k], "")
-            dist = 0.0 if k == 0 else 8.9
-        else:
-            punto, dist = "Foto {}".format(k + 1), ""
+        # v0.14.48: siempre «Foto N»; los nombres de punto (Centro, N-O…) dependen del protocolo del estudio
+        punto, dist = "Foto {}".format(k + 1), ""
         hora = ph["hora_exif"].strftime("%d/%m/%Y / %H:%M:%S") if ph["hora_exif"] else ""
         rows.append([str(i // n + 1), "", punto, dist, ph["base"], hora, "OK",
                      "asignación automática: verificar"])
@@ -720,14 +716,14 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                     warnings.append("{}: la revisión se hizo con otro canal ({}); se ignora.".format(
                         ph["nombre"], dec.get("canal")))
                     dec = None
-                rec.update({"decision": "", "operador": "", "nota": ""})
+                rec.update({"decision": "", "analista": "", "nota": ""})
                 if dec and dec.get("decision") == "excluido":
-                    rec.update({"decision": "excluido", "operador": dec.get("operador", ""),
+                    rec.update({"decision": "excluido", "analista": dec.get("operador", ""),
                                 "nota": dec.get("nota", ""), "corte_auto": dec.get("corte_auto")})
                     when = (dec.get("fecha") or "").replace("T", " ")[:16]
                     rec["revision_guardada"] = "{}{}".format(when + ", " if when else "", dec.get("operador") or
-                                                             "operador sin nombre")
-                    rec["motivo"] = "excluida por el operador (decisión guardada: {})".format(rec["revision_guardada"]) + (
+                                                             "analista sin nombre")
+                    rec["motivo"] = "excluida por el analista (decisión guardada: {})".format(rec["revision_guardada"]) + (
                         " — {}".format(dec["nota"]) if dec.get("nota") else "")
                 else:
                     use_fixed = dec and dec.get("decision") in ("aceptado", "ajustado")
@@ -741,13 +737,13 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                             res.get("corte_auto") == int(dec["corte"])) else "ajustado"
                         if rec["decision"] == "ajustado":
                             rec["decision"] = "ajustado ({} → {})".format(res.get("corte_auto"), int(dec["corte"]))
-                        rec["operador"], rec["nota"] = dec.get("operador", ""), dec.get("nota", "")
+                        rec["analista"], rec["nota"] = dec.get("operador", ""), dec.get("nota", "")
                         rec["metodo_corte"] = "revisado (decisión guardada)"
                         rec["revisar"] = False
                         res["avisos"] = [a for a in res["avisos"] if not a.startswith("revisar el corte")]
                         # v0.14.45: la decisión viene del archivo de revisión guardado; se dice cuándo y quién
                         when = (dec.get("fecha") or "").replace("T", " ")[:16]
-                        who = dec.get("operador") or "operador sin nombre"
+                        who = dec.get("operador") or "analista sin nombre"
                         rec["revision_guardada"] = "{}{}".format(when + ", " if when else "", who)
                         tag = "decisión guardada ({})".format(rec["revision_guardada"])
                         if res.get("motivo_revision"):   # v0.14.42: por qué el método automático no se comprobó
@@ -780,10 +776,11 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                            "mascara_modo": "fija" if mask_mode == "fixed" else "altura del dosel",
                            "mascara_horizonte_deg": (float(fixed_mask_deg) if mask_mode == "fixed"
                                                      else round(90.0 - zen_height, 2)),
-                           "grupo_dosel": canopy_group if mask_mode == "height" else None,
-                           "altura_dosel_sitio_m": canopy_height_m if mask_mode == "height" else None,
-                           "altura_camara_m": camera_height_m if mask_mode == "height" else None,
-                           "radio_huella_m": footprint_radius_m if mask_mode == "height" else None,
+                           # v0.14.48: la máscara desde la altura del dosel ya no está en la ventana; sus
+                           # parámetros solo se registran si se usa desde código
+                           **({"grupo_dosel": canopy_group, "altura_dosel_sitio_m": canopy_height_m,
+                               "altura_camara_m": camera_height_m, "radio_huella_m": footprint_radius_m}
+                              if mask_mode == "height" else {}),
                            # v0.14.45: nombres legibles, no códigos internos
                            "canal": CHANNEL_LABELS.get(channel_mode, channel_mode),
                            "regla_corte": CUT_RULE_LABELS.get(cut_rule, cut_rule),
@@ -839,7 +836,7 @@ def _decision_summary(results):
     labels = {"automático": ("automática", "automáticas"),
               "aceptado": ("revisada sin cambio", "revisadas sin cambio"),
               "ajustado": ("ajustada", "ajustadas"),
-              "excluido": ("excluida por el operador", "excluidas por el operador"),
+              "excluido": ("excluida por el analista", "excluidas por el analista"),
               "pendiente de revisión": ("pendiente de revisión", "pendientes de revisión")}
     return "{} fotos: {}".format(sum(cnt.values()), ", ".join(
         "{} {}".format(cnt[k], labels[k][0 if cnt[k] == 1 else 1]) for k in order if cnt.get(k)))
@@ -856,7 +853,7 @@ def load_decisions(folder):
 
 
 def decisions_summary(decisions):
-    """v0.14.45: «7 decisiones guardadas (2026-10-24 10:40 a 10:52; operador: J. Fallas)»."""
+    """v0.14.45: «7 decisiones guardadas (2026-10-24 10:40 a 10:52; analista: J. Fallas)»."""
     if not decisions:
         return ""
     dates = sorted((d.get("fecha") or "").replace("T", " ")[:16] for d in decisions.values() if d.get("fecha"))
@@ -866,7 +863,7 @@ def decisions_summary(decisions):
         when = dates[0] if dates[0] == dates[-1] else "{} a {}".format(
             dates[0], dates[-1][11:] if dates[-1][:10] == dates[0][:10] else dates[-1])
     return "{} decisión(es) guardada(s){}".format(
-        len(decisions), " ({}{})".format(when, "; operador: " + ", ".join(ops) if ops else "; sin nombre de operador")
+        len(decisions), " ({}{})".format(when, "; analista: " + ", ".join(ops) if ops else "; sin nombre de analista")
         if (when or ops) else "")
 
 
@@ -908,7 +905,7 @@ def summarize_common_warnings(results):
         vals = [r["cielo_rango"] for r in sky]
         rng = "{:.0f}".format(vals[0]) if len(vals) == 1 else "{:.0f}–{:.0f}".format(min(vals), max(vals))
         out.append("{}: cielo no uniforme (rango de brillo del cielo {}, límite {:.0f}): nubes de distinto brillo, "
-                   "cielo azul, sol o resplandor, fuera del protocolo de campo. Verifique el corte de cada una en "
+                   "cielo azul, sol o resplandor. Verifique el corte de cada una en "
                    "«Revisar cortes…»; si es posible, repita esas fotos con cielo uniforme.".format(
                        _scope(len(sky), len(valid), "fotos válidas"), rng, SKY_UNIFORMITY_LIMIT))
     split = [r for r in valid if "separa dos brillos del cielo" in str(r.get("motivo_revision") or "")]
@@ -978,7 +975,7 @@ PHOTO_CSV_COLUMNS = ("parcela", "reemplaza_a", "punto", "archivo", "id_foto", "e
                      "hora_formulario", "hora_exif", "dif_hora_s", "calidad", "valida", "motivo",
                      "camara", "tamano_px",
                      "mascara_horizonte", "cenit_max", "corte", "metodo_corte", "corte_auto", "decision",
-                     "operador", "nota", "motivo_revision", "inicios",
+                     "analista", "nota", "motivo_revision", "inicios",
                      "caco", "modif_caco", "apertura", "cierre", "fraccion_claros", "visible_pct",
                      "cielo_rango")
 PLOT_CSV_COLUMNS = ("parcela", "reemplaza_a", "fotos", "validas", "caco_media", "caco_min", "caco_max")
@@ -1013,6 +1010,25 @@ def write_csvs(batch, out_prefix, version=""):
     return paths
 
 
+def sky_review_line(results, analyst=None):
+    """v0.14.48: línea del cielo no uniforme en el informe: cuántas fotos y quién verificó sus cortes."""
+    from .canopy_analysis import SKY_UNIFORMITY_LIMIT
+    valid = [r for r in results if r.get("valida")]
+    sky = [r for r in valid if (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT]
+    if not sky:
+        return ""
+    head = "{}: cielo no uniforme.".format(_scope(len(sky), len(valid), "fotos válidas"))
+    done = [r for r in sky if str(r.get("decision") or "").startswith(("aceptado", "ajustado"))]
+    names = sorted({str(r.get("analista") or "").strip() for r in done if str(r.get("analista") or "").strip()})
+    who = ", ".join(names) or (str(analyst).strip() if analyst and str(analyst).strip() else "analista sin nombre")
+    if done and len(done) == len(sky):
+        return "{} Verificadas por {}.".format(head, who)
+    if done:
+        return "{} Verificadas por {}: {}; sin verificar: {} (use «Revisar cortes…»).".format(
+            head, who, len(done), len(sky) - len(done))
+    return "{} Sin verificar: revise sus cortes en «Revisar cortes…».".format(head)
+
+
 def write_html(batch, path, version="", site_name=""):
     """Informe HTML autocontenido del lote (sitio, parcelas, fotos, avisos y parámetros)."""
     import html as _h
@@ -1023,11 +1039,14 @@ def write_html(batch, path, version="", site_name=""):
 
     s = batch["sitio"]
     prm = batch["parametros"]
+    # v0.14.48: «Reemplazo» solo si alguna parcela reemplaza a otra; «Fotos válidas» como «4 de 5», centrado
+    has_repl = any(p.get("reemplaza_a") for p in batch["parcelas"])
     plot_rows = "".join(
-        "<tr><td>{}</td><td>{}</td><td class='n'>{} / {}</td><td class='n'><b>{}</b></td>"
+        "<tr><td>{}</td>{}<td class='c'>{} de {}</td><td class='n'><b>{}</b></td>"
         "<td class='n'>{}</td><td class='n'>{}</td></tr>".format(
             _h.escape(str(p["parcela"])),
-            _h.escape("reemplazo de " + str(p["reemplaza_a"])) if p.get("reemplaza_a") else "",
+            ("<td>{}</td>".format(_h.escape("reemplaza a " + str(p["reemplaza_a"])) if p.get("reemplaza_a")
+                                  else "—")) if has_repl else "",
             p["validas"], p["fotos"], _f(p["caco_media"]), _f(p["caco_min"]), _f(p["caco_max"]))
         for p in batch["parcelas"])
     # v0.14.45: «Observaciones» en una segunda fila bajo cada foto, a todo el ancho
@@ -1049,9 +1068,8 @@ def write_html(batch, path, version="", site_name=""):
     from .canopy_analysis import SKY_UNIFORMITY_LIMIT
     nval = sum(1 for r in batch["fotos"] if r.get("valida"))
     nsky = sum(1 for r in batch["fotos"] if r.get("valida") and (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT)
-    sky_html = ("<p style='color:#9a3412;font-weight:700'>{}: cielo no uniforme. Verifique sus cortes en «Revisar "
-                "cortes…»; el resultado depende de fotos tomadas fuera del protocolo de campo.</p>".format(
-                    _h.escape(_scope(nsky, nval, "fotos válidas")))) if nsky else ""
+    sky_html = ("<p style='color:#9a3412;font-weight:700'>{}</p>".format(
+        _h.escape(sky_review_line(batch["fotos"], prm.get("analista"))))) if nsky else ""
     pending = s.get("pendientes_revision") or 0
     pending_html = ("<p style='color:#9a3412;font-weight:700'>Resultado provisional: {} foto(s) pendientes de "
                     "revisión del nivel de corte.</p>".format(pending)) if pending else ""
@@ -1067,7 +1085,7 @@ section{{background:#fff;border:1px solid #d9e2ec;border-radius:10px;padding:16p
 .big{{font-size:2.4rem;font-weight:800}}
 table{{width:100%;border-collapse:collapse;font-size:.9rem}}
 th,td{{padding:6px 8px;border-bottom:1px solid #e4e7eb;text-align:left}}
-th{{background:#f0f4f8}} td.n{{text-align:right;font-variant-numeric:tabular-nums}} tr.bad td{{color:#9a3412}}
+th{{background:#f0f4f8}} td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}} td.c,th.c{{text-align:center}} tr.bad td{{color:#9a3412}}
 tr.ph td{{border-bottom:none}} tr.ph.last td{{border-bottom:1px solid #e4e7eb}}
 tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;padding-left:18px}}
 </style></head><body><div class="c">
@@ -1078,7 +1096,7 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
 <p>Parcelas con resultado: {nok}{nplan} · Fotos válidas: {fv} de {ft}</p>
 <p>Método del nivel de corte: {rule}</p>
 <p>Revisión del nivel de corte: {rev}</p>{pending_html}{sky_html}</section>
-<section><h2>Parcelas</h2><table><tr><th>Parcela</th><th>Reemplazo</th><th class='n'>Fotos válidas</th>
+<section><h2>Parcelas</h2><table><tr><th>Parcela</th>{repl_th}<th class='c'>Fotos válidas</th>
 <th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table></section>
 <section><h2>Fotos</h2><table><tr><th>Parcela</th><th>Punto</th><th>Archivo</th><th>Emparejado por</th>
 <th class='n'>Corte</th><th>Método del corte</th><th>Decisión</th><th class='n'>Máscara (°)</th><th class='n'>Visible (%)</th><th class='n'>CaCo (%)</th>
@@ -1089,8 +1107,8 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
         rule=_h.escape(CUT_RULE_LABELS.get(prm.get("regla_corte"), str(prm.get("regla_corte")))),
-        op=(" · Operador: " + _h.escape(str(prm["operador"]))) if prm.get("operador") else "",
-        sky_html=sky_html,
+        op=(" · Analista: " + _h.escape(str(prm["analista"]))) if prm.get("analista") else "",
+        sky_html=sky_html, repl_th="<th>Reemplazo</th>" if has_repl else "",
         nok=s["parcelas_con_resultado"], nplan=(" de {}".format(s["parcelas_planificadas"]) if s.get("parcelas_planificadas") else ""),
         fv=s["fotos_validas"], ft=s["fotos_total"], plots=plot_rows, photos=photo_rows, warn=warn,
         params=params)

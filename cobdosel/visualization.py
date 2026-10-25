@@ -592,8 +592,10 @@ def render_glama_rings(image_path, calibration, center_xy=None, zenith_max_deg=4
     out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
 
     lw = max(3, int(round(min(W, H) / 260.0)))
-    font = _load_font(max(12, int(min(W, H) / 45)))
-    font_small = _load_font(max(10, int(min(W, H) / 60)))
+    # v0.14.48: letra más grande (antes 1/45 y 1/60 del lado corto); etiquetas de sector y anillo con font_lab
+    font = _load_font(max(16, int(min(W, H) / 30)))
+    font_small = _load_font(max(13, int(min(W, H) / 40)))
+    font_lab = _load_font(max(14, int(min(W, H) / 32)))
     diag = math.hypot(W, H)
 
     # Líneas radiales de la app fuera de la máscara (cada 3°)
@@ -637,7 +639,7 @@ def render_glama_rings(image_path, calibration, center_xy=None, zenith_max_deg=4
             lx = cx + rr * math.cos(math.radians(off))
             ly = cy + rr * math.sin(math.radians(off))
             if margin * 4 <= lx < W - margin * 4 and margin * 3 <= ly < H - margin * 3:
-                _draw_text_box(draw, lx, ly, "{:g}°".format(z), font_small, TEXT_BG, TEXT_COLOR)
+                _draw_text_box(draw, lx, ly, "{:g}°".format(z), font_lab, TEXT_BG, TEXT_COLOR)
                 break
         z += step
 
@@ -664,25 +666,28 @@ def render_glama_rings(image_path, calibration, center_xy=None, zenith_max_deg=4
             tx = cx + 0.55 * rr * math.sin(amid)
             ty = cy - 0.55 * rr * math.cos(amid)
             if 0 <= tx < W and 0 <= ty < H:
-                _draw_text_box(draw, tx, ty, "S{}".format(k + 1), font_small, TEXT_BG, TEXT_COLOR)
+                _draw_text_box(draw, tx, ty, "S{}".format(k + 1), font_lab, TEXT_BG, TEXT_COLOR, padding=6)
 
     # Marca de la dirección 1 (arriba) y centro
     r_top = _rad(zmax_all)
     ty = max(14.0, cy - r_top - 18.0)
     _draw_text_box(draw, cx, ty, "1 ▲", font_small, (40, 40, 40), (255, 230, 0))
+    # espacio libre arriba: hasta la marca «1» o, si la leyenda no llega a la marca, hasta el círculo
+    top_free = (ty - _text_h(draw, "1 ▲", font_small) / 2.0 - 10.0,
+                cy - r_top - lw - 6.0, cx - _text_w(draw, "1 ▲", font_small) / 2.0 - 16.0)
     arm = max(10.0, min(W, H) * 0.03)
     draw.line([(cx - arm, cy), (cx + arm, cy)], fill=(255, 0, 0), width=lw)
     draw.line([(cx, cy - arm), (cx, cy + arm)], fill=(255, 0, 0), width=lw)
 
     # Leyenda
     lines = ["CobDosel — Anillos cenitales",
-             "Anillos cada {:g}° de cenit".format(step),
-             "La foto llega a {:.1f}° del cenit (borde) y {:.1f}° (esquina)".format(z_edge, z_corner)]
+             "Anillos cada {:g}°".format(step),
+             "Foto: hasta {:.1f}° de cenit (borde), {:.1f}° (esquina)".format(z_edge, z_corner)]
     if horizon_angles:
         lines.append("Máscara: {} direcciones ({})".format(
             len(horizon_angles), "; ".join("{:g}°".format(h) for h in horizon_angles)))
     else:
-        lines.append("Máscara: {:.1f}° sobre el horizonte (cenit {:.1f}°)".format(
+        lines.append("Máscara {:.1f}° sobre el horizonte (cenit {:.1f}°)".format(
             90.0 - float(zenith_max_deg), float(zenith_max_deg)))
     if zmax_all > z_corner + 1e-6:
         # Sin «⚠»: la fuente del dibujo no siempre tiene ese símbolo (se veía como un cuadro)
@@ -697,25 +702,92 @@ def render_glama_rings(image_path, calibration, center_xy=None, zenith_max_deg=4
         lines.append("Rumbo EXIF: {:.0f}° (borde superior)".format(float(image_direction_deg)))
     for extra in (legend_lines or []):
         lines.append(str(extra))
-    line_h = int(font_small.size * 1.45) if hasattr(font_small, "size") else 16
-    try:
-        box_w = max(int(draw.textlength(t, font=font_small if i else font)) for i, t in enumerate(lines)) + 20
-    except AttributeError:
-        box_w = max(len(t) for t in lines) * 8 + 20
-    box_h = line_h * len(lines) + 14
-    x0, y0 = 10, 10
-    draw.rectangle([x0, y0, x0 + box_w, y0 + box_h], fill=(0, 0, 0), outline=(255, 255, 255))
-    y = y0 + 7
-    for i, t in enumerate(lines):
-        draw.text((x0 + 10, y), t, fill=(255, 255, 255) if i == 0 else (225, 225, 225),
-                  font=font if i == 0 else font_small)
-        y += line_h
+    # v0.14.48: la leyenda va en el espacio libre de arriba (sobre el círculo) si cabe; si no, en una
+    # franja añadida encima de la foto. Así no tapa el dosel. Las líneas cortas comparten fila.
+    # pares de letra: el mayor; si no cabe arriba, uno algo menor (aún mayor que antes de v0.14.48)
+    m = min(W, H)
+    fonts = [(font, font_small), (_load_font(max(15, int(m / 36))), _load_font(max(12, int(m / 48))))]
+    out, _band = _place_legend(out, lines, fonts, top_free)
 
     if output_path is None:
         fd, output_path = tempfile.mkstemp(suffix=".png", prefix="cobdosel_anillos_")
         os.close(fd)
     out.save(output_path, "PNG")
     return output_path
+
+
+def _text_h(draw, text, font):
+    try:
+        bb = draw.textbbox((0, 0), text, font=font)
+        return bb[3] - bb[1]
+    except Exception:
+        return 14
+
+
+def _text_w(draw, text, font):
+    try:
+        return draw.textlength(text, font=font)
+    except Exception:
+        return len(text) * 8
+
+
+def _legend_layout(draw, lines, font, font_small, width):
+    """Filas de la leyenda para un ancho dado: las líneas cortas comparten fila («a · b»), colocadas en la
+    primera fila con espacio (orden aproximado). None si alguna línea no cabe sola."""
+    pad = max(6, int(getattr(font_small, "size", 14) * 0.35))
+    line_h = int(getattr(font_small, "size", 14) * 1.22)
+    title_h = int(getattr(font, "size", 16) * 1.22)
+    sep = "   ·   "
+    avail = width - 2 * pad
+    if _text_w(draw, lines[0], font) > avail:
+        return None
+    rows = []
+    for t in lines[1:]:
+        tw = _text_w(draw, t, font_small)
+        if tw > avail:
+            return None
+        for row in rows:
+            if _text_w(draw, sep.join(row + [t]), font_small) <= avail:
+                row.append(t)
+                break
+        else:
+            rows.append([t])
+    texts = [sep.join(r) for r in rows]
+    return {"rows": texts, "pad": pad, "line_h": line_h, "title_h": title_h,
+            "w": max([_text_w(draw, lines[0], font)] + [_text_w(draw, t, font_small) for t in texts]) + 2 * pad,
+            "h": title_h + len(texts) * line_h + 2 * pad}
+
+
+def _draw_legend_block(draw, lines, font, font_small, lay, x0, y0, width, fill):
+    draw.rectangle([x0, y0, x0 + width - 1, y0 + lay["h"] - 1], fill=fill)
+    pad = lay["pad"]
+    draw.text((x0 + pad, y0 + pad), lines[0], fill=(255, 255, 255), font=font)
+    y = y0 + pad + lay["title_h"]
+    for t in lay["rows"]:
+        draw.text((x0 + pad, y), t, fill=(230, 230, 230), font=font_small)
+        y += lay["line_h"]
+
+
+def _place_legend(out, lines, fonts, top_free):
+    """Leyenda en el espacio libre de arriba si cabe (prueba los pares de letra de «fonts», de mayor a
+    menor); si no, franja negra añadida encima con la letra mayor. Devuelve (imagen, alto de la franja o 0)."""
+    W, H = out.size
+    draw = ImageDraw.Draw(out)
+    to_mark, to_circle, mark_x = top_free
+    for font, font_small in fonts:
+        for width, room in ((W - 12, to_mark), (mark_x - 6, to_circle)):
+            lay = _legend_layout(draw, lines, font, font_small, width)
+            if lay is not None and lay["h"] <= room - 6:
+                _draw_legend_block(draw, lines, font, font_small, lay, 6, 6, int(lay["w"]), (0, 0, 0))
+                return out, 0
+    font, font_small = fonts[0]
+    lay = _legend_layout(draw, lines, font, font_small, W - 20) or \
+        _legend_layout(draw, lines, font, font_small, 10 ** 6)
+    band_w = max(W, int(lay["w"]))
+    new = Image.new("RGB", (band_w, H + lay["h"]), (0, 0, 0))
+    new.paste(out, ((band_w - W) // 2, lay["h"]))
+    _draw_legend_block(ImageDraw.Draw(new), lines, font, font_small, lay, 0, 0, band_w, (0, 0, 0))
+    return new, lay["h"]
 
 
 def oriented_copy_for_qgis(image_path):

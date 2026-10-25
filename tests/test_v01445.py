@@ -131,17 +131,17 @@ f0, f1 = b["fotos"][0], b["fotos"][1]
 chk("1 foto con decisión guardada: dice cuándo y quién, no «revisada por el operador»",
     "decisión guardada (2026-10-24 10:41, Ana)" in f0["motivo"] and "revisada por el operador" not in f0["motivo"]
     and f0["metodo_corte"] == "revisado (decisión guardada)", f0["motivo"][:80])
-chk("1 exclusión guardada: fecha y «operador sin nombre»", "2026-10-24 10:52, operador sin nombre" in f1["motivo"], f1["motivo"])
+chk("1 exclusión guardada: fecha y «analista sin nombre»", "2026-10-24 10:52, analista sin nombre" in f1["motivo"], f1["motivo"])
 chk("1 resumen de decisiones", bc.decisions_summary(bc.load_decisions(fold)) ==
-    "2 decisión(es) guardada(s) (2026-10-24 10:41 a 10:52; operador: Ana)", bc.decisions_summary(bc.load_decisions(fold)))
+    "2 decisión(es) guardada(s) (2026-10-24 10:41 a 10:52; analista: Ana)", bc.decisions_summary(bc.load_decisions(fold)))
 chk("2 parámetros con nombres legibles (canal y regla del corte)",
     b["parametros"]["canal"].startswith("Azul + Rojo") and b["parametros"]["regla_corte"].startswith("recomendado (log-normal)"),
     (b["parametros"]["canal"], b["parametros"]["regla_corte"]))
-b["parametros"]["operador"] = "Jorge Fallas"
+b["parametros"]["analista"] = "Jorge Fallas"
 hp = os.path.join(OUT, "lote.html"); bc.write_html(b, hp, "0.14.45", "Prueba")
 html = open(hp, encoding="utf-8").read()
-chk("3 informe: sin «Basado en Tichý» en el encabezado; operador en el encabezado",
-    "Basado en Tichý" not in html and "Operador: Jorge Fallas" in html)
+chk("3 informe: sin «Basado en Tichý» en el encabezado; analista en el encabezado",
+    "Basado en Tichý" not in html and "Analista: Jorge Fallas" in html)
 chk("3 informe: observaciones en una segunda fila por foto (lista)", html.count("<tr class='obs") == sum(1 for r in b["fotos"] if r.get("motivo"))
     and "<th>Observaciones</th>" not in html and "<li>decisión guardada (2026-10-24 10:41, Ana)" in html)
 from cobdosel.canopy_analysis import sky_uniformity_warning
@@ -160,9 +160,9 @@ bd._refresh_calibrations(); bd.cal_combo.setCurrentIndex(max(0, bd.cal_combo.fin
 bd.site_edit.setText("S"); bd.folder_edit.setText(fold); bd.per_plot_spin.setValue(2)
 bd._on_run(); app.processEvents()
 txt = bd.out.toPlainText()
-chk("4 el registro dice que se aplicó una revisión anterior y cómo quitarla",
-    "de una revisión anterior" in txt and "Borrar revisión guardada" in txt and
-    any("revisión anterior" in w for w in bd.batch["avisos"]))
+chk("4 el registro dice que se aplicaron las decisiones de «Revisar cortes…» y cómo quitarlas (v0.14.48)",
+    "en «Revisar cortes…»" in txt and "revisión anterior" not in txt and "Borrar revisión guardada" in txt and
+    any("en «Revisar cortes…»" in w for w in bd.batch["avisos"]))
 QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
 bd._on_clear_review(); app.processEvents()
 baks = [f for f in os.listdir(fold) if f.startswith("CobDosel_revision_cortes_") and f.endswith(".bak.json")]

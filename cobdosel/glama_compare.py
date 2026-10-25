@@ -6,7 +6,7 @@ modo que la parte que se debe al nivel de corte se aísle de la parte que se deb
 
 Para cada foto se calculan cuatro valores:
 
-  A  CaCo de la app GLAMA (anotado por el operador) con el corte de GLAMA.
+  A  CaCo de la app GLAMA (anotado por el analista) con el corte de GLAMA.
   B  Reproducción de la pantalla de GLAMA con el corte de GLAMA: orden guardado de los píxeles
      (GLAMA no lee la etiqueta EXIF de orientación), casillas de giro usadas en la app, recorte
      cuadrado central a 1080 px, centro desplazado, franjas fuera de la foto contadas como dosel,

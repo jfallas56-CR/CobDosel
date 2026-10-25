@@ -70,8 +70,6 @@ class CobDoselBatchDialog(QDialog):
         self.setSizeGripEnabled(True)
         self._build()
         self._refresh_calibrations()
-        self.group_combo.setCurrentIndex(self.group_combo.findData(4))
-        self._on_mask_mode()
 
     # ------------------------------------------------------------------
     def _build(self):
@@ -89,9 +87,9 @@ class CobDoselBatchDialog(QDialog):
         f1.addRow("Nombre del sitio:", self.site_edit)
         self.operator_edit = QLineEdit()
         self.operator_edit.setPlaceholderText("Nombre de quien procesa y revisa (aparece en el informe y en el CSV)")
-        self.operator_edit.setToolTip("Operador: queda registrado con el resultado del sitio y se propone en «Revisar\n"
+        self.operator_edit.setToolTip("Analista: queda registrado con el resultado del sitio y se propone en «Revisar\n"
                                       "cortes…» para cada decisión.")
-        f1.addRow("Operador:", self.operator_edit)
+        f1.addRow("Analista:", self.operator_edit)
         self.folder_edit = QLineEdit()
         b = QPushButton("Examinar…")
         b.clicked.connect(self._pick_folder)
@@ -124,8 +122,8 @@ class CobDoselBatchDialog(QDialog):
         self.per_plot_spin = QSpinBox()
         self.per_plot_spin.setRange(1, 50)
         self.per_plot_spin.setValue(5)
-        self.per_plot_spin.setToolTip("Sin formulario: número de fotos por parcela (5 = Centro, N-O, N-E, S-E, S-O),\n"
-                                      "asignadas por orden de hora. Con formulario no se usa.")
+        self.per_plot_spin.setToolTip("Sin formulario: número de fotos por parcela según el protocolo del estudio,\n"
+                                      "asignadas por orden de hora (puntos «Foto 1», «Foto 2»…). Con formulario no se usa.")
         f1.addRow("Fotos por parcela (sin formulario):", self.per_plot_spin)
         self.planned_spin = QSpinBox()
         self.planned_spin.setRange(0, 999)
@@ -178,14 +176,6 @@ class CobDoselBatchDialog(QDialog):
             "de CobDosel (punto de partida de la búsqueda, que va en ambos sentidos), no el nivel de corte: cada\n"
             "foto obtiene el suyo. Se comprueba que el método funcionó; si no, la foto queda «a revisar».")
         f2.addRow("Nivel de corte:", self.cut_label)
-        self.mask_fixed_radio = QRadioButton("Máscara fija (recomendada)")
-        self.mask_height_radio = QRadioButton("Desde la altura del dosel")
-        self.mask_fixed_radio.setChecked(True)
-        self.mask_height_radio.toggled.connect(self._on_mask_mode)
-        rm = QHBoxLayout()
-        rm.addWidget(self.mask_fixed_radio)
-        rm.addWidget(self.mask_height_radio)
-        f2.addRow("Máscara de horizonte:", rm)
         self.fixed_mask_spin = QDoubleSpinBox()
         self.fixed_mask_spin.setRange(0.0, 85.0)
         self.fixed_mask_spin.setDecimals(1)
@@ -195,46 +185,7 @@ class CobDoselBatchDialog(QDialog):
             "Máscara de horizonte. Estándar de CobDosel: 63° (análisis hasta 27° del cenit), con el\n"
             "que el círculo de análisis cabe entero en la foto de cualquier teléfono de 23–25 mm;\n"
             "Tichý (2016) usó 60°. Use el mismo valor en todos los sitios.")
-        f2.addRow("Máscara fija:", self.fixed_mask_spin)
-        self.group_combo = QComboBox()
-        self.group_combo.addItem("Altura escrita a mano", userData=None)
-        for code, gname, lo, hi in bc.CANOPY_GROUPS:
-            if code < 3:
-                continue                  # grupos 1–2 quedan por debajo o cerca de la cámara
-            rng_txt = "> {:g} m".format(lo) if hi is None else "{:g} a < {:g} m".format(lo, hi)
-            label = "{} {} ({}) → {:g} m".format(code, gname, rng_txt, bc.canopy_group_height(code))
-            self.group_combo.addItem(label, userData=code)
-        self.group_combo.setToolTip(
-            "Grupo de dosel dominante del sitio (el protocolo no mide alturas). Se usa una altura de\n"
-            "referencia: punto medio del grupo; 30 m para copas emergentes.")
-        self.group_combo.currentIndexChanged.connect(self._on_group)
-        f2.addRow("Grupo de dosel dominante:", self.group_combo)
-        self.height_spin = QDoubleSpinBox()
-        self.height_spin.setRange(2.0, 80.0)
-        self.height_spin.setDecimals(1)
-        self.height_spin.setValue(bc.canopy_group_height(4))
-        self.height_spin.setSuffix(" m")
-        self.height_spin.setToolTip("Altura de referencia del dosel del sitio (estimada; no medida).")
-        f2.addRow("Altura del dosel del sitio:", self.height_spin)
-        self.cam_spin = QDoubleSpinBox()
-        self.cam_spin.setRange(0.0, 5.0)
-        self.cam_spin.setDecimals(2)
-        self.cam_spin.setValue(bc.DEFAULT_CAMERA_HEIGHT_M)
-        self.cam_spin.setSuffix(" m")
-        f2.addRow("Altura de la cámara:", self.cam_spin)
-        self.fp_spin = QDoubleSpinBox()
-        self.fp_spin.setRange(0.5, 50.0)
-        self.fp_spin.setDecimals(2)
-        self.fp_spin.setValue(bc.DEFAULT_FOOTPRINT_M)
-        self.fp_spin.setSuffix(" m")
-        self.fp_spin.setToolTip(
-            "Radio del dosel que cubre cada foto. 6.31 m = radio equivalente de un cuadrante de la\n"
-            "parcela de 500 m² (5 fotos por parcela). 12.62 m = parcela completa.")
-        f2.addRow("Radio de la huella por foto:", self.fp_spin)
-        self.mask_info = QLabel("")
-        f2.addRow("", self.mask_info)
-        for w in (self.height_spin, self.cam_spin, self.fp_spin):
-            w.valueChanged.connect(self._update_mask_info)
+        f2.addRow("Máscara de horizonte:", self.fixed_mask_spin)
         self.tol_spin = QDoubleSpinBox()
         self.tol_spin.setRange(1.0, 3600.0)
         self.tol_spin.setDecimals(0)
@@ -345,7 +296,7 @@ class CobDoselBatchDialog(QDialog):
         if not os.path.isdir(folder):
             QMessageBox.warning(self, "Carpeta de fotos", "Indique primero la carpeta de fotos.")
             return
-        n, ok = QInputDialog.getInt(self, "Fotos por parcela", "Fotos por parcela (5 = Centro, N-O, N-E, S-E, S-O):",
+        n, ok = QInputDialog.getInt(self, "Fotos por parcela", "Fotos por parcela (según el protocolo del estudio):",
                                     5, 1, 50, 1)
         if not ok:
             return
@@ -480,30 +431,6 @@ class CobDoselBatchDialog(QDialog):
             for fld in lyr.fields():
                 self.field_combo.addItem(fld.name())
 
-    def _on_group(self, *_a):
-        code = self.group_combo.currentData()
-        if code is not None:
-            self.height_spin.setValue(bc.canopy_group_height(code))
-        self.height_spin.setReadOnly(code is not None)
-        self._update_mask_info()
-
-    def _on_mask_mode(self, *_a):
-        h = self.mask_height_radio.isChecked()
-        for w in (self.group_combo, self.height_spin, self.cam_spin, self.fp_spin):
-            w.setEnabled(h)
-        self.fixed_mask_spin.setEnabled(not h)
-        self._update_mask_info()
-
-    def _update_mask_info(self, *_a):
-        if not self.mask_height_radio.isChecked():
-            self.mask_info.setText("")
-            return
-        try:
-            z = bc.zenith_from_height(self.height_spin.value(), self.cam_spin.value(), self.fp_spin.value())
-            self.mask_info.setText("→ cenit máximo {:.1f}° = máscara {:.1f}° sobre el horizonte".format(z, 90 - z))
-        except ValueError as e:
-            self.mask_info.setText("⚠ " + str(e))
-
     def _log(self, msg, level="INFO"):
         self.out.append(("⚠ " if level != "INFO" else "") + msg)
 
@@ -536,7 +463,6 @@ class CobDoselBatchDialog(QDialog):
             name = pick
             self.cal_combo.setCurrentIndex(self.cal_combo.findData(name))
             cal = load_calibration(name)
-        height = self.height_spin.value()
         try:
             decisions = bc.load_decisions(folder)
         except Exception as e:
@@ -551,10 +477,7 @@ class CobDoselBatchDialog(QDialog):
         try:
             self.batch = bc.run_batch(
                 folder, form or None, cal, self.planned_spin.value() or None,
-                mask_mode="height" if self.mask_height_radio.isChecked() else "fixed",
-                canopy_height_m=height, camera_height_m=self.cam_spin.value(),
-                canopy_group=self.group_combo.currentData(),
-                footprint_radius_m=self.fp_spin.value(), fixed_mask_deg=self.fixed_mask_spin.value(),
+                mask_mode="fixed", fixed_mask_deg=self.fixed_mask_spin.value(),   # v0.14.48: solo máscara fija
                 channel_mode=self.channel_combo.currentData(), cut_rule="glama",
                 tolerance_s=self.tol_spin.value(), clock_offset_s=self.offset_spin.value(),
                 progress=lambda i, n: (self.progress.setValue(int(100 * i / max(n, 1))),
@@ -564,11 +487,11 @@ class CobDoselBatchDialog(QDialog):
             self.batch["parametros"]["revision_cortes"] = (
                 "{} ({})".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
             if decisions:
-                self.batch["avisos"].insert(0, "Se aplicaron {} de una revisión anterior.".format(
+                self.batch["avisos"].insert(0, "Se aplicaron {} en «Revisar cortes…».".format(
                     bc.decisions_summary(decisions)))
             self.batch["parametros"]["sitio"] = self.site_edit.text().strip()
             self.batch["parametros"]["area_ha"] = self.area_spin.value() or None
-            self.batch["parametros"]["operador"] = self.operator_edit.text().strip()
+            self.batch["parametros"]["analista"] = self.operator_edit.text().strip()
             if self._precheck_note:                  # v0.14.44: queda en los avisos del sitio (panel, informe)
                 self.batch["avisos"].insert(0, self._precheck_note[0])
         except Exception as e:
@@ -581,8 +504,8 @@ class CobDoselBatchDialog(QDialog):
         for b in (self.csv_btn, self.html_btn, self.layer_btn, self.review_btn):
             b.setEnabled(True)
         if decisions:
-            # v0.14.45: se dice de dónde vienen las decisiones (archivo de una revisión anterior) y cómo quitarlas
-            self._log("Se aplicaron {} de una revisión anterior ({} en la carpeta de fotos). Para procesar sin ellas, "
+            # v0.14.48: decisiones tomadas en «Revisar cortes…» (archivo en la carpeta de fotos) y cómo quitarlas
+            self._log("Se aplicaron {} en «Revisar cortes…» ({}, en la carpeta de fotos). Para procesar sin ellas, "
                       "use «Borrar revisión guardada…».".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE),
                       "WARN")
         pend = self.batch["sitio"].get("pendientes_revision") or 0
@@ -695,7 +618,7 @@ class CobDoselBatchDialog(QDialog):
         b = self.batch
         s = b["sitio"]
         lines = ["SITIO: {}".format(self.site_edit.text().strip() or "—"),
-                 "OPERADOR: {}".format(self.operator_edit.text().strip() or "—"),
+                 "ANALISTA: {}".format(self.operator_edit.text().strip() or "—"),
                  "Cobertura del dosel del sitio (media de parcelas, CaCo): {} %".format(
                      fmt_num(s["caco_sitio"]) if s["caco_sitio"] is not None else "—"),
                  "Parcelas con resultado: {}{} · fotos válidas {} de {}".format(
@@ -712,8 +635,7 @@ class CobDoselBatchDialog(QDialog):
         nsky = sum(1 for r in b["fotos"] if r.get("valida") and (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT)
         if nsky:                                         # v0.14.47: junto al resultado del sitio
             lines.insert(1 if s.get("pendientes_revision") else 0,
-                         "⚠ {}: cielo no uniforme; verifique sus cortes («Revisar cortes…»).".format(
-                             bc._scope(nsky, nval, "fotos válidas")))
+                         "⚠ " + bc.sky_review_line(b["fotos"], self.operator_edit.text().strip()))
         for p in b["parcelas"]:
             lines.append("  {:<8} {:<20} fotos {}/{}  CaCo {}".format(
                 p["parcela"], ("reemplazo de " + str(p["reemplaza_a"])) if p.get("reemplaza_a") else "",

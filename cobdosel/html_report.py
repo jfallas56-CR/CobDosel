@@ -63,6 +63,16 @@ def _file_to_data_uri(img_path, max_thumb_dim=900):
         return None
 
 
+def _site_line(results):
+    """v0.14.48: «Sitio: … · Analista: …» en el encabezado (solo los datos escritos)."""
+    parts = []
+    if (results.get("site_name") or "").strip():
+        parts.append("<strong>Sitio:</strong> " + html.escape(results["site_name"].strip()))
+    if (results.get("analyst") or "").strip():
+        parts.append("<strong>Analista:</strong> " + html.escape(results["analyst"].strip()))
+    return "<p>{}</p>".format(" · ".join(parts)) if parts else ""
+
+
 def generate_html_report(results, output_path, include_images=True, log=None):
     """
     Genera un archivo HTML con los parámetros de calibración, nombre de la imagen
@@ -664,6 +674,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   <header class="report-header">
     <div>
       <h1>CobDosel — Informe de cobertura del dosel</h1>
+      {site_line}
       <p><strong>Archivo de imagen:</strong> {image_name}</p>
       <p><strong>Fecha del informe:</strong> {now_str}</p>
     </div>
@@ -677,7 +688,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
       <div class="caco-label">Cobertura del dosel — Índice CaCo</div>
       <div class="caco-val">{caco_index_pct:.2f}%</div>
       <div class="caco-note">Proyección vertical de las copas en el área analizada (cenit 0–{zenith_max_deg:.1f}°,
-      máscara de horizonte {horizon_mask_deg:.1f}°). El cierre del dosel no es cobertura.</div>
+      máscara de horizonte {horizon_mask_deg:.1f}°).</div>
     </div>
 
     <h3 class="sub-h">Índices del área analizada (cenit 0–{zenith_max_deg:.1f}°)</h3>
@@ -693,9 +704,10 @@ def generate_html_report(results, output_path, include_images=True, log=None):
           <td>Píxeles de cielo / píxeles del área analizada, sin ponderar (no es cobertura ni apertura).</td></tr>
     </table>
 
-    <h3 class="sub-h">Índices referidos al hemisferio completo (convención de Tichý 2016)</h3>
-    <p class="note-small">Lo que queda fuera del área analizada (bajo la máscara o fuera de la foto) cuenta como obstruido.
-    Sirven para comparar con estudios que usan esta convención.</p>
+    <h3 class="sub-h">Índices referidos al hemisferio completo</h3>
+    <p class="note-small">Convención general de la fotografía hemisférica (programas como Gap Light Analyzer y la app
+    GLAMA): lo que queda fuera del área analizada (bajo la máscara o fuera de la foto) cuenta como obstruido. Dependen de
+    la máscara elegida; sirven para comparar con estudios que usan esta convención.</p>
     <table class="data-table">
       <tr><th>Indicador</th><th class="num">Valor</th><th>Qué mide</th></tr>
       <tr><td>Apertura del dosel (hemisferio)</td><td class="num">{canopy_openness_pct:.2f}%</td>
@@ -796,8 +808,10 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   {images_section}
 
   <footer>
-    Generado por <strong>CobDosel v{version}</strong>. Método de los índices: Tichý (2016),
-    <a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>.
+    Basado en Tichý (2016),
+    <a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>.<br/>
+    <strong>CobDosel v{version}</strong> para QGIS · Autor: Jorge Fallas · Contacto:
+    <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a>
   </footer>
 
 </div>
@@ -805,6 +819,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
 </html>
 """.format(
         image_name=html.escape(image_name),
+        site_line=_site_line(results),
         now_str=html.escape(now_str),
         version=VERSION,
         mask_str=html.escape(mask_str),

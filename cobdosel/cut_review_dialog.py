@@ -2,7 +2,7 @@
 
 Revisión visual del nivel de corte de cada foto, como la pantalla de nivel de corte de GLAMA: foto con
 el cielo en naranja y la zona enmascarada en verde azulado, zoom con la rueda del ratón, histograma con
-el corte, control deslizante y CaCo aproximado en vivo. El operador acepta, ajusta o excluye cada
+el corte, control deslizante y CaCo aproximado en vivo. El analista acepta, ajusta o excluye cada
 foto. Desde v0.14.42 cada decisión se guarda al momento junto a las fotos (CobDosel_revision_cortes.json),
 y al dejar una foto con un corte cambiado sin aceptar se pregunta qué hacer.
 
@@ -296,7 +296,7 @@ class CutReviewDialog(QDialog):
         form = QFormLayout()
         self.operator_edit = QLineEdit(operator)
         self.operator_edit.setPlaceholderText("opcional")
-        form.addRow("Operador:", self.operator_edit)
+        form.addRow("Analista:", self.operator_edit)
         self.note_edit = QLineEdit()
         self.note_edit.setPlaceholderText("opcional (p. ej. «tronco cercano», «sol directo»)")
         form.addRow("Nota de esta foto:", self.note_edit)
@@ -400,7 +400,7 @@ class CutReviewDialog(QDialog):
         dec = self.decisions.get(it["archivo"])
         if dec:
             if dec["decision"] == "excluido":
-                return "EXCLUIDA por el operador"
+                return "EXCLUIDA por el analista"
             return "{} (corte {})".format("revisada sin cambio" if dec["decision"] == "aceptado" else "AJUSTADA",
                                           dec["corte"])
         if it.get("revisar"):

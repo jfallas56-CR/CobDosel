@@ -137,13 +137,13 @@ chk("1 formulario: «Foto 2» válido; un punto realmente desconocido sigue avis
 # ---- ventana del lote: operador
 bd = CobDoselBatchDialog(None); bd.show(); app.processEvents()
 labels = [w.text() for w in bd.findChildren(QtWidgets.QLabel)]
-chk("2 campo «Operador» en «1. Datos del sitio»", "Operador:" in labels and hasattr(bd, "operator_edit"))
+chk("2 campo «Analista» en «1. Datos del sitio» (v0.14.48)", "Analista:" in labels and hasattr(bd, "operator_edit"))
 cs.save_calibration("Prueba_GLAMA", calg)
 bd._refresh_calibrations(); bd.cal_combo.setCurrentIndex(max(0, bd.cal_combo.findData("Prueba_GLAMA")))
 bd.site_edit.setText("Sitio X"); bd.operator_edit.setText("J. Fallas"); bd.folder_edit.setText(fold)
 bd.per_plot_spin.setValue(3); bd._on_run(); app.processEvents()
-chk("2 operador registrado en los parámetros del sitio y en el panel",
-    bd.batch and bd.batch["parametros"].get("operador") == "J. Fallas" and "OPERADOR: J. Fallas" in bd.out.toPlainText())
+chk("2 analista registrado en los parámetros del sitio y en el panel",
+    bd.batch and bd.batch["parametros"].get("analista") == "J. Fallas" and "ANALISTA: J. Fallas" in bd.out.toPlainText())
 paths = bc.write_csvs(bd.batch, os.path.join(OUT, "lote"), "0.14.43")
 chk("2 operador en el CSV del sitio", "J. Fallas" in open(paths[2], encoding="utf-8-sig").read())
 import cobdosel.cut_review_dialog as crd

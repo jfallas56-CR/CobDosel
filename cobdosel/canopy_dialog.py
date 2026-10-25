@@ -389,6 +389,14 @@ class CobDoselDialog(QDialog):
         browse_btn = QPushButton("Examinar…")
         browse_btn.clicked.connect(self._on_browse)
 
+        # v0.14.48: nombre del sitio y analista (aparecen en el informe HTML y en el CSV)
+        self.site_edit = QLineEdit()
+        self.site_edit.setPlaceholderText("(opcional) nombre o código del sitio")
+        file_layout.addRow("Nombre del sitio:", self.site_edit)
+        self.analyst_edit = QLineEdit()
+        self.analyst_edit.setPlaceholderText("(opcional) nombre de quien analiza")
+        file_layout.addRow("Analista:", self.analyst_edit)
+
         path_row = QHBoxLayout()
         path_row.addWidget(self.path_edit, stretch=1)
         path_row.addWidget(browse_btn)
@@ -3144,6 +3152,8 @@ class CobDoselDialog(QDialog):
         error = None
         out_path, report_warnings = None, []
         try:
+            self.last_results["site_name"] = self.site_edit.text().strip()
+            self.last_results["analyst"] = self.analyst_edit.text().strip()
             out_path = generate_html_report(
                 self.last_results, path, include_images=True, log=self._log
             )
@@ -3242,6 +3252,7 @@ class CobDoselDialog(QDialog):
                 "measurement_image_size", "measurement_diff_pct", "measurement_centre_offset_pct",
                 "glama_geometry_mode", "caco_correct_geometry_pct",
                 "exif_orientation", "exif_image_direction_deg", "cut_level_method",
+                "site_name", "analyst",
             ]
             + ["cover_pct_ring{}".format(i + 1) for i in range(n)]
             + ["gap_fraction_ring{}".format(i + 1) for i in range(n)]
@@ -3309,6 +3320,7 @@ class CobDoselDialog(QDialog):
                 exif.get("orientation"),
                 exif.get("image_direction_deg"),
                 res.get("cut_method") or "manual",
+                self.site_edit.text().strip(), self.analyst_edit.text().strip(),
             ]
             + [r["cover_pct"] for r in cover["per_ring"]]
             + [r["gap_fraction"] for r in cover["per_ring"]]

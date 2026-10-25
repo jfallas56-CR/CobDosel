@@ -163,8 +163,8 @@ check("sin umbral ni veredicto (herramienta general)", "cumple_umbral" not in si
 dpath, nph, dw = bc.draft_form_from_photos(photo_dir, os.path.join(OUT, "borrador.xlsx"), 5)
 drec, _w = bc.read_field_form(dpath)
 check("formulario prellenado: una fila por foto, ordenado por hora, 5 por parcela",
-      nph == 20 and len(drec) == 20 and drec[0]["punto_norm"] == "Centro" and drec[5]["parcela"] == "2"
-      and drec[5]["punto_norm"] == "Centro" and drec[4]["punto_norm"] == "S-O", (nph, len(drec), dw))
+      nph == 20 and len(drec) == 20 and drec[0]["punto_norm"] == "Foto 1" and drec[5]["parcela"] == "2"
+      and drec[5]["punto_norm"] == "Foto 1" and drec[4]["punto_norm"] == "Foto 5", (nph, len(drec), dw))
 dpairs, dmw = bc.match_photos(drec, bc.scan_photos(photo_dir), 60.0)
 check("prellenado: todas las fotos emparejadas por ID", [p[2] for p in dpairs].count("id") == 20)
 dcsv, n2, dw2 = bc.draft_form_from_photos(photo_dir, os.path.join(OUT, "borrador.csv"), 3)
@@ -190,7 +190,7 @@ check("CSV del sitio con media, criterio y parámetros", rows_s[0]["caco_sitio"]
 hp = bc.write_html(batch, os.path.join(OUT, "sitio.html"), VERSION, "Sitio prueba")
 ht = open(hp, encoding="utf-8").read()
 check("HTML: sin umbral ni veredicto; reemplazo y avisos",
-      "criterio de cobertura" not in ht and "70 %" not in ht and "7575" not in ht and "reemplazo de 3" in ht
+      "criterio de cobertura" not in ht and "70 %" not in ht and "7575" not in ht and "reemplaza a 3" in ht
       and "IMG_extra.jpg" in ht)
 csvform = os.path.join(OUT, "formulario.csv")
 with open(csvform, "w", newline="", encoding="utf-8") as f:

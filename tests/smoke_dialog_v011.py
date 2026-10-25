@@ -297,9 +297,9 @@ check("0.14.9: método del corte en panel, CSV e informe HTML (%s)" % _cm,
       and "Método del nivel de corte:" in d.results_text.toPlainText())
 check("«Exportar HTML» propone la carpeta de la foto", os.path.dirname(_seen_default.get("path", "")) ==
       os.path.dirname(os.path.abspath(d.last_results["image_path"])), _seen_default.get("path"))
-check("informe HTML: cita Tichý (2016) en el pie, sin «método GLAMA» ni «antes CAnOPY»; sin autor (v0.14.47)",
-      "Método de los índices: Tichý (2016)" in ht and "método GLAMA" not in ht and "CAnOPY" not in ht
-      and "Autor:" not in ht and "jfallas56" not in ht)
+check("informe HTML: «Basado en Tichý (2016)» y autor al final, sin «método GLAMA» ni «antes CAnOPY» (v0.14.48)",
+      "Basado en Tichý (2016)" in ht and "método GLAMA" not in ht and "CAnOPY" not in ht
+      and ht.count("Autor:") == 1 and ht.index("Autor: Jorge Fallas") > ht.index("<footer>"))
 check("HTML: CobDosel, 2 imágenes, CaCo destacado, sectores",
       ("CobDosel v" + VERSION) in ht and ht.count("data:image/png;base64") == 2 and "caco-box" in ht
       and "por anillo × sector" in ht and "REPORTADOS POR GLAMA" not in ht, d.last_results.get("report_warnings"))

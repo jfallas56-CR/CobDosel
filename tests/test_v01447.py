@@ -131,13 +131,14 @@ d.calibration = scale_calibration_to_image(cal, W, H); d.center_xy = (W / 2.0, H
 d.zenith_max.setValue(27.0); d._on_glama_cut(); d._on_run(); app.processEvents()
 out = generate_html_report(d.last_results, os.path.join(OUT, "foto.html"), include_images=False)
 ht = open(out, encoding="utf-8").read()
-chk("1 sin bloque de autor ni contacto", "Autor:" not in ht and "jfallas56" not in ht and "para QGIS" not in ht)
+chk("1 autor y contacto una sola vez, al final (v0.14.48)", ht.count("Autor:") == 1 and
+    ht.index("para QGIS · Autor: Jorge Fallas") > ht.index("<footer>") and "jfallas56@gmail.com" in ht)
 chk("1 sin etiquetas en inglés del panel antiguo", not any(t in ht for t in (
     "(Results)", "ARCHIVO (FILE)", "Canopy Openness", "Gap Fraction of Selected Area", "Part of Hemisph.",
     "Cut Level between", "Total No. of Pixels")))
 chk("1 grupos: área analizada / hemisferio completo / corte, LAI y píxeles",
     "Índices del área analizada" in ht and "Índices referidos al hemisferio completo" in ht and "Nivel de corte, LAI y píxeles" in ht)
-chk("1 cita de Tichý (2016) en el pie", "Método de los índices: Tichý (2016)" in ht and "1. Resultados</h2>" in ht)
+chk("1 «Basado en Tichý (2016)» en el pie", "Basado en Tichý (2016)" in ht and "1. Resultados</h2>" in ht)
 if REAL:
     chk("1 corte no comprobado (foto real): el informe dice por qué",
         "no comprobado" in d.cut_method and "Nivel de corte recomendado no comprobado: otro punto de partida" in ht,
