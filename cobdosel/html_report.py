@@ -587,6 +587,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     font-weight: 700;
   }}
   table.data-table td.num, table.data-table th.num {{
+    white-space: nowrap;
     text-align: right;
     font-variant-numeric: tabular-nums;
   }}
@@ -603,6 +604,8 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   .caco-label {{ font-size: 1.05rem; color: #f09c38; font-weight: 700; }}
   .caco-val {{ font-size: 2.2rem; font-weight: 800; }}
   .caco-note {{ font-size: 0.88rem; color: #d9eef2; }}
+  .sub-h {{ margin: 18px 0 4px 0; color: var(--primary-dark); font-size: 1.02rem; }}
+  .note-small {{ margin: 2px 0 6px 0; color: var(--muted); font-size: 0.86rem; }}
   .warn-box {{
     background: #fff4e5;
     border-left: 4px solid #e07a2b;
@@ -664,96 +667,63 @@ def generate_html_report(results, output_path, include_images=True, log=None):
       <p><strong>Archivo de imagen:</strong> {image_name}</p>
       <p><strong>Fecha del informe:</strong> {now_str}</p>
     </div>
-    <div class="author-badge">
-      <div><strong>CobDosel v{version} para QGIS</strong></div>
-      <div>Autor: <strong>Jorge Fallas</strong></div>
-      <div>Contacto: <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></div>
-    </div>
   </header>
 
   <section class="card">
-    <h2>1. Resultados (basado en Tichý 2016 — <a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>)</h2>
+    <h2>1. Resultados</h2>
     {geometry_banner}
     <p><strong>Calibración usada:</strong> {cal_used}</p>
     <div class="caco-box">
       <div class="caco-label">Cobertura del dosel — Índice CaCo</div>
       <div class="caco-val">{caco_index_pct:.2f}%</div>
-      <div class="caco-note">Valor de cobertura del dosel (proyección vertical). El cierre del dosel no es
-      cobertura.</div>
+      <div class="caco-note">Proyección vertical de las copas en el área analizada (cenit 0–{zenith_max_deg:.1f}°,
+      máscara de horizonte {horizon_mask_deg:.1f}°). El cierre del dosel no es cobertura.</div>
     </div>
-    <div class="glama-panel">
-      <div class="glama-file-bar">ARCHIVO (FILE): {image_name}</div>
-      <div class="glama-sub-bar">Resultados (Results)...</div>
-      <div class="glama-black">
-        <div class="glama-item">
-          <h3>N.º total de píxeles en el círculo (en el fotograma)<br/><small>Total No. of Pixels in Circle (in Frame)</small></h3>
-          <div class="big-val">{total_circle_px} px</div>
-          <div class="sub-val">({total_frame_px} px)</div>
-        </div>
-        <div class="glama-item">
-          <h3>N.º de píxeles claros (oscuros)<br/><small>No. of Light (Dark) Pixels</small></h3>
-          <div class="big-val">{light_px} px</div>
-          <div class="sub-val">({dark_px} px)</div>
-        </div>
-        <div class="glama-item">
-          <h3>Fracción de claros del área seleccionada<br/><small>Gap Fraction of Selected Area</small></h3>
-          <div class="big-val">{gap_fraction_pct:.2f}%</div>
-          <div class="sub-val">Sobre el área analizada no enmascarada: {gap_unmasked_pct:.2f}%</div>
-        </div>
-        <div class="glama-item">
-          <h3>Fracción del hemisferio captada por la cámara<br/><small>Part of Hemisph. Taken by Camera</small></h3>
-          <div class="big-val">{hemi_frac:.2f}%</div>
-          <div class="sub-val">Área tras máscara de horizonte ({horizon_mask_deg:.1f}°): {analyzed_hemi_frac:.2f}%</div>
-        </div>
-        <div class="glama-item">
-          <h3>Nivel de corte entre píxeles blancos y negros (1–254)<br/><small>Cut Level between Black and White Pixels (1–254)</small></h3>
-          <div class="big-val">{threshold}</div>
-          <div><small>{cut_method}</small></div>
-          <div class="sub-val">Canal: {channel_label}</div>
-        </div>
-        <div class="glama-item">
-          <h3>Índice de Área Foliar Efectivo (Miller)<br/><small>Effective Leaf Area Index (LAIe)</small></h3>
-          <div class="big-val">{lai_eff:.3f}</div>
-          <div class="sub-val">{lai_note}</div>
-        </div>
-      </div>
 
-      <div class="glama-teal">
-        <div class="glama-item">
-          <h3>Apertura del Dosel (Canopy Openness)</h3>
-          <p class="desc">Cielo abierto / hemisferio completo (ponderado por sin θ; lo enmascarado cuenta como obstruido)</p>
-          <div class="big-val">{canopy_openness_pct:.2f}%</div>
-          <div class="sub-val">Sobre el área analizada (0–{zenith_max_deg:.1f}°): {openness_analysed_pct:.2f}%</div>
-        </div>
-        <div class="glama-item">
-          <h3>Cierre del Dosel (Canopy Closure)</h3>
-          <p class="desc">Área de cielo obstruido / área total del hemisferio (ponderado por sin θ)</p>
-          <div class="big-val">{canopy_closure_pct:.2f}%</div>
-        </div>
-        <div class="glama-item">
-          <h3>Índice de Cobertura del Dosel — Canopy Cover (CaCo) Index</h3>
-          <p class="desc">Cobertura del dosel (Tichý 2016): transmitancia de cada anillo llevada a la vertical (T^cos θ), ponderada por sin θ·cos θ</p>
-          <div class="big-val">{caco_index_pct:.2f}%</div>
-        </div>
-        <div class="glama-item">
-          <h3>Índice CaCo Modificado — Modif. CaCo Index</h3>
-          <p class="desc">Misma conversión T^cos θ, ponderada solo por ángulo sólido (sin θ); menos sensible a claros cerca del horizonte</p>
-          <div class="big-val">{mod_caco_index_pct:.2f}%</div>
-        </div>
-      </div>
-    </div>
+    <h3 class="sub-h">Índices del área analizada (cenit 0–{zenith_max_deg:.1f}°)</h3>
+    <table class="data-table">
+      <tr><th>Indicador</th><th class="num">Valor</th><th>Qué mide</th></tr>
+      <tr><td><strong>Índice CaCo</strong></td><td class="num"><strong>{caco_index_pct:.2f}%</strong></td>
+          <td>Transmitancia de cada anillo llevada a la vertical (T<sup>cos θ</sup>), ponderada por sin θ · cos θ.</td></tr>
+      <tr><td>Índice CaCo modificado</td><td class="num">{mod_caco_index_pct:.2f}%</td>
+          <td>Misma conversión, ponderada solo por el ángulo sólido (sin θ); menos sensible a claros cerca del borde.</td></tr>
+      <tr><td>Apertura del dosel</td><td class="num">{openness_analysed_pct:.2f}%</td>
+          <td>Cielo abierto en el área analizada, ponderado por sin θ.</td></tr>
+      <tr><td>Fracción de claros</td><td class="num">{gap_unmasked_pct:.2f}%</td>
+          <td>Píxeles de cielo / píxeles del área analizada, sin ponderar (no es cobertura ni apertura).</td></tr>
+    </table>
+
+    <h3 class="sub-h">Índices referidos al hemisferio completo (convención de Tichý 2016)</h3>
+    <p class="note-small">Lo que queda fuera del área analizada (bajo la máscara o fuera de la foto) cuenta como obstruido.
+    Sirven para comparar con estudios que usan esta convención.</p>
+    <table class="data-table">
+      <tr><th>Indicador</th><th class="num">Valor</th><th>Qué mide</th></tr>
+      <tr><td>Apertura del dosel (hemisferio)</td><td class="num">{canopy_openness_pct:.2f}%</td>
+          <td>Cielo abierto / hemisferio completo, ponderado por sin θ.</td></tr>
+      <tr><td>Cierre del dosel (hemisferio)</td><td class="num">{canopy_closure_pct:.2f}%</td>
+          <td>100 − apertura del hemisferio.</td></tr>
+      <tr><td>Fracción de claros del círculo completo</td><td class="num">{gap_fraction_pct:.2f}%</td>
+          <td>Píxeles de cielo / píxeles del círculo de 90°.</td></tr>
+      <tr><td>Fracción del hemisferio en la foto</td><td class="num">{hemi_frac:.2f}%</td>
+          <td>Parte del hemisferio que cubre la foto; tras la máscara de {horizon_mask_deg:.1f}°: {analyzed_hemi_frac:.2f}%.</td></tr>
+    </table>
+
+    <h3 class="sub-h">Nivel de corte, LAI y píxeles</h3>
+    <table class="data-table">
+      <tr><td>Nivel de corte (1–254)</td><td class="num"><strong>{threshold}</strong></td>
+          <td>{cut_method} · canal: {channel_label}</td></tr>
+      <tr><td>Índice de área foliar efectivo (Miller)</td><td class="num">{lai_eff:.3f}</td><td>{lai_note}</td></tr>
+      <tr><td>Píxeles claros (oscuros)</td><td class="num">{light_px}</td><td>({dark_px} oscuros)</td></tr>
+      <tr><td>Píxeles del círculo completo (en la foto)</td><td class="num">{total_circle_px}</td><td>({total_frame_px} en la foto)</td></tr>
+    </table>
 
     <div class="meas-box">
-      <strong>Nota metodológica (Tichý, 2016):</strong> {meas_label}<br/>
+      <strong>Nota metodológica:</strong> {meas_label}<br/>
       <span>{meas_note}</span>
     </div>
     <div class="meas-box">
-      <strong>Definiciones y alcance (CobDosel v{version}):</strong>
-      «Fracción de claros del área seleccionada» = píxeles claros no enmascarados / total de
-      píxeles del círculo virtual. Fracción de claros, apertura, cierre y CaCo se calculan con el
-      según Tichý (2016) (anillos de 1/90 del radio).
-      Los índices son sensibles al nivel de corte. Números: punto decimal y espacio como
-      separador de miles.
+      <strong>Definiciones y alcance:</strong> los índices se calculan con anillos de 1/90 del radio del hemisferio, según
+      Tichý (2016). Todos dependen del nivel de corte. Números: punto decimal y espacio como separador de miles.
     </div>
     {run_warnings_html}
   </section>
@@ -826,8 +796,8 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   {images_section}
 
   <footer>
-    Generado por <strong>CobDosel v{version}</strong> (cobertura del dosel, basado en Tichý 2016, <a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>) —
-    Autor: <strong>Jorge Fallas</strong> (<a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a>)
+    Generado por <strong>CobDosel v{version}</strong>. Método de los índices: Tichý (2016),
+    <a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>.
   </footer>
 
 </div>

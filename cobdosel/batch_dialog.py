@@ -707,6 +707,13 @@ class CobDoselBatchDialog(QDialog):
         if s.get("pendientes_revision"):
             lines.insert(0, "⚠ RESULTADO PROVISIONAL: {} foto(s) pendientes de revisión del corte.".format(
                 s["pendientes_revision"]))
+        from .canopy_analysis import SKY_UNIFORMITY_LIMIT
+        nval = sum(1 for r in b["fotos"] if r.get("valida"))
+        nsky = sum(1 for r in b["fotos"] if r.get("valida") and (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT)
+        if nsky:                                         # v0.14.47: junto al resultado del sitio
+            lines.insert(1 if s.get("pendientes_revision") else 0,
+                         "⚠ {}: cielo no uniforme; verifique sus cortes («Revisar cortes…»).".format(
+                             bc._scope(nsky, nval, "fotos válidas")))
         for p in b["parcelas"]:
             lines.append("  {:<8} {:<20} fotos {}/{}  CaCo {}".format(
                 p["parcela"], ("reemplazo de " + str(p["reemplaza_a"])) if p.get("reemplaza_a") else "",

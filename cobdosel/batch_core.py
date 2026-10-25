@@ -1045,6 +1045,13 @@ def write_html(batch, path, version="", site_name=""):
         items = "".join("<li>{}</li>".format(_h.escape(t.strip())) for t in obs.split("; ") if t.strip())
         return main + "<tr class='obs{}'><td></td><td colspan='9'><ul>{}</ul></td></tr>".format(cls, items)
     photo_rows = "".join(_photo_row(r) for r in batch["fotos"])
+    # v0.14.47: fotos con cielo no uniforme, junto al resultado del sitio
+    from .canopy_analysis import SKY_UNIFORMITY_LIMIT
+    nval = sum(1 for r in batch["fotos"] if r.get("valida"))
+    nsky = sum(1 for r in batch["fotos"] if r.get("valida") and (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT)
+    sky_html = ("<p style='color:#9a3412;font-weight:700'>{}: cielo no uniforme. Verifique sus cortes en «Revisar "
+                "cortes…»; el resultado depende de fotos tomadas fuera del protocolo de campo.</p>".format(
+                    _h.escape(_scope(nsky, nval, "fotos válidas")))) if nsky else ""
     pending = s.get("pendientes_revision") or 0
     pending_html = ("<p style='color:#9a3412;font-weight:700'>Resultado provisional: {} foto(s) pendientes de "
                     "revisión del nivel de corte.</p>".format(pending)) if pending else ""
@@ -1070,7 +1077,7 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
 <div class="big">{mean} %</div>
 <p>Parcelas con resultado: {nok}{nplan} · Fotos válidas: {fv} de {ft}</p>
 <p>Método del nivel de corte: {rule}</p>
-<p>Revisión del nivel de corte: {rev}</p>{pending_html}</section>
+<p>Revisión del nivel de corte: {rev}</p>{pending_html}{sky_html}</section>
 <section><h2>Parcelas</h2><table><tr><th>Parcela</th><th>Reemplazo</th><th class='n'>Fotos válidas</th>
 <th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table></section>
 <section><h2>Fotos</h2><table><tr><th>Parcela</th><th>Punto</th><th>Archivo</th><th>Emparejado por</th>
@@ -1078,12 +1085,12 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
 </tr>{photos}</table><p style='font-size:.82rem;color:#52606d'>Debajo de cada foto, sus observaciones.</p></section>
 <section><h2>Avisos</h2><ul>{warn}</ul></section>
 <section><h2>Parámetros</h2><table>{params}</table></section>
-<footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version} —
-Jorge Fallas (jfallas56@gmail.com)</footer></div></body></html>""".format(
+<footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version}</footer></div></body></html>""".format(
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
         rule=_h.escape(CUT_RULE_LABELS.get(prm.get("regla_corte"), str(prm.get("regla_corte")))),
         op=(" · Operador: " + _h.escape(str(prm["operador"]))) if prm.get("operador") else "",
+        sky_html=sky_html,
         nok=s["parcelas_con_resultado"], nplan=(" de {}".format(s["parcelas_planificadas"]) if s.get("parcelas_planificadas") else ""),
         fv=s["fotos_validas"], ft=s["fotos_total"], plots=plot_rows, photos=photo_rows, warn=warn,
         params=params)

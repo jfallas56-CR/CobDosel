@@ -2410,6 +2410,9 @@ class CobDoselDialog(QDialog):
             self._log("Sin nivel recomendado (log-normal; iterado desde {}).".format(start), "WARN")
             return
         checked = diag is not None and diag.get("ok")
+        # v0.14.47: los motivos quedan con la foto y el corte para el panel y el informe
+        self._cut_check = (self.image_path, int(t), "; ".join(diag.get("reasons") or []) if diag is not None
+                           and not diag.get("ok") else "")
         self._set_cut(t, "recomendado (log-normal)" if (checked or diag is None)
                       else "recomendado (log-normal), no comprobado")
         self._log(
@@ -2701,6 +2704,10 @@ class CobDoselDialog(QDialog):
                         "(ver manual).").format(mask_zen, circle_visible_pct)
                 self._log(wmsg, "WARN")
 
+            cc = getattr(self, "_cut_check", None)
+            if cc and cc[2] and cc[0] == self.image_path and cc[1] == int(thr):
+                wmsg = "Nivel de corte recomendado no comprobado: {}. Revise el corte con la vista previa.".format(cc[2])
+                report_warnings.append(wmsg)
             sky_warn = sky_uniformity_warning(sky_range)
             if sky_warn:
                 wmsg = sky_warn[0].upper() + sky_warn[1:] + "."
