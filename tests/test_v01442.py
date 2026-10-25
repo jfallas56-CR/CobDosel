@@ -184,10 +184,12 @@ if len(sys.argv) > 4 and os.path.isdir(sys.argv[4]):
             all(vals[k][1] for k in bad), {k: vals[k][0] for k in bad})
         chk("4 las 7 fotos aceptables: sin aviso de cielo", not any(vals[k][1] for k in good),
             {k: vals[k][0] for k in good})
-        flagged = [k for k in bad if vals[k][2]["revisar"]]
+        flagged = [k for k in bad if "otro punto de partida" in vals[k][2]["motivo_revision"]]
         chk("4 las fotos «a revisar» por el corte dicen que el otro corte separa brillos del cielo",
             flagged and all("separa dos brillos del cielo" in vals[k][2]["motivo_revision"] for k in flagged),
             len(flagged))
+        chk("4 (v0.14.46) cielo no uniforme → «a revisar»; las aceptables no",
+            all(vals[k][2]["revisar"] for k in bad) and not any(vals[k][2]["revisar"] for k in good))
         # revisión: motivo original conservado
         fl = os.path.join(OUT, "fotos_reales"); os.makedirs(fl, exist_ok=True)
         k0 = flagged[0]

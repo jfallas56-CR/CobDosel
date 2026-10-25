@@ -589,7 +589,7 @@ class CobDoselBatchDialog(QDialog):
         if pend:
             QMessageBox.information(
                 self, "Revisión de cortes",
-                "{} foto(s) necesitan revisión visual del corte (el método automático no se pudo comprobar).\n\n"
+                "{} foto(s) necesitan revisión visual del corte (método automático no comprobado o cielo no uniforme).\n\n"
                 "Pulse «Revisar cortes…». Mientras tanto el resultado del sitio es provisional.".format(pend))
 
     def _check_calibration_camera(self, folder, name, cal):

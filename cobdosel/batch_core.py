@@ -495,6 +495,17 @@ def zenith_from_height(canopy_height_m, camera_height_m=DEFAULT_CAMERA_HEIGHT_M,
 # ----------------------------------------------------------------------
 # Análisis de una foto
 # ----------------------------------------------------------------------
+_SKY_SPLIT_RE = re.compile(r"otro punto de partida da otro corte \(([^)]*)\) que separa dos brillos del cielo.*")
+
+
+def short_reason(reason):
+    """v0.14.46: etiqueta breve de un motivo para cada foto del lote; la explicación completa va en los avisos."""
+    m = _SKY_SPLIT_RE.match(reason)
+    if m:
+        return "otro corte separa dos brillos del cielo ({})".format(m.group(1))
+    return reason
+
+
 def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sky_is_bright=True,
                   cut_rule="glama", fixed_cut=None):
     """
@@ -557,15 +568,21 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
         else:
             t = auto_cut
             method = "recomendado (log-normal)"
-        if revisar:
-            warns.append("revisar el corte: " + "; ".join(diag["reasons"]))
     sky = threshold_image(gray, t, sky_is_bright=sky_is_bright)
-    # v0.14.42: uniformidad del cielo (aviso informativo; no marca la foto «a revisar»)
+    # Uniformidad del cielo. v0.14.46: con cielo no uniforme la foto queda «a revisar» (verificar el corte en
+    # «Revisar cortes…»); en v0.14.42–45 era solo un aviso.
     area = compute_zenith_grid(compute_radius_grid((h, w), c), cal) <= zenith_max_deg
     sky_range = sky_uniformity_range(gray, sky & area, area) if sky_is_bright else None
-    sky_warn = sky_uniformity_warning(sky_range)
-    if sky_warn:
-        warns.append(sky_warn)
+    sky_short = sky_uniformity_warning(sky_range, short=True)
+    reasons = list(diag["reasons"]) if not diag["ok"] else []
+    if sky_short:
+        reasons.append(sky_short)
+    if cut_rule == "glama":
+        revisar = bool(reasons)
+        if revisar:
+            warns.append("revisar el corte: " + "; ".join(short_reason(r) for r in reasons))
+    elif sky_short:
+        warns.append(sky_short)
     counts = glama_ring_counts(sky, c, R, zenith_max_deg, calibration=cal, projection=proj)
     idx = glama_indices(counts, calibration=cal, radius_px=R)
     try:
@@ -584,7 +601,7 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
         "metodo_corte": method,
         "corte_auto": auto_cut,
         "revisar": revisar,
-        "motivo_revision": "; ".join(diag["reasons"]) if not diag["ok"] else "",
+        "motivo_revision": "; ".join(reasons),
         "inicios": "; ".join("{}→{}".format(k, v) for k, v in diag.get("starts", {}).items()),
         "visible_pct": vis,
         "cielo_rango": sky_range,
@@ -734,7 +751,8 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                         rec["revision_guardada"] = "{}{}".format(when + ", " if when else "", who)
                         tag = "decisión guardada ({})".format(rec["revision_guardada"])
                         if res.get("motivo_revision"):   # v0.14.42: por qué el método automático no se comprobó
-                            tag += "; motivo original: " + res["motivo_revision"]
+                            tag += "; motivo original: " + "; ".join(
+                                short_reason(x) for x in res["motivo_revision"].split("; "))
                         res["avisos"].insert(0, tag)
                     elif cut_rule == "glama":
                         rec["decision"] = "pendiente de revisión" if res.get("revisar") else "automático"
@@ -747,7 +765,9 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
         results.append(rec)
         if callable(progress):
             progress(i + 1, n)
+    common = summarize_common_warnings(results)
     summary = aggregate(results, planned_plots)
+    warnings = common + warnings          # v0.14.46: los avisos comunes primero (tras «Resultado provisional»)
     return {"fotos": results, "parcelas": summary["parcelas"], "sitio": summary["sitio"],
             "avisos": sorted(warnings + summary["avisos"], key=lambda w: not w.startswith("Resultado provisional")),
             "parametros": {"carpeta": photo_folder,
@@ -860,6 +880,45 @@ def save_decisions(folder, decisions, version=""):
     return p
 
 
+def _scope(n, total, noun="fotos"):
+    return ("Todas las {} ({} de {})".format(noun, n, total) if n == total else
+            "{} de {} {}".format(n, total, noun))
+
+
+def summarize_common_warnings(results):
+    """
+    v0.14.46: un aviso por tipo de observación, diciendo a cuántas fotos se aplica («Todas las fotos (9 de 9)»
+    o «3 de 9 fotos»), con la explicación completa una sola vez; en cada foto queda una etiqueta breve.
+    Modifica en el lugar el motivo de las fotos excluidas por otra cámara (etiqueta breve). Devuelve la lista
+    de avisos.
+    """
+    from .canopy_analysis import SKY_UNIFORMITY_LIMIT
+    out = []
+    with_photo = [r for r in results if r.get("archivo")]
+    valid = [r for r in with_photo if r.get("valida")]
+    cam = [r for r in with_photo if str(r.get("motivo", "")).startswith("calibración de otra cámara/lente")]
+    if cam:
+        detail = cam[0]["motivo"].split(": ", 1)[1] if ": " in cam[0]["motivo"] else ""
+        out.append("{}: calibración de otra cámara o lente ({}); se excluyen. Calibre esa cámara o elija su "
+                   "calibración.".format(_scope(len(cam), len(with_photo)), detail))
+        for r in cam:
+            r["motivo"] = "calibración de otra cámara/lente (ver avisos)"
+    sky = [r for r in valid if (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT]
+    if sky:
+        vals = [r["cielo_rango"] for r in sky]
+        rng = "{:.0f}".format(vals[0]) if len(vals) == 1 else "{:.0f}–{:.0f}".format(min(vals), max(vals))
+        out.append("{}: cielo no uniforme (rango de brillo del cielo {}, límite {:.0f}): nubes de distinto brillo, "
+                   "cielo azul, sol o resplandor, fuera del protocolo de campo. Verifique el corte de cada una en "
+                   "«Revisar cortes…»; si es posible, repita esas fotos con cielo uniforme.".format(
+                       _scope(len(sky), len(valid), "fotos válidas"), rng, SKY_UNIFORMITY_LIMIT))
+    split = [r for r in valid if "separa dos brillos del cielo" in str(r.get("motivo_revision") or "")]
+    if split:
+        out.append("{}: otro punto de partida da otro corte que separa dos brillos de lo que ya es cielo (nubes de "
+                   "distinto brillo, cielo azul o sol). El corte de la foto se mantiene; verifíquelo en «Revisar "
+                   "cortes…».".format(_scope(len(split), len(valid), "fotos válidas")))
+    return out
+
+
 def aggregate(results, planned_plots):
     """Medias por parcela (fotos válidas disponibles) y media del sitio (Índice CaCo)."""
     plots = {}
@@ -887,6 +946,10 @@ def aggregate(results, planned_plots):
             warnings.append("Parcela {}: sin fotos válidas; no entra en la media del sitio "
                             "(aplique el mecanismo de reemplazo).".format(p))
         rows.append(d)
+    empty = [d for d in rows if d["caco_media"] is None]
+    if rows and len(empty) == len(rows) and len(rows) > 1:      # v0.14.46: un solo aviso si ninguna tiene
+        warnings = [w for w in warnings if not w.endswith("(aplique el mecanismo de reemplazo).")]
+        warnings.append("Ninguna parcela tiene fotos válidas ({} parcelas): no hay resultado del sitio.".format(len(rows)))
     means = [d["caco_media"] for d in rows if d["caco_media"] is not None]
     site_mean = float(np.mean(means)) if means else None
     n_ok = len(means)

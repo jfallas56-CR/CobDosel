@@ -148,13 +148,19 @@ def sky_uniformity_range(gray_image, sky_mask, area_mask=None):
     return float(p95 - p5)
 
 
-def sky_uniformity_warning(value):
-    """Texto del aviso si el cielo no es uniforme, o "" si no hay aviso."""
+def sky_uniformity_warning(value, short=False):
+    """
+    Texto del aviso si el cielo no es uniforme, o "" si no hay aviso. short=True: etiqueta breve para cada foto
+    del lote (la explicación completa va una sola vez en los avisos del sitio). v0.14.46: se pide verificar el
+    corte; repetir la foto solo si es posible (en campo no siempre lo es).
+    """
     if value is None or value <= SKY_UNIFORMITY_LIMIT:
         return ""
+    if short:
+        return "cielo no uniforme (rango {:.0f})".format(value)
     return ("cielo no uniforme (rango de brillo del cielo {:.0f} > {:.0f}: nubes de distinto brillo, cielo azul, "
-            "sol o resplandor): fuera del protocolo de campo — repita la foto o exclúyala").format(
-                value, SKY_UNIFORMITY_LIMIT)
+            "sol o resplandor): verifique el corte con la vista previa; si es posible, repita la foto con cielo "
+            "uniforme").format(value, SKY_UNIFORMITY_LIMIT)
 
 
 def compute_otsu_threshold(gray_image, valid_mask=None):
