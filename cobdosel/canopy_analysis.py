@@ -216,6 +216,7 @@ def compute_otsu_threshold(gray_image, valid_mask=None):
 
 # Métodos automáticos de nivel de corte (código, etiqueta en la interfaz)
 AUTO_THRESHOLD_METHODS = [
+    ("recommended", "Recomendado (log-normal)"),      # v0.14.49: el mismo método del botón principal y del lote
     ("otsu", "Otsu (1979)"),
     ("minimum", "Mínimo (Prewitt y Mendelsohn 1966)"),
 ]
@@ -291,12 +292,39 @@ def compute_minimum_threshold(gray_image, valid_mask=None):
     return minimum_threshold_from_hist(hist)[0]
 
 
+def compute_recommended_threshold(gray_image, valid_mask=None):
+    """
+    v0.14.49: nivel de corte recomendado (log-normal, iterado desde 128) con su comprobación, sobre el
+    histograma completo (sin muestreo) del área válida. Mismo método que «Nivel recomendado» y el lote.
+    Devuelve el dict de glama_cut_diagnosis (cut, ok, reasons, starts, details, sky_pct).
+    """
+    from .glama_engine import glama_cut_diagnosis
+    g = np.asarray(gray_image)
+    flat = g[valid_mask] if valid_mask is not None else g.ravel()
+    if flat.dtype != np.uint8:
+        flat = np.clip(flat, 0, 255).astype(np.uint8)
+    hist = np.bincount(flat, minlength=256).astype(np.float64)
+    return glama_cut_diagnosis(hist)
+
+
 def compute_auto_threshold(gray_image, valid_mask=None, method="otsu"):
     """
     Nivel de corte automático con el método elegido.
     Devuelve (nivel, método_usado, nota). Si el método del mínimo no encuentra dos modos,
-    se usa Otsu y la nota lo explica.
+    se usa Otsu y la nota lo explica. «recommended»: corte log-normal; si no pasa la comprobación,
+    la nota da los motivos; si no hay recomendación, se usa Otsu.
     """
+    if method == "recommended":
+        diag = compute_recommended_threshold(gray_image, valid_mask)
+        if diag.get("cut") is None:
+            return (compute_otsu_threshold(gray_image, valid_mask), "otsu",
+                    "El histograma no permite estimar el nivel recomendado (log-normal); se usó Otsu. "
+                    "Revise el nivel de corte con la vista previa.")
+        note = "" if diag.get("ok") else (
+            "El nivel recomendado (log-normal) = {} no pasó la comprobación del método:\n• {}\n\n"
+            "Revise el corte con los modos Claro y Oscuro y compare con Mínimo y Otsu.".format(
+                diag["cut"], "\n• ".join(diag.get("reasons") or [])))
+        return int(diag["cut"]), "recommended", note
     if method == "minimum":
         t = compute_minimum_threshold(gray_image, valid_mask)
         if t is not None:

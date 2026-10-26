@@ -31,7 +31,7 @@ from qgis.PyQt.QtGui import (
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QSpinBox, QCheckBox, QGroupBox, QScrollArea, QSizePolicy,
-    QWidget, QComboBox, QRadioButton, QButtonGroup, QMessageBox, QRubberBand,
+    QWidget, QComboBox, QRadioButton, QButtonGroup, QMessageBox, QRubberBand, QApplication,
 )
 
 from .ui_keys import disable_enter_buttons
@@ -642,6 +642,8 @@ class ThresholdDialog(QDialog):
         for code, label in AUTO_THRESHOLD_METHODS:
             self.auto_method_combo.addItem(label, userData=code)
         self.auto_method_combo.setToolTip(
+            "Recomendado (log-normal): cruce de dos distribuciones log-normales ajustadas a los modos de dosel\n"
+            "y cielo, iterado desde 128 y comprobado (el mismo método del botón «Nivel recomendado» y del lote).\n"
             "Otsu (1979): maximiza la varianza entre clases.\n"
             "Mínimo (Prewitt y Mendelsohn 1966): corta en el mínimo entre los modos de dosel y\n"
             "cielo del histograma suavizado; si no hay dos modos se usa Otsu.")
@@ -809,13 +811,36 @@ class ThresholdDialog(QDialog):
         self.canvas.set_cleanup(checked)
         self._update_stats()
 
+    def _full_res_gray(self):
+        """v0.14.49: canal de la foto a resolución completa y área válida completa (como el análisis);
+        la vista previa está reducida a 1400 px y suaviza los píxeles mixtos del histograma."""
+        c = self.canvas
+        if getattr(c, "original_pil", None) is None:
+            return c.gray_array, c.valid_mask
+        gray = extract_channel(np.array(c.original_pil), c.channel_mode)
+        vm = c.valid_mask_full
+        if vm is not None and vm.shape != gray.shape:
+            vm = None
+        return gray, vm
+
     def _on_otsu(self):
-        """Nivel de corte automático con el método elegido (Otsu o Mínimo)."""
+        """Nivel de corte automático con el método elegido (Recomendado, Otsu o Mínimo)."""
         if self.canvas.gray_array is None:
             return
         method = self.auto_method_combo.currentData() or "otsu"
-        t, used, note = compute_auto_threshold(self.canvas.gray_array, self.canvas.valid_mask, method)
-        self.last_auto = ("automático: " + AUTO_THRESHOLD_LABELS.get(used, used), int(t))
+        gray, vm = self._full_res_gray()
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            t, used, note = compute_auto_threshold(gray, vm, method)
+        finally:
+            QApplication.restoreOverrideCursor()
+        if used == "recommended":
+            # mismo texto que el botón principal; los motivos pasan al informe
+            label = "recomendado (log-normal)" + (", no comprobado" if note else "")
+            reasons = note.split("\n• ", 1)[1].split("\n\n")[0].replace("\n• ", "; ") if note else ""
+            self.last_auto = (label, int(t), reasons)
+        else:
+            self.last_auto = ("automático: " + AUTO_THRESHOLD_LABELS.get(used, used), int(t), "")
         self.threshold_slider.setValue(t)
         if note:
             QMessageBox.information(self, "Nivel de corte automático", note)

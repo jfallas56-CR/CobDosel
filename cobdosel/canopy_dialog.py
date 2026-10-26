@@ -581,6 +581,8 @@ class CobDoselDialog(QDialog):
         thr_btns_row.addWidget(QLabel("Automático:"))
         self.auto_method_combo = QComboBox()
         for code, label in AUTO_THRESHOLD_METHODS:
+            if code == "recommended":
+                continue          # v0.14.49: aquí tiene su propio botón, «Recomendado (log-normal)»
             self.auto_method_combo.addItem(label, userData=code)
         self.auto_method_combo.setToolTip(
             "Método automático de nivel de corte sobre el histograma del área analizada:\n"
@@ -2489,6 +2491,8 @@ class CobDoselDialog(QDialog):
                 self._cut_auto = (pv[0], int(pv[1]))
                 self.cut_method = pv[0]
                 self._cut_for = self.image_path
+                if pv[0].startswith("recomendado"):   # v0.14.49: motivos de la comprobación para el informe
+                    self._cut_check = (self.image_path, int(pv[1]), pv[2] if len(pv) > 2 else "")
             else:
                 self._mark_manual_cut(new_threshold, "ajustado en la vista previa")
 
@@ -2990,7 +2994,7 @@ class CobDoselDialog(QDialog):
                 "" if lai.get("lai_reliable", True) else ", INDICATIVO",
             )
         )
-        lines.append("  Nota: la cobertura del dosel (proyección vertical) corresponde al Índice CaCo;")
+        lines.append("  Nota: la cobertura del dosel (proyección vertical de las copas) se estima con el Índice CaCo;")
         lines.append("  el cierre del dosel NO es cobertura.")
         lines.append("")
         lines.append("── PARÁMETROS DE CALIBRACIÓN Y MÁSCARA DE HORIZONTE ──────────────")

@@ -371,9 +371,9 @@ cd.ThresholdDialog.exec_ = _td_exec
 d._on_adjust_threshold()
 check("vista previa: misma opacidad en Light y Dark (65 %), ajustable (40 %), arrastre conectado",
       abs(_td.get("alpha0", 0) - 0.65) < 1e-9 and abs(_td.get("alpha1", 0) - 0.40) < 1e-9 and _td.get("scroll"), _td)
-check("0.14.5: vista previa con modos «Claro» y «Oscuro» y métodos Otsu/Mínimo (Mínimo T = %s)" % _td.get("t_min"),
+check("0.14.5: vista previa con modos «Claro» y «Oscuro» y métodos Recomendado/Otsu/Mínimo (Mínimo T = %s)" % _td.get("t_min"),
       _td.get("labels", ("", ""))[0].startswith("Claro") and _td["labels"][1].startswith("Oscuro")
-      and _td.get("codes") == ["otsu", "minimum"], _td.get("labels"))
+      and _td.get("codes") == ["recommended", "otsu", "minimum"], _td.get("labels"))   # v0.14.49: + Recomendado
 # 0.14.13: corte heredado al cargar otra foto
 import shutil as _sh
 _jpg2 = os.path.join(OUT, "foto_regular_2.jpg"); _sh.copy(jpg, _jpg2)

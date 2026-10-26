@@ -15,7 +15,7 @@ SHORT_HELP_TOPICS = {
   <li><b>5. Ejecutar</b> y exportar el informe HTML y el CSV.</li>
 </ol>
 <p><b>Sitios completos:</b> menú <i>CobDosel → Procesamiento por sitio (lote)</i> (parcelas × fotos, formulario de fotos).</p>
-<p><b>Valor de cobertura:</b> el <b>Índice CaCo</b> es la cobertura del dosel (proyección vertical). El <i>cierre</i> del dosel no es cobertura.</p>
+<p><b>Valor de cobertura:</b> el <b>Índice CaCo</b> estima la cobertura del dosel (proyección vertical de las copas) a partir de la foto. El <i>cierre</i> del dosel no es cobertura.</p>
 <hr/>
 <p><b>Autor:</b> Jorge Fallas — <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></p>
 """,
@@ -66,8 +66,8 @@ SHORT_HELP_TOPICS = {
 <ul>
   <li><b>Canal:</b> Azul + Rojo (recomendado) o Azul.</li>
   <li><b>Recomendado (log-normal):</b> nivel de corte en el cruce de dos distribuciones log-normales ajustadas a los modos oscuro (dosel) y claro (cielo) del histograma del área analizada; objetivo y reproducible. Implementación independiente en Python del procedimiento del nivel de corte recomendado de la app GLAMA (Tichý 2016), reconstruido a partir de la app y verificado con sus resultados. La búsqueda de los dos modos parte de 128 (convención de CobDosel; busca en ambos sentidos, el corte puede quedar por debajo o por encima) e itera hasta estabilizarse; cada foto obtiene su propio nivel. Se comprueba que el método funcionó (como en el lote, §9); si no, se avisa y el método queda como «no comprobado». Pasos: Ayuda completa §10.</li>
-  <li><b>Automático:</b> elija el método y pulse «Calcular». <b>Otsu</b> (1979) maximiza la varianza entre clases. <b>Mínimo</b> (Prewitt y Mendelsohn 1966) suaviza el histograma hasta dejar dos modos (dosel y cielo) y corta en el mínimo entre ellos; fue el más acertado en la comparación de Glatthorn y Beckschäfer (2014) y es más robusto con cielo sobreexpuesto. Si no hay dos modos, o uno de los lados del corte tiene menos del 0,5 % de los píxeles (foto sin cielo o sin dosel), se usa Otsu y se avisa.</li>
-  <li><b>Vista previa:</b> compruebe que los claros no se clasifican como dosel ni al revés; modo <b>Claro</b> (cielo en color) u <b>Oscuro</b> (dosel en rojo), con la misma opacidad. Con «Solo el área analizada» (marcada por defecto) lo que queda fuera del círculo de análisis se cubre de verde azulado, como en GLAMA. El histograma, el corte automático y las estadísticas usan siempre solo el área analizada (máscara de horizonte, máscara por direcciones y parte dentro de la foto); sin calibración, toda la foto.</li>
+  <li><b>Automático:</b> elija el método y pulse «Calcular». <b>Otsu</b> (1979) maximiza la varianza entre clases. <b>Mínimo</b> (Prewitt y Mendelsohn 1966) suaviza el histograma hasta dejar dos modos (dosel y cielo) y corta en el mínimo entre ellos; fue el más acertado en la comparación de Glatthorn y Beckschäfer (2014) y es más robusto con cielo sobreexpuesto. Si no hay dos modos, o uno de los lados del corte tiene menos del 0,5 % de los píxeles (foto sin cielo o sin dosel), se usa Otsu y se avisa. En la ventana de vista previa la lista ofrece además <b>Recomendado (log-normal)</b>, el mismo método y comprobación del botón principal; allí «Calcular» usa la foto a resolución completa.</li>
+  <li><b>Vista previa:</b> compruebe que los claros no se clasifican como dosel ni al revés; modo <b>Claro</b> (cielo en color) u <b>Oscuro</b> (dosel en rojo), con la misma opacidad. La vista previa no dibuja líneas: lo negro es la foto (ramas o raquis de palmas a contraluz). Con «Solo el área analizada» (marcada por defecto) lo que queda fuera del círculo de análisis se cubre de verde azulado, como en GLAMA. El histograma, el corte automático y las estadísticas usan siempre solo el área analizada (máscara de horizonte, máscara por direcciones y parte dentro de la foto); sin calibración, toda la foto.</li>
   <li><b>Inspector de píxeles:</b> en la vista previa, al mover el puntero se muestra el valor del píxel en el canal elegido, el corte, si cuenta como cielo o dosel y a cuántas unidades está del corte. Útil para decidir si un píxel claro de una ramilla está cerca del corte o claramente por debajo.</li>
   <li><b>Consistencia:</b> use el mismo criterio en todas las fotos y regístrelo; en fotos de dosel denso el criterio puede cambiar la cobertura varios puntos.</li>
   <li><b>Limpieza morfológica:</b> desactivada por defecto (elimina claros reales de 1–2 px).</li>
@@ -97,7 +97,7 @@ FULL_HELP_HTML = """
 <hr/>
 <h3>1. Cobertura y cierre del dosel</h3>
 <p>La <b>cobertura del dosel</b> (<i>canopy cover</i>) es la proporción del suelo cubierta por la proyección vertical del dosel; el <b>cierre del dosel</b> (<i>canopy closure</i>) es la proporción del hemisferio celeste obstruida vista desde un punto (Jennings et al., 1999). La fotografía mide <i>canopy cover</i>: los huecos dentro de las copas cuentan como abiertos, por lo que da valores menores que la «cobertura de copas» que trata cada copa como opaca (Korhonen et al., 2006).</p>
-<p><b>Valor de cobertura:</b> el <b>Índice CaCo</b> (proyección vertical), no el cierre.</p>
+<p><b>Valor de cobertura:</b> el <b>Índice CaCo</b> (estimación de la proyección vertical), no el cierre.</p>
 
 <hr/>
 <h3>2. Fundamento (Tichý, 2016)</h3>

@@ -687,8 +687,9 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     <div class="caco-box">
       <div class="caco-label">Cobertura del dosel — Índice CaCo</div>
       <div class="caco-val">{caco_index_pct:.2f}%</div>
-      <div class="caco-note">Proyección vertical de las copas en el área analizada (cenit 0–{zenith_max_deg:.1f}°,
-      máscara de horizonte {horizon_mask_deg:.1f}°).</div>
+      <div class="caco-note">Estimación de la cobertura del dosel (proyección vertical de las copas) a partir del área
+      analizada (cenit 0–{zenith_max_deg:.1f}°, máscara de horizonte {horizon_mask_deg:.1f}°). Supone un dosel parejo en
+      el área vista; no es una medición directa por puntos como la del densiómetro vertical.</div>
     </div>
 
     <h3 class="sub-h">Índices del área analizada (cenit 0–{zenith_max_deg:.1f}°)</h3>

@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.48-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.49-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -74,6 +74,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.14.49 (2026-10-25):** «Recomendado (log-normal)» en la vista previa del nivel de corte, calculado a resolución completa como el botón principal; el CaCo se presenta como estimación de la proyección vertical.
 - **0.14.48 (2026-10-24):** «Operador» pasa a «Analista»; informe de una foto con sitio y analista y créditos al final; anillos cenitales con letra mayor y leyenda arriba; ventana del lote sin máscara por altura del dosel; informe del sitio: cielo «Verificadas por…» y tabla de parcelas más clara.
 - **0.14.47 (2026-10-24):** informes sin autor; informe de una foto reorganizado en español; cielo no uniforme junto al resultado del sitio.
 - **0.14.46 (2026-10-24):** avisos comunes con su alcance («Todas las fotos…», «3 de 9 fotos…») y etiquetas breves por foto; cielo no uniforme → «a revisar» (verificar el corte).
