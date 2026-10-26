@@ -36,6 +36,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_heic_v01439.py` | Fotos HEIC del iPhone en el lote sin abrir la ventana principal; mensaje sin «pillow-heif» |
 | `test_v01447.py` | Informes sin autor; informe de una foto en español, por grupos, con el motivo del corte no comprobado; cielo no uniforme junto al resultado del sitio (informe y panel) |
 | `test_v01448.py` | «Analista» en ventanas, informe y CSV; informe de una foto con sitio, analista y créditos al final; anillos con letra mayor y leyenda arriba (o franja); lote sin máscara por altura ni «5 = Centro…»; cielo «Verificadas por…»; tabla de parcelas |
+| `test_v01451.py` | Cielo abierto: apertura de GLAMA = área analizada / referencia (44.5 % con 63°), foto = ángulo sólido del encuadre, misma base en el informe, nota metodológica única, columnas nuevas del CSV |
 | `test_v01450.py` | Sin globo de ayuda sobre la foto en la vista previa del nivel de corte ni al medir el círculo |
 | `test_v01449.py` | «Recomendado (log-normal)» en la vista previa: mismo corte que el botón principal (fotos reales), resolución completa, motivos al informe; CaCo como estimación |
 | `test_v01446.py` | Avisos comunes con su alcance («Todas las fotos…»), etiquetas breves por foto, un aviso si ninguna parcela tiene fotos válidas; cielo no uniforme «a revisar» (con `COBDOSEL_FOTOS_CIELO`, 7 fotos reales) |

@@ -2681,7 +2681,9 @@ class CobDoselDialog(QDialog):
                 for key in ("gap_fraction_pct", "canopy_openness_pct", "canopy_closure_pct",
                             "canopy_cover_index_pct", "hemisphere_fraction_pct",
                             "total_pixels_in_circle",
-                            "total_pixels_in_frame", "light_pixels", "dark_pixels"):
+                            "total_pixels_in_frame", "light_pixels", "dark_pixels",
+                            "reference_zenith_deg", "reference_fraction_pct",       # v0.14.51
+                            "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct"):
                     metrics[key] = g_idx[key]
                 metrics["canopy_cover_pct"] = g_idx["canopy_cover_index_pct"]
                 metrics["spherical_cover_pct"] = g_idx["spherical_cover_pct"]
@@ -2789,7 +2791,9 @@ class CobDoselDialog(QDialog):
                 for key in ("gap_fraction_pct", "canopy_openness_pct", "canopy_closure_pct",
                             "canopy_cover_index_pct", "hemisphere_fraction_pct",
                             "total_pixels_in_circle", "total_pixels_in_frame",
-                            "light_pixels", "dark_pixels"):
+                            "light_pixels", "dark_pixels",
+                            "reference_zenith_deg", "reference_fraction_pct",
+                            "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct"):
                     metrics[key] = v_idx[key]
                 metrics["canopy_cover_pct"] = v_idx["canopy_cover_index_pct"]
                 metrics["spherical_cover_pct"] = v_idx["spherical_cover_pct"]
@@ -2898,7 +2902,7 @@ class CobDoselDialog(QDialog):
             "hemisphere_fraction_pct",
             compute_hemisphere_fraction(half_fov),
         )
-        meas = classify_measurement_type(zen_max)
+        meas = classify_measurement_type(zen_max, res.get("horizon_mask_deg"))
         channel_mode = res.get("channel_mode", "blue_red")
         channel_label = CHANNEL_LABELS.get(channel_mode, channel_mode)
 
@@ -2944,11 +2948,20 @@ class CobDoselDialog(QDialog):
                 metrics.get("gap_fraction_unmasked_pct", metrics["gap_fraction_pct"])
             )
         )
-        lines.append(
-            "  Fracción del hemisferio captada por la cámara:     {:6.2f} %".format(
-                hemi_frac
+        # v0.14.51: la «fracción del hemisferio» de GLAMA es de la referencia (anillos que alcanza la foto)
+        if metrics.get("hemisphere_fraction_abs_pct") is not None:
+            lines.append(
+                "  Hemisferio real en la foto (área analizada):      {:6.2f} % ({:.2f} %)".format(
+                    metrics["hemisphere_fraction_abs_pct"], metrics.get("analysed_fraction_abs_pct", 0.0)))
+            lines.append(
+                "  Referencia de GLAMA dentro de la foto (0–{:.1f}°): {:6.2f} %".format(
+                    metrics.get("reference_zenith_deg", 0.0), hemi_frac))
+        else:
+            lines.append(
+                "  Fracción del hemisferio captada por la cámara:     {:6.2f} %".format(
+                    hemi_frac
+                )
             )
-        )
         lines.append(
             "  Nivel de corte entre píxeles blancos y negros:     {}".format(
                 res["threshold"]
@@ -2958,12 +2971,12 @@ class CobDoselDialog(QDialog):
             res.get("cut_method") or "manual"))
         lines.append("  ----------------------------------------------------------------")
         lines.append(
-            "  Apertura del dosel (Canopy Openness):              {:6.2f} %".format(
-                metrics["canopy_openness_pct"]
+            "  Apertura del dosel (GLAMA, referida a 0–{:.1f}°):   {:6.2f} %".format(
+                metrics.get("reference_zenith_deg") or 90.0, metrics["canopy_openness_pct"]
             )
         )
         lines.append(
-            "  Cierre del dosel (Canopy Closure):                 {:6.2f} %".format(
+            "  Cierre del dosel (GLAMA):                          {:6.2f} %".format(
                 metrics["canopy_closure_pct"]
             )
         )
@@ -3227,7 +3240,7 @@ class CobDoselDialog(QDialog):
             "hemisphere_fraction_pct",
             compute_hemisphere_fraction(half_fov),
         )
-        meas = classify_measurement_type(zen_max)
+        meas = classify_measurement_type(zen_max, res.get("horizon_mask_deg"))
 
         n = len(cover["per_ring"])
         lai_bounds = lai.get("ring_boundaries", res["ring_boundaries"])
@@ -3257,6 +3270,7 @@ class CobDoselDialog(QDialog):
                 "glama_geometry_mode", "caco_correct_geometry_pct",
                 "exif_orientation", "exif_image_direction_deg", "cut_level_method",
                 "site_name", "analyst",
+                "glama_reference_zenith_deg", "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct",
             ]
             + ["cover_pct_ring{}".format(i + 1) for i in range(n)]
             + ["gap_fraction_ring{}".format(i + 1) for i in range(n)]
@@ -3325,6 +3339,8 @@ class CobDoselDialog(QDialog):
                 exif.get("image_direction_deg"),
                 res.get("cut_method") or "manual",
                 self.site_edit.text().strip(), self.analyst_edit.text().strip(),
+                metrics.get("reference_zenith_deg"), metrics.get("hemisphere_fraction_abs_pct"),
+                metrics.get("analysed_fraction_abs_pct"),
             ]
             + [r["cover_pct"] for r in cover["per_ring"]]
             + [r["gap_fraction"] for r in cover["per_ring"]]

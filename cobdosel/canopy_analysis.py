@@ -585,10 +585,11 @@ def compute_canopy_metrics(per_ring_results, ring_boundaries, cover_summary=None
       y 12.59 %). También se reporta gap_fraction_unmasked_pct sobre el área analizada.
     - Part of Hemisphere Taken by Camera (%): (1 - cos(θ_max)) * 100.
     - Cut Level between Black and White Pixels (1-254): valor del umbral T.
-    - Canopy Openness (%): ángulo sólido de cielo abierto / ángulo sólido del HEMISFERIO COMPLETO
-      («Open sky area / whole hemisphere area»; lo enmascarado cuenta como obstruido). Verificado
-      con la Fig. 12 B/D del Manual GLAMA v3.0 (programa lineal de factibilidad: la normalización
-      al área no enmascarada es incompatible con los valores publicados).
+    - Canopy Openness (%): ángulo sólido de cielo abierto / ángulo sólido del hemisferio completo
+      (lo enmascarado cuenta como obstruido). OJO (v0.14.51): esta ruta lineal solo se usa con
+      calibraciones sin radio del hemisferio; la ruta normal (glama_engine.glama_indices, la de GLAMA)
+      refiere la apertura a los anillos que la foto alcanza, no al hemisferio, y con lente regular da
+      valores mayores (cielo abierto, máscara 63°, Pixel 10: 44.5 % frente a 10.9 %).
     - Canopy Closure (%): 100 − Canopy Openness.
     - canopy_openness_analysed_pct: apertura normalizada solo al área analizada (0–θ_máx),
       criterio de CAnOPY (nombre anterior de CobDosel) ≤ 0.9.x, conservada como dato adicional.
@@ -746,35 +747,26 @@ def compute_canopy_metrics(per_ring_results, ring_boundaries, cover_summary=None
 # ======================================================================
 # Clasificación del tipo de medición según el ángulo de visión
 # ======================================================================
-def classify_measurement_type(half_fov_deg, threshold_deg=30.0):
+def classify_measurement_type(zenith_max_deg, horizon_mask_deg=None):
     """
-    Clasifica el tipo de medición según el semiángulo de visión (half-FOV).
-    Siguiendo a Tichý (2016), Paletto y Tosi (2009) y Bunnell y Vales (1990):
-    - Semiángulo < 30° -> "cover" (Cobertura del dosel — proyección perpendicular)
-    - Semiángulo >= 30° -> "closure" (Cierre del dosel — proyección hemisférica, reescalada mediante CaCo)
+    Nota metodológica del informe (v0.14.51: una sola, para cualquier máscara).
+    Antes se separaba «cobertura (proyección perpendicular)» con cenit < 30° y «cierre reescalado
+    con CaCo» con ≥ 30°, pero el cálculo es el mismo en ambos casos (Índice CaCo) y una foto desde un
+    punto nunca mide directamente la proyección perpendicular. «type» se conserva para el CSV.
     """
-    if half_fov_deg < threshold_deg:
-        return {
-            "type": "cover",
-            "label": "Cobertura del dosel (proyección perpendicular)",
-            "note": (
-                "Ángulo de visión estrecho (semiángulo < 30°) — mide directamente la "
-                "proyección perpendicular de las copas sobre una superficie "
-                "horizontal. Comparable al densiómetro GRS y estimación visual."
-            ),
-        }
-    else:
-        return {
-            "type": "closure",
-            "label": "Cobertura del dosel mediante el Índice CaCo (Tichý 2016)",
-            "note": (
-                "Ángulo de visión amplio (semiángulo ≥ 30°). Como demuestra Tichý (2016, "
-                "doi:10.1111/jvs.12350), el Índice CaCo reescala la "
-                "proyección hemisférica a proyección perpendicular de copas, logrando un "
-                "ajuste óptimo (pendiente ~1, intercepto ~0) frente a la estimación visual "
-                "experta cuando se aplica una máscara de horizonte artificial > 45° (cenit ≤ 45°)."
-            ),
-        }
+    z = float(zenith_max_deg)
+    m = float(horizon_mask_deg) if horizon_mask_deg is not None else max(0.0, 90.0 - z)
+    return {
+        "type": "caco",
+        "label": "Cobertura del dosel estimada con el Índice CaCo (Tichý 2016)",
+        "note": (
+            "La foto ve un cono desde un punto (cenit 0–{:.1f}°, máscara de horizonte {:.1f}°), es decir, un "
+            "cierre angular del dosel. El Índice CaCo lo lleva a la vertical anillo por anillo, suponiendo un "
+            "dosel parejo en el área vista. Un cono más estrecho se acerca más a la vertical, pero no es una "
+            "medición directa: el densiómetro vertical (GRS) mide la proyección perpendicular punto por punto "
+            "y requiere muchos puntos. Informe la máscara usada.".format(z, m)
+        ),
+    }
 
 
 def compute_hemisphere_fraction(half_fov_deg):

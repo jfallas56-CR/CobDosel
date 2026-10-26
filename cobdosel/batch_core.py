@@ -593,6 +593,9 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
         "apertura": idx["canopy_openness_pct"],
         "cierre": idx["canopy_closure_pct"],
         "fraccion_claros": idx["gap_fraction_pct"],
+        # v0.14.51: apertura y cierre siguen la convención de GLAMA: referidos a los anillos que alcanza
+        # la foto (hasta este cenit), no al hemisferio
+        "apertura_ref_cenit": round(float(idx.get("reference_zenith_deg") or 0.0), 2),
         "corte": int(t),
         "metodo_corte": method,
         "corte_auto": auto_cut,
@@ -977,7 +980,7 @@ PHOTO_CSV_COLUMNS = ("parcela", "reemplaza_a", "punto", "archivo", "id_foto", "e
                      "mascara_horizonte", "cenit_max", "corte", "metodo_corte", "corte_auto", "decision",
                      "analista", "nota", "motivo_revision", "inicios",
                      "caco", "modif_caco", "apertura", "cierre", "fraccion_claros", "visible_pct",
-                     "cielo_rango")
+                     "cielo_rango", "apertura_ref_cenit")
 PLOT_CSV_COLUMNS = ("parcela", "reemplaza_a", "fotos", "validas", "caco_media", "caco_min", "caco_max")
 
 

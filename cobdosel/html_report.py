@@ -109,8 +109,24 @@ def generate_html_report(results, output_path, include_images=True, log=None):
             compute_hemisphere_fraction(half_fov),
         )
     )
-    analyzed_hemi_frac = compute_hemisphere_fraction(zenith_max_deg)
-    meas = classify_measurement_type(zenith_max_deg)
+    # v0.14.51: referencia de la apertura de GLAMA (anillos que alcanza la foto) y fracciones del
+    # hemisferio real, todas sobre la misma base (antes se mezclaban en una misma celda)
+    ref_zen = metrics.get("reference_zenith_deg")
+    ref_frac = metrics.get("reference_fraction_pct")
+    photo_hemi_abs = metrics.get("hemisphere_fraction_abs_pct")
+    analyzed_hemi_frac = float(metrics["analysed_fraction_abs_pct"]) if metrics.get(
+        "analysed_fraction_abs_pct") is not None else compute_hemisphere_fraction(zenith_max_deg)
+    meas = classify_measurement_type(zenith_max_deg, horizon_mask_deg)
+    if ref_zen is not None and ref_frac is not None:
+        ref_txt = "los anillos cenitales que alcanza la foto (0–{:.1f}°, el {:.1f} % del hemisferio)".format(
+            float(ref_zen), float(ref_frac))
+    else:
+        ref_txt = "el hemisferio completo"
+    hemi_row = (
+        "Parte de esa referencia que está dentro de la foto. Del hemisferio real: foto {:.1f} %, área "
+        "analizada {:.1f} %.".format(float(photo_hemi_abs), analyzed_hemi_frac)
+        if photo_hemi_abs is not None else
+        "Parte del hemisferio que cubre la foto; área analizada {:.1f} % del hemisferio.".format(analyzed_hemi_frac))
 
     channel_mode = results.get("channel_mode", "blue_red")
     channel_label = CHANNEL_LABELS.get(channel_mode, str(channel_mode))
@@ -705,20 +721,23 @@ def generate_html_report(results, output_path, include_images=True, log=None):
           <td>Píxeles de cielo / píxeles del área analizada, sin ponderar (no es cobertura ni apertura).</td></tr>
     </table>
 
-    <h3 class="sub-h">Índices referidos al hemisferio completo</h3>
-    <p class="note-small">Convención general de la fotografía hemisférica (programas como Gap Light Analyzer y la app
-    GLAMA): lo que queda fuera del área analizada (bajo la máscara o fuera de la foto) cuenta como obstruido. Dependen de
-    la máscara elegida; sirven para comparar con estudios que usan esta convención.</p>
+    <h3 class="sub-h">Índices referidos al hemisferio (convención de GLAMA)</h3>
+    <p class="note-small">Referencia: {ref_txt}. Dentro de ella, lo que queda bajo la máscara o fuera del encuadre
+    cuenta como obstruido: el numerador incluye solo el cielo del área analizada y el denominador, toda la referencia. No es
+    una convención universal de la fotografía hemisférica, sino la de GLAMA, que CobDosel reproduce para comparar. Dependen
+    de la máscara y del lente: con cielo totalmente abierto la apertura no llega al 100 %. Para la cobertura use el Índice
+    CaCo.</p>
     <table class="data-table">
       <tr><th>Indicador</th><th class="num">Valor</th><th>Qué mide</th></tr>
-      <tr><td>Apertura del dosel (hemisferio)</td><td class="num">{canopy_openness_pct:.2f}%</td>
-          <td>Cielo abierto / hemisferio completo, ponderado por sin θ.</td></tr>
-      <tr><td>Cierre del dosel (hemisferio)</td><td class="num">{canopy_closure_pct:.2f}%</td>
-          <td>100 − apertura del hemisferio.</td></tr>
-      <tr><td>Fracción de claros del círculo completo</td><td class="num">{gap_fraction_pct:.2f}%</td>
-          <td>Píxeles de cielo / píxeles del círculo de 90°.</td></tr>
-      <tr><td>Fracción del hemisferio en la foto</td><td class="num">{hemi_frac:.2f}%</td>
-          <td>Parte del hemisferio que cubre la foto; tras la máscara de {horizon_mask_deg:.1f}°: {analyzed_hemi_frac:.2f}%.</td></tr>
+      <tr><td>Apertura del dosel (GLAMA)</td><td class="num">{canopy_openness_pct:.2f}%</td>
+          <td>Cielo abierto del área analizada / referencia, ponderado por ángulo sólido.</td></tr>
+      <tr><td>Cierre del dosel (GLAMA)</td><td class="num">{canopy_closure_pct:.2f}%</td>
+          <td>100 − apertura.</td></tr>
+      <tr><td>Fracción de claros del círculo virtual</td><td class="num">{gap_fraction_pct:.2f}%</td>
+          <td>Píxeles de cielo / píxeles del círculo virtual del hemisferio (radio R), como GLAMA; con lente regular
+          ese círculo es una construcción de cálculo, no parte de la foto.</td></tr>
+      <tr><td>Referencia dentro de la foto</td><td class="num">{hemi_frac:.2f}%</td>
+          <td>{hemi_row}</td></tr>
     </table>
 
     <h3 class="sub-h">Nivel de corte, LAI y píxeles</h3>
@@ -836,6 +855,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         hemi_frac=hemi_frac,
         horizon_mask_deg=horizon_mask_deg,
         analyzed_hemi_frac=analyzed_hemi_frac,
+        ref_txt=html.escape(ref_txt), hemi_row=html.escape(hemi_row),
         threshold=threshold,
         cut_method=html.escape(str(results.get("cut_method") or "manual")),
         channel_label=html.escape(channel_label),

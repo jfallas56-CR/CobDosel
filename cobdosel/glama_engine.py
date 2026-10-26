@@ -267,6 +267,7 @@ def glama_indices(counts, calibration=None, radius_px=None, papa=90):
 
     canopen = canopen_den = 0.0
     celkove = 0.0
+    ref_zen = 0.0          # v0.14.51: cenit superior del último anillo con píxeles en la foto (referencia)
     free_num = free_den = 0.0
     kulo_num = kulo_den = vodo_num = vodo_den = 0.0
     for i in range(n):
@@ -275,6 +276,7 @@ def glama_indices(counts, calibration=None, radius_px=None, papa=90):
         if posneg <= 0.0 or celk[i] <= 0.0:
             continue
         rozdil = math.cos(math.radians(lo[i])) - math.cos(math.radians(hi[i]))
+        ref_zen = max(ref_zen, float(hi[i]))
         canopen += (pos[i] / celk[i]) * rozdil
         canopen_den += rozdil
         celkove += (posneg / celk[i]) * rozdil
@@ -298,8 +300,15 @@ def glama_indices(counts, calibration=None, radius_px=None, papa=90):
         "canopy_cover_index_pct": 100.0 * (1.0 - vodo_num / vodo_den) if vodo_den > 0 else 0.0,
         "spherical_cover_pct": 100.0 * (1.0 - kulo_num / kulo_den) if kulo_den > 0 else 0.0,
         "unmasked_cover_pct": 100.0 * (1.0 - free_num / free_den) if free_den > 0 else 0.0,
-        # «Part of Hemisph. Taken by Camera» (celkove)
+        # «Part of Hemisph. Taken by Camera» (celkove): fracción de la REFERENCIA (anillos que la foto
+        # alcanza) que está dentro de la foto; no del hemisferio, salvo con ojo de pez de 180°.
         "hemisphere_fraction_pct": 100.0 * celkove / canopen_den if canopen_den > 0 else 0.0,
+        # v0.14.51: la referencia de apertura y cierre, y la foto como fracción del hemisferio real
+        # (pesos cos θ_lo − cos θ_hi: el hemisferio suma 1)
+        "reference_zenith_deg": ref_zen,
+        "reference_fraction_pct": 100.0 * canopen_den,
+        "hemisphere_fraction_abs_pct": 100.0 * celkove,
+        "analysed_fraction_abs_pct": 100.0 * free_den,      # área analizada (visible y sin máscara)
         "total_pixels_in_circle": totpix,
         "total_pixels_in_frame": counts["visibpix"],
         "light_pixels": counts["lightpix"],

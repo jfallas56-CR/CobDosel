@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.50-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.51-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -74,6 +74,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.14.51 (2026-10-26):** apertura y cierre con su referencia real (convención de GLAMA); fracciones del hemisferio sobre una misma base; una sola nota metodológica sin «proyección perpendicular medida directamente».
 - **0.14.50 (2026-10-26):** sin globo de ayuda sobre la foto en la vista previa del nivel de corte.
 - **0.14.49 (2026-10-25):** «Recomendado (log-normal)» en la vista previa del nivel de corte, calculado a resolución completa como el botón principal; el CaCo se presenta como estimación de la proyección vertical.
 - **0.14.48 (2026-10-24):** «Operador» pasa a «Analista»; informe de una foto con sitio y analista y créditos al final; anillos cenitales con letra mayor y leyenda arriba; ventana del lote sin máscara por altura del dosel; informe del sitio: cielo «Verificadas por…» y tabla de parcelas más clara.
