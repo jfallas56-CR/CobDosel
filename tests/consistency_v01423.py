@@ -134,7 +134,7 @@ for name, cal in cases:
         try:
             d._load_image_into_dialog(photo)
             d.calibration = dict(cal); d.center_xy = tuple(cal["center_xy"])
-            d.zenith_max.setValue(mask); d.sky_bright_check.setChecked(sky_bright); d.clean_check.setChecked(clean)
+            d.zenith_max.setValue(mask); d.sky_bright_check.setChecked(sky_bright)  # v0.14.52: sin limpieza
             d.threshold_spin.setValue(150); d._set_cut(150, "manual")
             d.n_sectors_combo.setCurrentIndex(max(0, d.n_sectors_combo.findData(sectors)))
             d._on_run()

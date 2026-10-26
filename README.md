@@ -56,7 +56,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 - QGIS 3.28 LTR o posterior (probado sin interfaz con PyQt5 y PyQt6; falta la prueba manual en QGIS).
 - Obligatorios: `numpy`, `Pillow` (incluidos en las instalaciones habituales de QGIS).
-- Opcionales: `scipy` (limpieza morfológica), `opencv-python` (detección del círculo ojo de pez), `pillow-heif` (HEIC), `openpyxl` (formulario en Excel; sin él se usa GDAL de QGIS o el formulario en CSV).
+- Opcionales: `opencv-python` (detección del círculo ojo de pez), `pillow-heif` (HEIC), `openpyxl` (formulario en Excel; sin él se usa GDAL de QGIS o el formulario en CSV).
 
 ## Alcance y validación
 

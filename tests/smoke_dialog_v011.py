@@ -287,7 +287,7 @@ import numpy as _np2
 from cobdosel import visualization as _vz
 _am = d.last_results.get("analysis_area_mask")
 _pthr = _vz.render_threshold_overlay(d.image_path, threshold=d.last_results["threshold"], area_mask=_am,
-                                     output_path=os.path.join(OUT, "thr_area.png"), apply_cleanup=False)
+                                     output_path=os.path.join(OUT, "thr_area.png"))
 _im = _np2.asarray(__import__("PIL.Image", fromlist=["Image"]).open(_pthr))
 check("0.14.15: superposición de umbral con el área analizada (fuera en verde azulado)",
       _am is not None and (~_am).any() and tuple(_im[0, 0]) != tuple(_im[_im.shape[0] // 2, _im.shape[1] // 2]),

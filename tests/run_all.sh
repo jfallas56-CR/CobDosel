@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pruebas de CobDosel sin QGIS (Qt fuera de pantalla). Uso: bash tests/run_all.sh [PyQt5|PyQt6]
-# Requiere: numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
+# Requiere: numpy, scipy (solo algunas pruebas; el complemento no lo usa), Pillow, openpyxl y PyQt5 o PyQt6.
 set -u
 cd "$(dirname "$0")/.."
 QT="${1:-PyQt5}"
@@ -42,6 +42,7 @@ check v01448             python3 tests/test_v01448.py . "$OUT/v01448" "$QT"
 check v01449             python3 tests/test_v01449.py . "$OUT/v01449" "$QT" ${COBDOSEL_FOTOS_CIELO:-}
 check v01450             python3 tests/test_v01450.py . "$OUT/v01450" "$QT"
 check v01451             python3 tests/test_v01451.py . "$OUT/v01451" "$QT"
+check v01452             python3 tests/test_v01452.py . "$OUT/v01452" "$QT"
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>;
 # COBDOSEL_FOTOS_CIELO=<carpeta> con las 14 fotos de la prueba de uniformidad del cielo (v0.14.42)

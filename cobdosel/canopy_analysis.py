@@ -18,7 +18,7 @@ Historial:
 - 0.10.0 (2026-10-17): LAI efectivo con rango cenital propio y estimador de Miller
   normalizado (antes se truncaba en la máscara de horizonte: −71 % a 45°);
   «(en el fotograma)» = intersección fotograma ∩ círculo virtual (Fig. 12J del manual);
-  rejillas radio/cenit calculadas una sola vez en float32; scipy opcional (HAS_SCIPY).
+  rejillas radio/cenit calculadas una sola vez en float32; sin scipy (v0.14.52: se quitó la limpieza morfológica, su único uso).
   La «Fracción de claros del área seleccionada» se mantiene = claros / total del círculo
   virtual: verificado contra las 6 capturas de la Fig. 12 del Manual GLAMA v3.0.
 - 0.9.0: versión inicial.
@@ -27,12 +27,6 @@ Historial:
 import math
 import numpy as np
 
-try:
-    from scipy import ndimage
-    HAS_SCIPY = True
-except ImportError:
-    ndimage = None
-    HAS_SCIPY = False
 
 # Rango cenital por defecto para el LAI efectivo (independiente de la máscara de horizonte)
 LAI_DEFAULT_ZENITH_MAX_DEG = 60.0
@@ -344,21 +338,6 @@ def threshold_image(gray_image, threshold, sky_is_bright=True):
         return (gray_image >= threshold).astype(bool)
     else:
         return (gray_image < threshold).astype(bool)
-
-
-def clean_binary_mask(mask, iterations=1, do_open=True, do_close=True):
-    """Aplica apertura y cierre morfológico para eliminar ruido de píxeles aislados.
-
-    Advertencia: elimina también claros reales de 1–2 px (follaje fino), lo que
-    sesga la cobertura hacia arriba. Sin scipy devuelve la máscara sin cambios.
-    """
-    if iterations <= 0 or not HAS_SCIPY:
-        return mask
-    if do_open:
-        mask = ndimage.binary_opening(mask, iterations=iterations)
-    if do_close:
-        mask = ndimage.binary_closing(mask, iterations=iterations)
-    return mask
 
 
 # ======================================================================

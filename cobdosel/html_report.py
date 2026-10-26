@@ -132,7 +132,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     channel_label = CHANNEL_LABELS.get(channel_mode, str(channel_mode))
     threshold = int(results.get("threshold", metrics.get("cut_level", 128)))
     sky_is_bright = bool(results.get("sky_is_bright", True))
-    apply_cleanup = bool(results.get("apply_cleanup", True))
 
     total_circle_px = int(
         metrics.get(
@@ -334,7 +333,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
                     image_path,
                     threshold=threshold,
                     sky_is_bright=sky_is_bright,
-                    apply_cleanup=apply_cleanup,
                     channel_mode=channel_mode,
                     mode="overlay",
                     max_dim=1200,
@@ -772,7 +770,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         <div class="kv-row"><span class="label">Canal de umbralización:</span><span class="val">{channel_label}</span></div>
         <div class="kv-row"><span class="label">Nivel de corte (umbral T):</span><span class="val">{threshold} ({bright_str})</span></div>
         <div class="kv-row"><span class="label">Método del nivel de corte:</span><span class="val">{cut_method}</span></div>
-        <div class="kv-row"><span class="label">Limpieza morfológica:</span><span class="val">{cleanup_str}</span></div>
       </div>
       <div>
         <div class="kv-row"><span class="label">Tipo de lente:</span><span class="val">{lens_type_label}</span></div>
@@ -872,7 +869,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         camera_str=html.escape(camera_str),
         gps_str=html.escape(gps_str),
         bright_str="Cielo más brillante que el dosel" if sky_is_bright else "Cielo más oscuro que el dosel",
-        cleanup_str="Activada (apertura + cierre)" if apply_cleanup else "Desactivada",
         lens_type_label=html.escape(lens_type_label),
         proj_label=html.escape(str(proj_label)),
         circle_cm_str=html.escape(circle_cm_str),

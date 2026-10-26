@@ -39,7 +39,6 @@ from ._version import fmt_int
 from .visualization import GLAMA_TEAL
 from .canopy_analysis import (
     threshold_image,
-    clean_binary_mask,
     extract_channel,
     compute_auto_threshold,
     CHANNEL_MODES,
@@ -198,7 +197,6 @@ class ThresholdPreviewCanvas(QLabel):
         self.sky_is_bright = True
         self.highlight_sky = True  # True = Claro (resalta cielo), False = Oscuro (máscara inversa del dosel)
         self.threshold = 128
-        self.apply_cleanup = False
         self.overlay_alpha = OVERLAY_ALPHA
         self.zoom = 1.0
         self.valid_mask_full = None
@@ -258,8 +256,6 @@ class ThresholdPreviewCanvas(QLabel):
         self.only_analysis_area = bool(only)
         self._redraw()
 
-    def set_cleanup(self, do_cleanup):
-        self.apply_cleanup = bool(do_cleanup)
         self._redraw()
 
     def set_zoom(self, zoom):
@@ -446,8 +442,6 @@ class ThresholdPreviewCanvas(QLabel):
             self.gray_array, self.threshold,
             sky_is_bright=self.sky_is_bright,
         )
-        if self.apply_cleanup:
-            sky_mask = clean_binary_mask(sky_mask, iterations=1)
 
         img_np = np.array(self.display_pil).astype(np.float32)
 
@@ -502,8 +496,6 @@ class ThresholdPreviewCanvas(QLabel):
             self.gray_array, self.threshold,
             sky_is_bright=self.sky_is_bright,
         )
-        if self.apply_cleanup:
-            sky_mask = clean_binary_mask(sky_mask, iterations=1)
 
         if self.valid_mask is not None:
             total = int(self.valid_mask.sum())
@@ -529,7 +521,6 @@ class ThresholdDialog(QDialog):
     def __init__(self, pil_image, gray_array=None,
                  initial_threshold=128,
                  initial_sky_bright=True,
-                 initial_cleanup=True,
                  initial_channel="blue_red",
                  parent=None,
                  valid_mask=None):
@@ -555,7 +546,6 @@ class ThresholdDialog(QDialog):
         init_t = max(1, min(254, int(initial_threshold)))
         self.threshold_slider.setValue(init_t)
         self.sky_bright_check.setChecked(initial_sky_bright)
-        self.cleanup_check.setChecked(initial_cleanup)
 
         for i in range(self.channel_combo.count()):
             if self.channel_combo.itemData(i) == initial_channel:
@@ -566,7 +556,6 @@ class ThresholdDialog(QDialog):
         self.canvas.set_threshold(init_t)
         self.canvas.set_sky_bright(initial_sky_bright)
         self.histogram_widget.set_sky_bright(initial_sky_bright)
-        self.canvas.set_cleanup(initial_cleanup)
         if valid_mask is None:
             self.area_check.setEnabled(False)
             self.area_check.setText("Solo el área analizada (sin calibración: se usa toda la foto)")
@@ -661,9 +650,6 @@ class ThresholdDialog(QDialog):
         self.sky_bright_check.setChecked(True)
         options_row.addWidget(self.sky_bright_check)
 
-        self.cleanup_check = QCheckBox("Aplicar limpieza morfológica")
-        self.cleanup_check.setChecked(True)
-        options_row.addWidget(self.cleanup_check)
 
         # v0.14.35: mostrar solo el área analizada (el histograma y las estadísticas ya la usaban)
         self.area_check = QCheckBox("Solo el área analizada")
@@ -752,7 +738,6 @@ class ThresholdDialog(QDialog):
         self.threshold_spin.valueChanged.connect(self._on_threshold_spin_changed)
         self.otsu_btn.clicked.connect(self._on_otsu)
         self.sky_bright_check.toggled.connect(self._on_sky_bright_toggled)
-        self.cleanup_check.toggled.connect(self._on_cleanup_toggled)
         self.area_check.toggled.connect(self.canvas.set_only_analysis_area)
         self.alpha_spin.valueChanged.connect(lambda v: self.canvas.set_overlay_alpha(v / 100.0))
         self.zoom_out_btn.clicked.connect(self._on_zoom_out)
@@ -807,9 +792,6 @@ class ThresholdDialog(QDialog):
         self.histogram_widget.set_sky_bright(checked)
         self._update_stats()
 
-    def _on_cleanup_toggled(self, checked):
-        self.canvas.set_cleanup(checked)
-        self._update_stats()
 
     def _full_res_gray(self):
         """v0.14.49: canal de la foto a resolución completa y área válida completa (como el análisis);
@@ -886,8 +868,6 @@ class ThresholdDialog(QDialog):
     def get_sky_bright(self):
         return self.sky_bright_check.isChecked()
 
-    def get_cleanup(self):
-        return self.cleanup_check.isChecked()
 
     def get_channel(self):
         return self.channel_combo.currentData()

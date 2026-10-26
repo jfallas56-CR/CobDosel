@@ -34,11 +34,6 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-try:
-    from scipy import ndimage
-    HAS_SCIPY = True
-except ImportError:
-    HAS_SCIPY = False
 
 from .exif_gps import load_oriented_rgb_image
 from .lens_calibration import (
@@ -377,7 +372,6 @@ def render_glama_style(image_path, calibration, ring_boundaries, ring_metrics,
 def render_threshold_overlay(image_path, sky_mask=None,
                              threshold=None,
                              sky_is_bright=True,
-                             apply_cleanup=True,
                              channel_mode="blue_red",
                              output_path=None,
                              mode="overlay",
@@ -406,10 +400,6 @@ def render_threshold_overlay(image_path, sky_mask=None,
             mask = gray_full >= threshold
         else:
             mask = gray_full < threshold
-
-        if apply_cleanup and HAS_SCIPY:
-            mask = ndimage.binary_opening(mask, iterations=1)
-            mask = ndimage.binary_closing(mask, iterations=1)
 
     elif sky_mask is not None:
         mask = sky_mask

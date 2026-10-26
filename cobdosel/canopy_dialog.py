@@ -43,8 +43,7 @@ v0.10.0 (2026-10-17):
 - LAI efectivo con rango cenital propio (no la máscara de horizonte) y Miller normalizado.
 - «Fracción de claros del área seleccionada» = claros / píxeles del círculo visibles.
 - Otsu e histograma restringidos al área válida (sin borde negro del ojo de pez).
-- Limpieza morfológica desactivada por defecto; la superposición y el informe muestran
-  la máscara analizada.
+- La superposición y el informe muestran la máscara analizada.
 - Estado inicial coherente del tipo de lente; máscara válida según la calibración.
 - Rejillas radio/cenit calculadas una vez en float32 (≈ −50 % de memoria).
 - Tipos de campo y enums Qt compatibles con Qt5/Qt6; separador de miles con espacio.
@@ -107,7 +106,6 @@ from .canopy_analysis import (
     AUTO_THRESHOLD_METHODS,
     AUTO_THRESHOLD_LABELS,
     threshold_image,
-    clean_binary_mask,
     create_zenith_rings,
     compute_canopy_cover,
     compute_effective_lai,
@@ -117,7 +115,6 @@ from .canopy_analysis import (
     sky_uniformity_warning,
     LAI_DEFAULT_ZENITH_MAX_DEG,
     LAI_MIN_RELIABLE_ZENITH_DEG,
-    HAS_SCIPY,
     compute_canopy_metrics,
     classify_measurement_type,
     compute_hemisphere_fraction,
@@ -260,11 +257,6 @@ class CobDoselDialog(QDialog):
         self._log(
             "CobDosel v{} (basado en Tichý 2016, doi:10.1111/jvs.12350) iniciado.".format(VERSION)
         )
-        if not HAS_SCIPY:
-            self._log(
-                "scipy no está instalado: la limpieza morfológica queda desactivada.",
-                "WARN",
-            )
 
     # ------------------------------------------------------------------
     # Construcción de la interfaz (Español, redimensionable H y V)
@@ -623,18 +615,7 @@ class CobDoselDialog(QDialog):
         self.sky_bright_check.setChecked(True)
         thr_layout.addRow("", self.sky_bright_check)
 
-        self.clean_check = QCheckBox(
-            "Aplicar limpieza morfológica (apertura + cierre)"
-        )
-        # Desactivada por defecto: elimina claros reales de 1–2 px (sesgo hacia más cobertura)
-        self.clean_check.setChecked(False)
-        self.clean_check.setEnabled(HAS_SCIPY)
-        self.clean_check.setToolTip(
-            "Elimina píxeles aislados, pero también claros reales de 1–2 px en follaje fino,\n"
-            "lo que sobreestima la cobertura. Úsela solo con imágenes ruidosas."
-            + ("" if HAS_SCIPY else "\n(No disponible: falta el paquete scipy.)")
-        )
-        thr_layout.addRow("", self.clean_check)
+        # v0.14.52: sin limpieza morfológica (eliminaba claros reales de 1–2 px y subía el CaCo)
 
         layout.addWidget(thr_group)
 
@@ -2467,7 +2448,6 @@ class CobDoselDialog(QDialog):
             gray_array=None,
             initial_threshold=self.threshold_spin.value(),
             initial_sky_bright=self.sky_bright_check.isChecked(),
-            initial_cleanup=self.clean_check.isChecked(),
             initial_channel=self._current_channel_mode(),
             parent=self,
             valid_mask=self._analysis_valid_mask(include_horizon_mask=True),
@@ -2475,7 +2455,6 @@ class CobDoselDialog(QDialog):
         if _exec_dialog(dlg) == QDialog.DialogCode.Accepted:
             new_threshold = dlg.get_threshold()
             new_sky_bright = dlg.get_sky_bright()
-            new_cleanup = dlg.get_cleanup()
             new_channel = dlg.get_channel()
 
             self.threshold_spin.blockSignals(True)
@@ -2497,7 +2476,6 @@ class CobDoselDialog(QDialog):
                 self._mark_manual_cut(new_threshold, "ajustado en la vista previa")
 
             self.sky_bright_check.setChecked(new_sky_bright)
-            self.clean_check.setChecked(new_cleanup)
 
             for i in range(self.channel_combo.count()):
                 if self.channel_combo.itemData(i) == new_channel:
@@ -2505,10 +2483,9 @@ class CobDoselDialog(QDialog):
                     break
 
             self._log(
-                "Umbral ajustado interactivamente: T = {}, canal = {}, limpieza = {}.".format(
+                "Umbral ajustado interactivamente: T = {}, canal = {}.".format(
                     new_threshold,
                     CHANNEL_LABELS.get(new_channel, new_channel),
-                    "Sí" if new_cleanup else "No",
                 )
             )
 
@@ -2556,9 +2533,6 @@ class CobDoselDialog(QDialog):
             )
             self.progress.setValue(30)
             QApplication.processEvents()
-
-            if self.clean_check.isChecked():
-                sky_mask = clean_binary_mask(sky_mask, iterations=1)
 
             # Rejillas de radio y ángulo cenital calculadas una sola vez (float32)
             r_px = compute_radius_grid((h, w), self.center_xy)
@@ -2820,7 +2794,6 @@ class CobDoselDialog(QDialog):
                 "cut_method": self.cut_method,
                 "analysis_area_mask": self._analysis_valid_mask(include_horizon_mask=True),
                 "sky_is_bright": self.sky_bright_check.isChecked(),
-                "apply_cleanup": self.clean_check.isChecked(),
                 "channel_mode": channel_mode,
                 "zenith_max_deg": zen_max,
                 "horizon_mask_deg": horizon_mask_deg,
@@ -3261,7 +3234,7 @@ class CobDoselDialog(QDialog):
                 "canopy_cover_caco_index_pct", "modified_caco_index_pct",
                 "caco_linear_pct", "glama_engine",
                 "lai_effective", "lai_zenith_max_deg", "lai_reliable",
-                "sky_is_bright", "apply_cleanup", "calibration_approx_formula",
+                "sky_is_bright", "calibration_approx_formula",
                 "horizon_angles", "plugin", "plugin_version",
                 "hemisphere_radius_px",
                 "zenith_frame_max_deg", "circle_visible_pct",
@@ -3319,7 +3292,6 @@ class CobDoselDialog(QDialog):
                 lai.get("lai_zenith_max_deg"),
                 lai.get("lai_reliable"),
                 res.get("sky_is_bright"),
-                res.get("apply_cleanup"),
                 bool(cal.get("glama_compat", False)),
                 ";".join("{:g}".format(a) for a in (res.get("horizon_angles") or [])),
                 "CobDosel",
@@ -3455,7 +3427,6 @@ class CobDoselDialog(QDialog):
                 sky_mask=res.get("sky_mask"),
                 threshold=None if res.get("sky_mask") is not None else res.get("threshold"),
                 sky_is_bright=res.get("sky_is_bright", True),
-                apply_cleanup=res.get("apply_cleanup", False),
                 channel_mode=res.get("channel_mode", "blue_red"),
                 mode="overlay",
                 sky_color=(255, 140, 40),
