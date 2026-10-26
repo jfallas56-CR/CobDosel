@@ -40,6 +40,7 @@ check v01446             python3 tests/test_v01446.py . "$OUT/v01446" "$QT" ${CO
 check v01447             python3 tests/test_v01447.py . "$OUT/v01447" "$QT" ${COBDOSEL_FOTOS_CIELO:-}
 check v01448             python3 tests/test_v01448.py . "$OUT/v01448" "$QT"
 check v01449             python3 tests/test_v01449.py . "$OUT/v01449" "$QT" ${COBDOSEL_FOTOS_CIELO:-}
+check v01450             python3 tests/test_v01450.py . "$OUT/v01450" "$QT"
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>;
 # COBDOSEL_FOTOS_CIELO=<carpeta> con las 14 fotos de la prueba de uniformidad del cielo (v0.14.42)

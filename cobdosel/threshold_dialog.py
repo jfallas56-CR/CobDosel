@@ -712,7 +712,7 @@ class ThresholdDialog(QDialog):
         self.canvas = ThresholdPreviewCanvas(self)
         self.canvas.scroll_area = self.scroll
         self.canvas.setCursor(Qt.CursorShape.OpenHandCursor)
-        self.canvas.setToolTip("Rueda del ratón: acercar / alejar · Arrastrar: mover la imagen")
+        # v0.14.50: sin globo de ayuda sobre la foto (tapaba la imagen); las instrucciones están junto a «Zoom»
         self.scroll.setWidget(self.canvas)
         layout.addWidget(self.scroll, stretch=1)
 
