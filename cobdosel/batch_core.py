@@ -1038,6 +1038,35 @@ def sky_review_line(results, analyst=None):
     return "{} Sin verificar: revise sus cortes en «Revisar cortes…».".format(head)
 
 
+# v0.14.55: nombres legibles de los parámetros en el informe HTML (el CSV conserva las claves)
+PARAM_LABELS = {
+    "carpeta": "Carpeta de fotos", "formulario": "Formulario de fotos", "calibracion": "Calibración",
+    "camara_calibracion": "Cámara de la calibración", "calibracion_modelo": "Modelo de proyección",
+    "calibracion_metodo": "Método de calibración", "circulo_D_cm": "Círculo de referencia D (cm)",
+    "altura_H_cm": "Distancia H (cm)", "radio_hemisferio_px": "Radio del hemisferio R (px)",
+    "calibracion_foto_px": "Tamaño de la foto de calibración (px)", "calibracion_guardada": "Calibración guardada",
+    "focal_equivalente_mm": "Focal equivalente (mm)", "mascara_modo": "Máscara",
+    "mascara_horizonte_deg": "Máscara de horizonte (°)", "grupo_dosel": "Grupo de dosel",
+    "altura_dosel_sitio_m": "Altura del dosel del sitio (m)", "altura_camara_m": "Altura de la cámara (m)",
+    "radio_huella_m": "Radio de la huella (m)", "canal": "Canal de color", "regla_corte": "Nivel de corte",
+    "tolerancia_s": "Tolerancia de hora (s)", "desfase_reloj_s": "Desfase del reloj (s)",
+    "parcelas_planificadas": "Número de parcelas", "revision_cortes": "Revisión de cortes",
+    "sitio": "Sitio", "area_ha": "Área del AOI (ha)", "analista": "Analista",
+}
+_ISO_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2}(\.\d+)?)?$")
+
+
+def _param_text(v):
+    """v0.14.55: «—» para valores vacíos (antes «None») y fechas ISO como «2026-10-23 11:56»."""
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return "—"
+    if isinstance(v, str):
+        m = _ISO_RE.match(v.strip())
+        if m:
+            return "{} {}".format(m.group(1), m.group(2))
+    return str(v)
+
+
 def write_html(batch, path, version="", site_name=""):
     """Informe HTML autocontenido del lote (sitio, parcelas, fotos, avisos y parámetros)."""
     import html as _h
@@ -1083,7 +1112,8 @@ def write_html(batch, path, version="", site_name=""):
     pending_html = ("<p style='color:#9a3412;font-weight:700'>Resultado provisional: {} foto(s) pendientes de "
                     "revisión del nivel de corte.</p>".format(pending)) if pending else ""
     warn = "".join("<li>{}</li>".format(_h.escape(w)) for w in batch["avisos"]) or "<li>Ninguno.</li>"
-    params = "".join("<tr><td>{}</td><td>{}</td></tr>".format(_h.escape(k), _h.escape(str(v)))
+    params = "".join("<tr><td>{}</td><td>{}</td></tr>".format(_h.escape(PARAM_LABELS.get(k, k)),
+                                                              _h.escape(_param_text(v)))
                      for k, v in prm.items())
     doc = """<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>CobDosel — lote {site}</title>
