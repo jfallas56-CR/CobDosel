@@ -575,6 +575,6 @@ def glama_cut_diagnosis(histogram, start=None):
     if sky_split:
         res["reasons"].append(
             "otro punto de partida da otro corte ({}) que separa dos brillos del cielo (nubes de distinto brillo, "
-            "cielo azul o sol): revise si la foto cumple el protocolo de campo".format(", ".join(sky_split)))
+            "cielo azul o sol): verifique el corte".format(", ".join(sky_split)))
     res["ok"] = not res["reasons"]
     return res

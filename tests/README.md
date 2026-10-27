@@ -36,6 +36,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_heic_v01439.py` | Fotos HEIC del iPhone en el lote sin abrir la ventana principal; mensaje sin «pillow-heif» |
 | `test_v01447.py` | Informes sin autor; informe de una foto en español, por grupos, con el motivo del corte no comprobado; cielo no uniforme junto al resultado del sitio (informe y panel) |
 | `test_v01448.py` | «Analista» en ventanas, informe y CSV; informe de una foto con sitio, analista y créditos al final; anillos con letra mayor y leyenda arriba (o franja); lote sin máscara por altura ni «5 = Centro…»; cielo «Verificadas por…»; tabla de parcelas |
+| `test_v01456.py` | Decisión guardada: «cielo no uniforme» una sola vez en Observaciones; motivo sin «protocolo de campo» |
 | `test_v01455.py` | Parámetros del informe del sitio: nombres legibles, sin «None», fecha sin microsegundos; el CSV conserva las claves |
 | `test_v01454.py` | «Comparar con GLAMA»: plantilla sin llenar (mensaje claro), tabla a medias (omite y avisa), plantilla con «;» y coma decimal, ventana sin traza |
 | `test_v01453.py` | Radio de GLAMA solo por el lado menor; cenit real y máscara equivalente en el resumen (calibración propia o EXIF); aviso para calibraciones guardadas con el lado mayor (resumen, lote, ventana del lote) |

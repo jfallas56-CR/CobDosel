@@ -755,9 +755,12 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
                         who = dec.get("operador") or "analista sin nombre"
                         rec["revision_guardada"] = "{}{}".format(when + ", " if when else "", who)
                         tag = "decisión guardada ({})".format(rec["revision_guardada"])
+                        orig = []
                         if res.get("motivo_revision"):   # v0.14.42: por qué el método automático no se comprobó
-                            tag += "; motivo original: " + "; ".join(
-                                short_reason(x) for x in res["motivo_revision"].split("; "))
+                            orig = [short_reason(x) for x in res["motivo_revision"].split("; ")]
+                            tag += "; motivo original: " + "; ".join(orig)
+                        # v0.14.56: sin repetir en «Observaciones» lo que ya dice el motivo original
+                        res["avisos"] = [a for a in res["avisos"] if a not in orig]
                         res["avisos"].insert(0, tag)
                     elif cut_rule == "glama":
                         rec["decision"] = "pendiente de revisión" if res.get("revisar") else "automático"
