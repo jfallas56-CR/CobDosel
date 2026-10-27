@@ -81,6 +81,15 @@ def _flag(value):
 
 def read_comparison_table(path):
     """Lee la tabla de comparación (.csv o .xlsx). Devuelve lista de dicts con TABLE_COLUMNS."""
+    return read_comparison_table_ex(path)[0]
+
+
+def read_comparison_table_ex(path):
+    """
+    Como read_comparison_table, pero devuelve (filas, omitidas). v0.14.54: una fila sin corte de GLAMA
+    (foto no analizada en la app, o plantilla aún sin llenar) o con un corte no numérico se omite y se
+    informa, en lugar de detener toda la comparación. omitidas = [(fila, archivo, motivo)].
+    """
     rows = [r for r in _read_table(path) if r and any(c not in (None, "") for c in r)]
     if not rows:
         raise ValueError("La tabla está vacía: " + path)
@@ -95,7 +104,7 @@ def read_comparison_table(path):
         if req not in idx:
             raise ValueError("Falta la columna «{}» en la tabla (columnas: {}).".format(
                 req, ", ".join(TABLE_COLUMNS)))
-    out = []
+    out, skipped = [], []
     for n, r in enumerate(rows[1:], start=2):
         def cell(k):
             i = idx.get(k)
@@ -105,8 +114,13 @@ def read_comparison_table(path):
             continue
         try:
             cut = _num(cell("corte_glama"))
-            if cut is None:
-                raise ValueError("sin corte de GLAMA")
+        except ValueError:
+            skipped.append((n, str(name).strip(), "corte de GLAMA no numérico («{}»)".format(cell("corte_glama"))))
+            continue
+        if cut is None:
+            skipped.append((n, str(name).strip(), "sin corte de GLAMA"))
+            continue
+        try:
             rec = {
                 "fila": n,
                 "archivo": str(name).strip(),
@@ -126,15 +140,21 @@ def read_comparison_table(path):
             rec["corte_cobdosel"] = int(round(rec["corte_cobdosel"]))
         out.append(rec)
     if not out:
+        if skipped:
+            raise ValueError(
+                "La tabla no tiene ningún corte de GLAMA ({} fotos sin corte). Llene, para cada foto analizada "
+                "en GLAMA, al menos «corte_glama» (y de preferencia «caco_glama»), guarde la tabla y vuelva a "
+                "pulsar «Comparar».".format(len(skipped)))
         raise ValueError("La tabla no tiene filas con archivo.")
-    return out
+    return out, skipped
 
 
-def write_template(folder, out_path):
-    """Plantilla CSV con las fotos de la carpeta y las columnas por llenar. Devuelve n.º de fotos."""
+def write_template(folder, out_path, delimiter=","):
+    """Plantilla CSV con las fotos de la carpeta y las columnas por llenar. Devuelve n.º de fotos.
+    delimiter: «;» donde la coma es el separador decimal (Excel en español la abre en columnas)."""
     names = sorted(f for f in os.listdir(folder) if f.lower().endswith(IMAGE_EXT))
     with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, delimiter=delimiter)
         w.writerow(TABLE_COLUMNS)
         for n in names:
             w.writerow([n, "", "", 0, 0, 0, "", ""])
@@ -260,7 +280,10 @@ def run_comparison(table_path, photo_folder, calibration, out_csv, glama_radius_
     def _log(msg, level="INFO"):
         if log:
             log(msg, level)
-    rows = read_comparison_table(table_path)
+    rows, skipped = read_comparison_table_ex(table_path)
+    if skipped:
+        _log("{} foto(s) de la tabla sin corte de GLAMA, omitidas: {}".format(
+            len(skipped), "; ".join("{} (fila {}: {})".format(a, n, why) for n, a, why in skipped)), "WARN")
     results = []
     for i, rec in enumerate(rows):
         path = os.path.join(photo_folder, rec["archivo"])

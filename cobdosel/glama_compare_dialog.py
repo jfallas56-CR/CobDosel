@@ -188,12 +188,19 @@ class GlamaCompareDialog(QDialog):
                                            "CSV (*.csv)")
         if not p:
             return
-        n = gc.write_template(folder, p)
+        # v0.14.54: con coma decimal (p. ej. Windows en español), «;» para que Excel abra la tabla en columnas
+        try:
+            from qgis.PyQt.QtCore import QLocale
+            sep = ";" if QLocale().decimalPoint() == "," else ","
+        except Exception:
+            sep = ","
+        n = gc.write_template(folder, p, delimiter=sep)
         self.table_edit.setText(p)
         if not self.out_edit.text():
             self.out_edit.setText(os.path.splitext(p)[0] + "_comparacion.csv")
-        self._log("Plantilla con {} fotos: {}. Llénela con los valores de GLAMA y vuelva a esta ventana.".format(
-            n, p))
+        self._log("Plantilla con {} fotos: {}. Llene, para cada foto analizada en GLAMA, «corte_glama» y "
+                  "«caco_glama» (y las casillas de giro marcadas: 1), guárdela y pulse «Comparar». Las fotos sin "
+                  "corte se omiten.".format(n, p))
 
     def _open_out(self):
         for p in self.out_paths:
@@ -230,6 +237,9 @@ class GlamaCompareDialog(QDialog):
                 self._log(line.replace(" ", " "))
             self._log("Resultados: " + "; ".join(paths))
             self.open_btn.setEnabled(True)
+        except ValueError as e:              # v0.14.54: error de datos (tabla, carpeta): mensaje claro, sin traza
+            self._log("ERROR: {}".format(e), "ERROR")
+            QMessageBox.warning(self, "Comparar con GLAMA", str(e))
         except Exception as e:
             self._log("ERROR: {}".format(e), "ERROR")
             self._log(traceback.format_exc(), "ERROR")
