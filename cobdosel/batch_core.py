@@ -1088,7 +1088,10 @@ def write_html(batch, path, version="", site_name=""):
             _h.escape(str(p["parcela"])),
             ("<td>{}</td>".format(_h.escape("reemplaza a " + str(p["reemplaza_a"])) if p.get("reemplaza_a")
                                   else "—")) if has_repl else "",
-            p["validas"], p["fotos"], _f(p["caco_media"]), _f(p["caco_min"]), _f(p["caco_max"]))
+            p["validas"], p["fotos"], _f(p["caco_media"]),
+            # v0.14.57: con una sola foto válida, mín. = máx. = media no son tres mediciones: «—»
+            _f(p["caco_min"]) if (p.get("validas") or 0) > 1 else "—",
+            _f(p["caco_max"]) if (p.get("validas") or 0) > 1 else "—")
         for p in batch["parcelas"])
     # v0.14.45: «Observaciones» en una segunda fila bajo cada foto, a todo el ancho
     def _photo_row(r):
@@ -1139,7 +1142,8 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
 <p>Método del nivel de corte: {rule}</p>
 <p>Revisión del nivel de corte: {rev}</p>{pending_html}{sky_html}</section>
 <section><h2>Parcelas</h2><table><tr><th>Parcela</th>{repl_th}<th class='c'>Fotos válidas</th>
-<th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table></section>
+<th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table>
+<p style='font-size:.82rem;color:#52606d'>Mín. y Máx.: entre las fotos válidas de la parcela; «—» si tiene una sola.</p></section>
 <section><h2>Fotos</h2><table><tr><th>Parcela</th><th>Punto</th><th>Archivo</th><th>Emparejado por</th>
 <th class='n'>Corte</th><th>Método del corte</th><th>Decisión</th><th class='n'>Máscara (°)</th><th class='n'>Visible (%)</th><th class='n'>CaCo (%)</th>
 </tr>{photos}</table><p style='font-size:.82rem;color:#52606d'>Debajo de cada foto, sus observaciones.</p></section>

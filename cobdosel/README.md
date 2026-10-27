@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.56-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.57-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -74,6 +74,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.14.57 (2026-10-27):** tabla de parcelas con «—» en Mín. y Máx. si hay una sola foto válida.
 - **0.14.56 (2026-10-27):** «Observaciones» sin el aviso de cielo repetido; motivo de revisión sin «protocolo de campo».
 - **0.14.55 (2026-10-27):** parámetros del informe del sitio con nombres legibles, «—» en vez de «None» y fechas legibles.
 - **0.14.54 (2026-10-26):** «Comparar con GLAMA»: las fotos sin corte de GLAMA se omiten con aviso; plantilla con «;» donde la coma es decimal.
