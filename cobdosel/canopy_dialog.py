@@ -50,6 +50,7 @@ v0.10.0 (2026-10-17):
 """
 
 import os
+import math
 import json
 import csv
 import datetime
@@ -85,6 +86,7 @@ except ImportError:
 from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_int
 from .exif_gps import extract_exif, load_oriented_rgb_image, load_stored_rgb_image
+_STD_MASK_DEG = 63.0     # máscara estándar de CobDosel (igual que batch_core.DEFAULT_MASK_DEG)
 from .lens_calibration import (
     HAS_CV2,
     detect_fisheye_circle,
@@ -100,6 +102,8 @@ from .lens_calibration import (
     PROJECTIONS_FISHEYE,
     projection_note,
     is_fisheye_projection,
+    true_zenith_of,
+    calibration_zenith_for_true,
 )
 from .canopy_analysis import (
     compute_auto_threshold,
@@ -508,18 +512,9 @@ class CobDoselDialog(QDialog):
             "«Hemisph. radius» que muestra la app GLAMA (píxeles de su vista de {} px).".format(
                 GLAMA_VIEW_WIDTH_PX))
         glama_row.addWidget(self.glama_radius_spin)
-        self.glama_side_combo = QComboBox()
-        self.glama_side_combo.addItem(
-            "lado menor (reproduce los resultados de GLAMA)", userData="short")
-        self.glama_side_combo.addItem(
-            "lado mayor (pantalla de calibración de GLAMA)", userData="long")
-        self.glama_side_combo.setToolTip(
-            "La pantalla de ANÁLISIS de GLAMA muestra el recorte cuadrado central de la foto:\n"
-            "1080 px de la app = lado MENOR de la foto. «Lado menor» reproduce los resultados\n"
-            "de GLAMA. Si la foto del círculo se mostró a lo ancho en la pantalla de\n"
-            "calibración, la escala física corresponde al lado MAYOR (en fotos 4:3 difieren\n"
-            "en 4/3). Para la geometría correcta use la calibración por círculo D/H.")
-        glama_row.addWidget(self.glama_side_combo, stretch=1)
+        # v0.14.53: siempre por el lado menor (la pantalla de análisis de GLAMA muestra el recorte
+        # cuadrado central: 1080 px de la app = lado menor); se quitó la opción del lado mayor
+        glama_row.addWidget(QLabel("escala por el lado menor (reproduce GLAMA)"), stretch=1)
         self.glama_radius_btn = QPushButton("Calibrar con radio GLAMA")
         self.glama_radius_btn.setToolTip(
             "Crea la calibración a partir del radio de GLAMA: proyección «Polar» de GLAMA\n"
@@ -1898,7 +1893,6 @@ class CobDoselDialog(QDialog):
         try:
             cal = calibrate_from_glama_radius(
                 self.glama_radius_spin.value(), w, h,
-                scale_side=self.glama_side_combo.currentData() or "short",
                 glama_projection=glama_proj,
             )
         except ValueError as e:
@@ -1906,9 +1900,8 @@ class CobDoselDialog(QDialog):
             return
         cal["measurement"] = {
             "mode": "glama_radius",
-            "summary": "radio GLAMA {:.1f} px, escala por el {}".format(
-                self.glama_radius_spin.value(),
-                "lado menor" if cal["glama_scale_side"] == "short" else "lado mayor")}
+            "summary": "radio GLAMA {:.1f} px, escala por el lado menor".format(
+                self.glama_radius_spin.value())}
         cal["camera"] = self._current_camera()
         self.calibration = cal
         self._cal_name = None      # calibración nueva: «sin guardar» hasta que se guarde
@@ -1960,6 +1953,53 @@ class CobDoselDialog(QDialog):
         exif35 = cam.get("focal_length_35mm") or (self.exif_data or {}).get("focal_length_35mm")
         return check_focal(cal, exif_35mm=exif35, own_reference=self._own_focal_reference(cal))
 
+    def _true_focal_px(self, cal):
+        """v0.14.53: focal real (px, a la resolución de la calibración) para comparar una calibración con
+        radio de GLAMA con la geometría de la cámara: la última calibración por círculo guardada de la
+        misma cámara o, si no hay, la focal equivalente del EXIF. Devuelve (f_px, fuente) o (None, None)."""
+        w, h = cal.get("image_width_px"), cal.get("image_height_px")
+        if not w or not h:
+            return None, None
+        own = self._own_focal_reference(cal)
+        if own:
+            fmm, src = own[1], "calibración «{}»".format(own[0])
+        else:
+            cam = cal.get("camera") or {}
+            fmm = cam.get("focal_length_35mm") or (self.exif_data or {}).get("focal_length_35mm")
+            src = "EXIF {:g} mm eq., aproximado".format(float(fmm)) if fmm else None
+        if not fmm:
+            return None, None
+        return float(fmm) * math.hypot(float(w), float(h)) / 43.27, src
+
+    def _glama_radius_notes(self, cal):
+        """v0.14.53: con radio de GLAMA y lente regular, qué cenit real analiza la máscara y qué máscara
+        cubre lo mismo que la calibración por círculo; aviso si una calibración guardada usa el lado mayor."""
+        out = []
+        if cal.get("calibration_method") != "glama_radius":
+            return out
+        if cal.get("glama_scale_side") == "long":
+            out.append("  ⚠ Escala por el lado mayor: no reproduce GLAMA ni la geometría de la cámara (el área "
+                       "analizada y el CaCo cambian; Pixel 10, máscara 63°: 0–31.7° reales, el círculo sale de "
+                       "la foto). Esta opción ya no se ofrece: recalibre con el radio de GLAMA o con el círculo D/H.")
+        if cal.get("lens_type") != "regular" or cal.get("projection") != "angular":
+            return out
+        f_true, src = self._true_focal_px(cal)
+        if not f_true:
+            out.append("  ⓘ Modelo Lineal de GLAMA: no coincide con la geometría real de la cámara. Guarde una "
+                       "calibración por círculo de esta cámara para ver qué cenit real analiza cada máscara.")
+            return out
+        try:
+            z_std = 90.0 - _STD_MASK_DEG
+            z_true = true_zenith_of(cal, z_std, f_true)
+            m_eq = 90.0 - calibration_zenith_for_true(cal, z_std, f_true)
+        except Exception as e:
+            self._log("[glama] comparación con la geometría real no disponible: {}".format(e), "DEBUG")
+            return out
+        out.append("  ⓘ Geometría real ({}): con máscara de {:.0f}° esta calibración analiza 0–{:.1f}° reales "
+                   "(la calibración por círculo, 0–{:.1f}°); para el área de la calibración por círculo use "
+                   "máscara de {:.1f}°.".format(src, _STD_MASK_DEG, z_true, z_std, m_eq))
+        return out
+
     def _show_calibration_summary(self, cal, title):
         """Texto del estado de calibración: ángulos, R y trazabilidad."""
         w = cal.get("image_width_px") or (
@@ -2003,6 +2043,7 @@ class CobDoselDialog(QDialog):
                 "; {:+.1f} %".format(fc["diff_pct"]) if fc.get("diff_pct") is not None else ""))
         lines.append("  Máscara con el círculo de análisis dentro de la foto: ≥ {:.1f}° — no se aplica "
                      "automáticamente".format(cal.get("glama_recommended_horizon_deg", 90.0 - half_fov)))
+        lines += self._glama_radius_notes(cal)
         self._calib_base = "\n".join(lines)
         self._mark_cut_stale("la calibración")
         self._parked_cal = None          # una calibración nueva o recuperada reemplaza a la que estaba en espera

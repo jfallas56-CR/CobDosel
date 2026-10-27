@@ -374,18 +374,21 @@ def calibrate_from_glama_radius(glama_radius_px, image_width_px, image_height_px
 
     GLAMA expresa el radio en píxeles de su vista (1080 px de ancho). En la pantalla de
     análisis la app muestra el RECORTE CUADRADO CENTRAL de la foto (lado = lado menor), de
-    modo que «short» (por defecto) reproduce la geometría con que GLAMA calcula sus
-    resultados: R_foto = R_GLAMA × lado_menor / 1080. «long» usa el lado mayor (escala de la
-    pantalla de calibración cuando la foto del círculo se muestra a lo ancho); en fotos 4:3
-    ambas difieren en 4/3.
+    modo que la escala por el lado menor reproduce la geometría con que GLAMA calcula sus
+    resultados: R_foto = R_GLAMA × lado_menor / 1080. v0.14.53: se quitó la escala por el lado
+    mayor («long»): no reproducía a GLAMA ni la geometría de la cámara (Pixel 10, máscara 63°:
+    analizaba 0–31.7° reales, el círculo salía de la foto y el CaCo variaba hasta 4.7 puntos).
 
     glama_projection: "polar" (equidistante, cámaras integradas) u "angular" (GLAMA;
     equivale a ortográfica, r = R·sin θ).
     """
     if glama_radius_px <= 0 or glama_view_width_px <= 0:
         raise ValueError("El radio de GLAMA y el ancho de la vista deben ser positivos.")
+    if scale_side != "short":
+        raise ValueError("La escala por el lado mayor ya no se ofrece: use el lado menor (reproduce "
+                         "GLAMA) o la calibración por círculo D/H.")
     w, h = float(image_width_px), float(image_height_px)
-    side = min(w, h) if scale_side == "short" else max(w, h)
+    side = min(w, h)
     R = float(glama_radius_px) * side / float(glama_view_width_px)
     half_w, half_h = w / 2.0, h / 2.0
     r_image_half = min(half_w, half_h)
@@ -609,6 +612,20 @@ def list_projections():
 
 def projection_note(code):
     return PROJECTIONS.get(code, {}).get("note", "")
+
+
+def true_zenith_of(calibration, zenith_deg, true_focal_px):
+    """v0.14.53: cenit real (lente rectilínea de focal true_focal_px) del píxel que la calibración
+    asigna a zenith_deg. Sirve para las calibraciones con radio de GLAMA (modelo Lineal)."""
+    r = float(zenith_to_pixel_radius(float(zenith_deg), calibration))
+    return math.degrees(math.atan2(r, float(true_focal_px)))
+
+
+def calibration_zenith_for_true(calibration, true_zenith_deg, true_focal_px):
+    """v0.14.53: cenit que la calibración asigna al píxel que en la geometría real está a true_zenith_deg."""
+    import numpy as _np
+    r = float(true_focal_px) * math.tan(math.radians(float(true_zenith_deg)))
+    return float(pixel_radius_to_zenith(_np.array([r]), calibration)[0])
 
 
 def is_fisheye_projection(code):

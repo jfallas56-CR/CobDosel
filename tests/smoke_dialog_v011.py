@@ -259,7 +259,7 @@ check("modo geometría GLAMA avisado en el panel", "GEOMETRÍA DE PANTALLA DE GL
 d.glama_geometry_check.setChecked(False)
 
 # Calibración con el radio de GLAMA
-d.glama_radius_spin.setValue(1618.0); d.glama_side_combo.setCurrentIndex(0); d._on_calibrate_glama_radius()
+d.glama_radius_spin.setValue(1618.0); d._on_calibrate_glama_radius()   # v0.14.53: siempre lado menor
 check("radio GLAMA 1618 → R = 1618·3000/1080", abs(d.calibration["virtual_radius_px"] - 1618 * 3000 / 1080) < 1e-6,
       "%.1f" % d.calibration["virtual_radius_px"])
 d.zenith_max.setValue(27.0); d._on_run()

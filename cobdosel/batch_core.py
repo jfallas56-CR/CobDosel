@@ -46,6 +46,10 @@ PLOT_RADIUS_M = 12.62            # parcela circular de 500 m²
 DEFAULT_FOOTPRINT_M = 6.31       # radio equivalente del cuadrante (125 m²) cubierto por cada foto
 DEFAULT_CAMERA_HEIGHT_M = 1.3
 DEFAULT_TOLERANCE_S = 60.0
+LONG_SIDE_WARNING = ("La calibración usa el radio de GLAMA escalado por el lado mayor: no reproduce GLAMA ni "
+                     "la geometría de la cámara (con la máscara de 63° analiza más cielo del indicado y el CaCo "
+                     "cambia). Esta opción ya no se ofrece: recalibre con el radio de GLAMA (lado menor) o con "
+                     "el círculo D/H.")
 DEFAULT_MASK_DEG = 63.0          # v0.14.29: estándar de CobDosel (cenit ≤ 27°): círculo completo con teléfonos de 23–25 mm; Tichý (2016) usó 60°
 
 # Grupos de dosel del protocolo (posición del árbol; no se mide la altura). (código, nombre, min m, max m)
@@ -667,6 +671,8 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
     photos = scan_photos(photo_folder)
     pairs, w2 = match_photos(rows, photos, tolerance_s, clock_offset_s)
     warnings += w2
+    if calibration.get("glama_scale_side") == "long":       # v0.14.53: opción retirada
+        warnings.insert(0, LONG_SIDE_WARNING)
     # Cámaras/lentes: una calibración vale para una lente y un encuadre (no para otra lente o zoom)
     cal_cam = calibration.get("camera") or (calibration.get("measurement") or {}).get("camera")
     if cal_cam and not (cal_cam.get("model") or cal_cam.get("focal_length_mm") or cal_cam.get("focal_length_35mm")):

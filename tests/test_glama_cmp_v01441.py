@@ -208,7 +208,7 @@ chk("6 casilla «orden guardado» marcada por defecto; casillas de giro desmarca
     d.glama_stored_check.isChecked() and not (d.glama_rot180_check.isChecked() or d.glama_rot90_check.isChecked()
                                               or d.glama_tr_check.isChecked()))
 d._load_image_into_dialog(p6)
-d.glama_radius_spin.setValue(1618.0); d.glama_side_combo.setCurrentIndex(0); d._on_calibrate_glama_radius()
+d.glama_radius_spin.setValue(1618.0); d._on_calibrate_glama_radius()   # v0.14.53: siempre lado menor
 d.zenith_max.setValue(30.0); d.threshold_spin.setValue(140)
 d.glama_geometry_check.setChecked(True); d._on_run(); app.processEvents()
 g1 = d.last_results["metrics"]["canopy_cover_index_pct"]

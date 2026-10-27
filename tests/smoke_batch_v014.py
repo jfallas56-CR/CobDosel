@@ -105,7 +105,7 @@ class Iface:
 iface = Iface()
 plug = classFactory(iface); plug.initGui()
 check("menú con «Procesamiento por sitio (lote)»", any("lote" in t for t in iface.menus), iface.menus)
-cal = lc.calibrate_from_glama_radius(1618, 2560, 1920, scale_side="long")
+cal = lc.calibrate_from_glama_radius(1618, 2560, 1920)   # v0.14.53: sin «long»
 cal["measurement"] = {"mode": "glama_radius", "image_size": [2560, 1920]}
 cs.save_calibration("Pixel10_GLAMA", cal, metadata={"measurement": cal["measurement"]})
 # capa de parcelas en el proyecto

@@ -350,7 +350,10 @@ class CobDoselBatchDialog(QDialog):
             cal.get("virtual_radius_px") or 0, cal.get("image_width_px") or 0, cal.get("image_height_px") or 0))
         parts.append("medición: " + ((cal.get("measurement") or {}).get("summary") or "sin registrar"))
         parts.append("cámara: " + (camera_label(cam) if has_cam else "no registrada (use «Registrar cámara…»)"))
-        self.cal_info.setText(" · ".join(parts))
+        txt = " · ".join(parts)
+        if cal.get("glama_scale_side") == "long":            # v0.14.53
+            txt = "⚠ " + bc.LONG_SIDE_WARNING + "\n" + txt
+        self.cal_info.setText(txt)
 
     def _register_camera(self):
         """Añade la huella de cámara de las fotos de la carpeta a una calibración que no la tiene."""
