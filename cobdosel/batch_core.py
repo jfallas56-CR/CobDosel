@@ -916,10 +916,20 @@ def summarize_common_warnings(results):
     if sky:
         vals = [r["cielo_rango"] for r in sky]
         rng = "{:.0f}".format(vals[0]) if len(vals) == 1 else "{:.0f}–{:.0f}".format(min(vals), max(vals))
+        # v0.14.60: si el analista ya verificó sus cortes, el aviso lo dice (antes pedía verificarlos igual)
+        done = [r for r in sky if str(r.get("decision") or "").startswith(("aceptado", "ajustado"))]
+        names = sorted({str(r.get("analista") or "").strip() for r in done if str(r.get("analista") or "").strip()})
+        if done and len(done) == len(sky):
+            tail = "Cortes verificados en «Revisar cortes…»{}.".format(
+                " por " + ", ".join(names) if names else "")
+        elif done:
+            tail = "Cortes verificados: {} de {}; verifique los demás en «Revisar cortes…».".format(len(done), len(sky))
+        else:
+            tail = ("Verifique el corte de cada una en «Revisar cortes…»; si es posible, repita esas fotos con "
+                    "cielo uniforme.")
         out.append("{}: cielo no uniforme (rango de brillo del cielo {}, límite {:.0f}): nubes de distinto brillo, "
-                   "cielo azul, sol o resplandor. Verifique el corte de cada una en "
-                   "«Revisar cortes…»; si es posible, repita esas fotos con cielo uniforme.".format(
-                       _scope(len(sky), len(valid), "fotos válidas"), rng, SKY_UNIFORMITY_LIMIT))
+                   "cielo azul, sol o resplandor. {}".format(
+                       _scope(len(sky), len(valid), "fotos válidas"), rng, SKY_UNIFORMITY_LIMIT, tail))
     split = [r for r in valid if "separa dos brillos del cielo" in str(r.get("motivo_revision") or "")]
     if split:
         out.append("{}: otro punto de partida da otro corte que separa dos brillos de lo que ya es cielo (nubes de "
