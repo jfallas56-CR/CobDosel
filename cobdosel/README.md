@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.60-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.61-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -74,6 +74,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.14.61 (2026-10-27):** formulario desde las fotos con la nota solo en las parcelas dudosas; «1 decisión guardada».
 - **0.14.60 (2026-10-27):** aviso de cielo no uniforme con los cortes ya verificados; plantilla del formulario con instrucciones actuales.
 - **0.14.59 (2026-10-27):** una exportación por clic en el lote; mensaje «CSV guardados» con la carpeta una vez.
 - **0.14.58 (2026-10-27):** nombres de los CSV y del informe del sitio sin «sitio» repetido.

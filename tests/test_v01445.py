@@ -133,7 +133,7 @@ chk("1 foto con decisión guardada: dice cuándo y quién, no «revisada por el 
     and f0["metodo_corte"] == "revisado (decisión guardada)", f0["motivo"][:80])
 chk("1 exclusión guardada: fecha y «analista sin nombre»", "2026-10-24 10:52, analista sin nombre" in f1["motivo"], f1["motivo"])
 chk("1 resumen de decisiones", bc.decisions_summary(bc.load_decisions(fold)) ==
-    "2 decisión(es) guardada(s) (2026-10-24 10:41 a 10:52; analista: Ana)", bc.decisions_summary(bc.load_decisions(fold)))
+    "2 decisiones guardadas (2026-10-24 10:41 a 10:52; analista: Ana)", bc.decisions_summary(bc.load_decisions(fold)))
 chk("2 parámetros con nombres legibles (canal y regla del corte)",
     b["parametros"]["canal"].startswith("Azul + Rojo") and b["parametros"]["regla_corte"].startswith("recomendado (log-normal)"),
     (b["parametros"]["canal"], b["parametros"]["regla_corte"]))

@@ -498,8 +498,7 @@ class CobDoselBatchDialog(QDialog):
             self.batch["parametros"]["revision_cortes"] = (
                 "{} ({})".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
             if decisions:
-                self.batch["avisos"].insert(0, "Se aplicaron {} en «Revisar cortes…».".format(
-                    bc.decisions_summary(decisions)))
+                self.batch["avisos"].insert(0, "{} en «Revisar cortes…».".format(bc.applied_text(decisions)))
             self.batch["parametros"]["sitio"] = self.site_edit.text().strip()
             self.batch["parametros"]["area_ha"] = self.area_spin.value() or None
             self.batch["parametros"]["analista"] = self.operator_edit.text().strip()
@@ -516,8 +515,8 @@ class CobDoselBatchDialog(QDialog):
             b.setEnabled(True)
         if decisions:
             # v0.14.48: decisiones tomadas en «Revisar cortes…» (archivo en la carpeta de fotos) y cómo quitarlas
-            self._log("Se aplicaron {} en «Revisar cortes…» ({}, en la carpeta de fotos). Para procesar sin ellas, "
-                      "use «Borrar revisión guardada…».".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE),
+            self._log("{} en «Revisar cortes…» ({}, en la carpeta de fotos). Para procesar sin ellas, "
+                      "use «Borrar revisión guardada…».".format(bc.applied_text(decisions), bc.DECISIONS_FILE),
                       "WARN")
         pend = self.batch["sitio"].get("pendientes_revision") or 0
         if pend:

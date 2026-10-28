@@ -332,14 +332,20 @@ def draft_form_from_photos(folder, out_path, photos_per_plot=5, template_xlsx=No
     if no_time:
         warnings.append("{} foto(s) sin hora EXIF, al final por nombre: {}.".format(
             len(no_time), ", ".join(no_time[:5]) + (" …" if len(no_time) > 5 else "")))
+    # v0.14.61: la nota solo en las parcelas cuyas fotos abarcan más de 20 min (antes en todas las filas)
+    far_plots = set()
+    for start in range(0, len(photos), n):
+        grp = [p["hora_exif"] for p in photos[start:start + n] if p["hora_exif"]]
+        if len(grp) > 1 and (max(grp) - min(grp)).total_seconds() > 20 * 60:
+            far_plots.add(start // n + 1)
     rows = []
     for i, ph in enumerate(photos):
         k = i % n
         # v0.14.48: siempre «Foto N»; los nombres de punto (Centro, N-O…) dependen del protocolo del estudio
         punto, dist = "Foto {}".format(k + 1), ""
         hora = ph["hora_exif"].strftime("%d/%m/%Y / %H:%M:%S") if ph["hora_exif"] else ""
-        rows.append([str(i // n + 1), "", punto, dist, ph["base"], hora, "OK",
-                     "asignación automática: verificar"])
+        note = "revise: fotos con más de 20 min de diferencia" if (i // n + 1) in far_plots else ""
+        rows.append([str(i // n + 1), "", punto, dist, ph["base"], hora, "OK", note])
     if len(photos) % n:
         warnings.append("{} fotos no es múltiplo de {}: la última parcela queda incompleta.".format(
             len(photos), n))
@@ -864,6 +870,11 @@ def load_decisions(folder):
     return dict(data.get("fotos") or {})
 
 
+def applied_text(decisions):
+    """v0.14.61: «Se aplicó 1 decisión guardada (…)» / «Se aplicaron 3 decisiones guardadas (…)»."""
+    return "{} {}".format("Se aplicó" if len(decisions) == 1 else "Se aplicaron", decisions_summary(decisions))
+
+
 def decisions_summary(decisions):
     """v0.14.45: «7 decisiones guardadas (2026-10-24 10:40 a 10:52; analista: J. Fallas)»."""
     if not decisions:
@@ -874,8 +885,9 @@ def decisions_summary(decisions):
     if dates:
         when = dates[0] if dates[0] == dates[-1] else "{} a {}".format(
             dates[0], dates[-1][11:] if dates[-1][:10] == dates[0][:10] else dates[-1])
-    return "{} decisión(es) guardada(s){}".format(
-        len(decisions), " ({}{})".format(when, "; analista: " + ", ".join(ops) if ops else "; sin nombre de analista")
+    n = len(decisions)          # v0.14.61: singular y plural correctos
+    return "{} {}{}".format(
+        n, "decisión guardada" if n == 1 else "decisiones guardadas", " ({}{})".format(when, "; analista: " + ", ".join(ops) if ops else "; sin nombre de analista")
         if (when or ops) else "")
 
 
