@@ -49,6 +49,14 @@ def _exec(dlg):
     return runner()
 
 
+def saved_files_text(paths):
+    """v0.14.59: «Carpeta: …» una vez y los nombres de archivo debajo (antes la ruta completa se repetía)."""
+    folders = {os.path.dirname(p) for p in paths}
+    if len(folders) != 1:
+        return "\n".join(paths)
+    return "Carpeta: {}\n\n{}".format(folders.pop(), "\n".join("• " + os.path.basename(p) for p in paths))
+
+
 class CobDoselBatchDialog(QDialog):
     """Procesamiento de un sitio completo (parcelas × 5 fotos)."""
 
@@ -661,15 +669,36 @@ class CobDoselBatchDialog(QDialog):
         folder = self.folder_edit.text().strip()
         return os.path.join(folder, name) if os.path.isdir(folder) else name
 
+    def _guarded(self, button, func):
+        """v0.14.59: una exportación por clic. El botón queda inactivo mientras se exporta y los clics que
+        llegaron mientras tanto (doble clic, barra espaciadora) se descartan antes de reactivarlo."""
+        if getattr(self, "_exporting", False):
+            return
+        self._exporting = True
+        button.setEnabled(False)
+        try:
+            func()
+        finally:
+            QApplication.processEvents()          # los clics en cola llegan a un botón inactivo y se pierden
+            button.setEnabled(self.batch is not None)
+            self._exporting = False
+
     def _on_csv(self):
+        self._guarded(self.csv_btn, self._export_csv)
+
+    def _export_csv(self):
         base, _ = QFileDialog.getSaveFileName(self, "Prefijo de los CSV", self._default_output(""), "CSV (*.csv)")
         if not base:
             return
         base = base[:-4] if base.lower().endswith(".csv") else base
         paths = bc.write_csvs(self.batch, base, VERSION)
-        QMessageBox.information(self, "CSV guardados", "\n".join(paths))
+        self._log("CSV guardados: " + "; ".join(paths))
+        QMessageBox.information(self, "CSV guardados", saved_files_text(paths))
 
     def _on_html(self):
+        self._guarded(self.html_btn, self._export_html)
+
+    def _export_html(self):
         p, _ = QFileDialog.getSaveFileName(self, "Informe HTML", self._default_output("_informe.html"), "HTML (*.html)")
         if not p:
             return
@@ -677,8 +706,8 @@ class CobDoselBatchDialog(QDialog):
             p += ".html"
         bc.write_html(self.batch, p, VERSION, self.site_edit.text().strip())
         self._log("Informe HTML guardado: " + p)
-        ans = QMessageBox.question(self, "Informe guardado", "{}\n\n¿Abrir el informe ahora?".format(p),
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ans = QMessageBox.question(self, "Informe guardado", "{}\n\n¿Abrir el informe ahora?".format(
+            saved_files_text([p])), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if ans == QMessageBox.StandardButton.Yes:
             self._open_file(p)
 
