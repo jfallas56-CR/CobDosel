@@ -654,9 +654,10 @@ class CobDoselBatchDialog(QDialog):
         self.out.setPlainText("\n".join(lines))
 
     def _default_output(self, suffix):
-        """Ruta por defecto en la carpeta de fotos: CobDosel_<sitio>_sitio<suffix>."""
+        """Ruta por defecto en la carpeta de fotos: CobDosel_<sitio><suffix> (v0.14.58: sin el «_sitio» que,
+        con el CSV del sitio, daba «…_sitio_sitio.csv»); sin nombre de sitio, CobDosel_sitio<suffix>."""
         site = re.sub(r"[^\w\-]+", "_", self.site_edit.text().strip()).strip("_")
-        name = "CobDosel_{}sitio{}".format(site + "_" if site else "", suffix)
+        name = "CobDosel_{}{}".format(site or "sitio", suffix)
         folder = self.folder_edit.text().strip()
         return os.path.join(folder, name) if os.path.isdir(folder) else name
 
@@ -669,7 +670,7 @@ class CobDoselBatchDialog(QDialog):
         QMessageBox.information(self, "CSV guardados", "\n".join(paths))
 
     def _on_html(self):
-        p, _ = QFileDialog.getSaveFileName(self, "Informe HTML", self._default_output(".html"), "HTML (*.html)")
+        p, _ = QFileDialog.getSaveFileName(self, "Informe HTML", self._default_output("_informe.html"), "HTML (*.html)")
         if not p:
             return
         if not p.lower().endswith((".html", ".htm")):

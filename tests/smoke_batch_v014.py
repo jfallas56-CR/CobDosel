@@ -196,8 +196,9 @@ d._draft_form()
 check("«Crear formulario desde las fotos…» crea el archivo y lo selecciona",
       os.path.isfile(os.path.join(OUTD, "prellenado.xlsx")) and d.form_edit.text().endswith("prellenado.xlsx"))
 d.form_edit.setText(_prev_form)
-check("salidas por defecto en la carpeta de fotos", d._default_output(".html") == os.path.join(
-      d.folder_edit.text(), "CobDosel_Sitio_prueba_sitio.html"), d._default_output(".html"))
+check("salidas por defecto en la carpeta de fotos (v0.14.58: sin «_sitio» repetido)", d._default_output("_informe.html") == os.path.join(
+      d.folder_edit.text(), "CobDosel_Sitio_prueba_informe.html") and d._default_output("") == os.path.join(
+      d.folder_edit.text(), "CobDosel_Sitio_prueba"), d._default_output("_informe.html"))
 # Registrar cámara en una calibración sin huella
 from PIL import Image as _Im
 camdir = os.path.join(OUTD, "fotos_cam"); os.makedirs(camdir, exist_ok=True)

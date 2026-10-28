@@ -231,7 +231,7 @@ FULL_HELP_HTML = """
   <li><b>Cálculo:</b> parcela = media de las fotos válidas disponibles (se excluyen las fotos cuya calidad es exactamente «sol», «sol directo», «movida», «foto movida», «desenfocada», «repetir», «mala», «descartar», «excluir», «excluida», «no válida» o «inválida», o una lista de esas palabras separadas por «,», «;» o «/»; «sin sol» o «no movida» no excluyen la foto); sitio = media de las medias de parcela (Índice CaCo).</li>
   <li><b>Reemplazos:</b> la columna «reemplaza_a» registra la parcela original sustituida; el informe la muestra como «reemplazo de …».</li>
   <li><b>Cámara y resolución:</b> la calibración guarda la cámara (EXIF: modelo, distancia focal, zoom, proporción). Una foto de la misma lente a otra resolución (2560×1920, 4000×3000) o girada (1920×2560) es válida: la calibración se reescala. Una foto de otra lente (otra distancia focal: gran angular, teleobjetivo), con zoom digital, recortada (16:9, cuadrada) o de otro teléfono se excluye con el motivo. Si la calibración no registra la cámara, use «Registrar cámara…»: toma la cámara del EXIF de las fotos de la carpeta (solo si la calibración se hizo con esa cámara). Si no la registra y hay fotos de varias lentes, el lote se detiene.</li>
-  <li><b>Informes:</b> el CSV y el HTML se proponen en la carpeta de fotos (CobDosel_&lt;sitio&gt;_sitio…); al guardar el HTML se ofrece abrirlo.</li>
+  <li><b>Informes:</b> el CSV y el HTML se proponen en la carpeta de fotos (CobDosel_&lt;sitio&gt;_fotos.csv, _parcelas.csv, _sitio.csv y CobDosel_&lt;sitio&gt;_informe.html); al guardar el HTML se ofrece abrirlo.</li>
   <li><b>Salidas:</b> CSV de fotos, parcelas y sitio; informe HTML; capa de puntos de las parcelas unida por ID a la capa del muestreo.</li>
 </ul>
 
