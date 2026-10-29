@@ -132,7 +132,7 @@ d._load_image_into_dialog(pth)
 d.calibration = dict(fe); d.center_xy = tuple(fe["center_xy"]); d.zenith_max.setValue(40.0)
 d.threshold_spin.setValue(128); d._set_cut(128, "manual"); d._on_run()
 b = bc.analyze_photo(pth, fe, 40.0, d._current_channel_mode(), True, "fixed", 128)
-chk("lote = una foto con ojo de pez descentrado", abs(d.last_results["metrics"]["canopy_cover_index_pct"] - b["caco"]) < 1e-9,
+chk("lote = una foto con ojo de pez descentrado", abs(bc.round_pct(d.last_results["metrics"]["canopy_cover_index_pct"]) - b["caco"]) < 1e-9,  # v0.14.62: 2 decimales
     (d.last_results["metrics"]["canopy_cover_index_pct"], b["caco"]))
 
 # Calibración existente: no se sobrescribe sin confirmar

@@ -150,7 +150,7 @@ fold = os.path.join(OUT, "lote"); shutil.rmtree(fold, ignore_errors=True); os.ma
 shutil.copy(p, os.path.join(fold, "A.jpg"))
 bb = bc.run_batch(fold, None, d.calibration, None, photos_per_plot=1, cut_rule="fixed", fixed_cut=128)
 chk("3 mismo CaCo en una foto y en el lote (antes podía diferir si se activaba la limpieza)",
-    abs(bb["fotos"][0]["caco"] - ca) < 1e-6, (bb["fotos"][0]["caco"], ca))
+    abs(bb["fotos"][0]["caco"] - bc.round_pct(ca)) < 1e-9, (bb["fotos"][0]["caco"], ca))  # v0.14.62: lote con 2 decimales
 out = generate_html_report(res, os.path.join(OUT, "r.html"), include_images=True)
 ht = open(out, encoding="utf-8").read()
 chk("4 informe sin «Limpieza morfológica»", "Limpieza morfológica" not in ht and "limpieza" not in ht.lower())

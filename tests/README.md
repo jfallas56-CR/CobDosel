@@ -37,6 +37,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01447.py` | Informes sin autor; informe de una foto en español, por grupos, con el motivo del corte no comprobado; cielo no uniforme junto al resultado del sitio (informe y panel) |
 | `test_v01448.py` | «Analista» en ventanas, informe y CSV; informe de una foto con sitio, analista y créditos al final; anillos con letra mayor y leyenda arriba (o franja); lote sin máscara por altura ni «5 = Centro…»; cielo «Verificadas por…»; tabla de parcelas |
 | `test_v01461.py` | Formulario desde las fotos: nota solo en parcelas de más de 20 min; singular y plural de las decisiones guardadas |
+| `test_v01462.py` | Sitio = media de todas las fotos válidas con 2 decimales (datos reales 4 × 5: 79,18); parcela con 3 fotos; redondeo 70,005 → 70,01; informe y CSV |
 | `test_v01460.py` | Aviso de cielo no uniforme según la verificación de cortes; plantilla del formulario con instrucciones actuales |
 | `test_v01459.py` | Lote: una exportación por clic (doble clic, barra espaciadora y llamadas repetidas descartadas); mensaje con la carpeta una vez |
 | `test_v01457.py` | Tabla de parcelas: «—» en Mín. y Máx. con una sola foto válida; el CSV conserva los números |

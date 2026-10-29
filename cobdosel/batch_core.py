@@ -4,8 +4,9 @@ Diseño de ejemplo (cualquier diseño sirve: el formulario indica parcela y punt
 - parcelas circulares de 500 m² (radio 12.62 m);
 - 5 fotos verticales por parcela: Centro y N-O (315°), N-E (45°), S-E (135°), S-O (225°) a 8.9 m
   del centro;
-- valor de la parcela = media de las fotos válidas disponibles;
-- valor del sitio = media de las medias de parcela (Índice CaCo).
+- CaCo de cada foto con 2 decimales (redondeo a la mitad hacia arriba); todos los cálculos usan ese valor;
+- valor de la parcela = media de las fotos válidas disponibles (descriptivo), con 2 decimales;
+- valor del sitio = media de todas las fotos válidas del sitio (Índice CaCo), con 2 decimales (v0.14.62).
 
 Entradas: carpeta de fotos (nombres de la cámara), formulario de campo digital (CSV o Excel con las
 columnas de la plantilla; opcional desde v0.14.42: sin formulario, parcela y punto se asignan por orden de
@@ -41,6 +42,7 @@ from .glama_engine import (  # noqa: F401  (glama_cut_iterated se reexporta por 
     glama_cut_iterated, GLAMA_CUT_START, glama_cut_diagnosis,
 )
 import json
+from decimal import Decimal, ROUND_HALF_UP
 
 PLOT_RADIUS_M = 12.62            # parcela circular de 500 m²
 DEFAULT_FOOTPRINT_M = 6.31       # radio equivalente del cuadrante (125 m²) cubierto por cada foto
@@ -598,7 +600,8 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     if vis is not None and vis < 99.5:
         warns.append("círculo de análisis visible {:.1f} %".format(vis))
     return {
-        "caco": idx["canopy_cover_index_pct"],
+        # v0.14.62: el CaCo de la foto se registra con 2 decimales y todos los cálculos usan ese valor
+        "caco": round_pct(idx["canopy_cover_index_pct"]),
         "modif_caco": idx["spherical_cover_pct"],
         "apertura": idx["canopy_openness_pct"],
         "cierre": idx["canopy_closure_pct"],
@@ -950,8 +953,30 @@ def summarize_common_warnings(results):
     return out
 
 
+def round_pct(value, decimals=2):
+    """v0.14.62: redondeo a la mitad hacia arriba sobre el valor decimal escrito (70.005 -> 70.01), no el
+    redondeo bancario de round(); así el número mostrado es el número calculado."""
+    if value is None:
+        return None
+    q = Decimal(1).scaleb(-int(decimals))
+    return float(Decimal(repr(float(value))).quantize(q, rounding=ROUND_HALF_UP))
+
+
+def mean_pct(values, decimals=2):
+    """v0.14.62: media exacta en decimal de valores ya redondeados (sin error de coma flotante: la media de
+    70.00 y 70.01 es 70.005 -> 70.01), redondeada a la mitad hacia arriba."""
+    vals = [Decimal(repr(float(v))) for v in values]
+    if not vals:
+        return None
+    q = Decimal(1).scaleb(-int(decimals))
+    return float((sum(vals) / len(vals)).quantize(q, rounding=ROUND_HALF_UP))
+
+
 def aggregate(results, planned_plots):
-    """Medias por parcela (fotos válidas disponibles) y media del sitio (Índice CaCo)."""
+    """Medias por parcela (fotos válidas disponibles) y media del sitio (Índice CaCo).
+
+    v0.14.62: el sitio es la media de TODAS las fotos válidas (una sola muestra), no la media de las medias de
+    parcela; si una parcela tiene menos fotos válidas, pesa menos. Fotos, parcelas y sitio con 2 decimales."""
     plots = {}
     order = []
     for r in results:
@@ -966,13 +991,14 @@ def aggregate(results, planned_plots):
             plots[p]["caco"].append(r["caco"])
         if r.get("reemplaza_a"):
             plots[p]["reemplaza_a"] = r["reemplaza_a"]
-    rows, warnings = [], []
+    rows, warnings, all_valid = [], [], []
     for p in order:
         d = plots[p]
-        vals = d.pop("caco")
-        d["caco_media"] = float(np.mean(vals)) if vals else None
-        d["caco_min"] = float(np.min(vals)) if vals else None
-        d["caco_max"] = float(np.max(vals)) if vals else None
+        vals = [round_pct(v) for v in d.pop("caco")]
+        all_valid.extend(vals)
+        d["caco_media"] = mean_pct(vals)
+        d["caco_min"] = min(vals) if vals else None
+        d["caco_max"] = max(vals) if vals else None
         if not vals:
             warnings.append("Parcela {}: sin fotos válidas; no entra en la media del sitio "
                             "(aplique el mecanismo de reemplazo).".format(p))
@@ -982,7 +1008,8 @@ def aggregate(results, planned_plots):
         warnings = [w for w in warnings if not w.endswith("(aplique el mecanismo de reemplazo).")]
         warnings.append("Ninguna parcela tiene fotos válidas ({} parcelas): no hay resultado del sitio.".format(len(rows)))
     means = [d["caco_media"] for d in rows if d["caco_media"] is not None]
-    site_mean = float(np.mean(means)) if means else None
+    # v0.14.62: media de todas las fotos válidas (con 2 decimales), no media de las medias de parcela
+    site_mean = mean_pct(all_valid)
     n_ok = len(means)
     if planned_plots and n_ok != int(planned_plots):
         warnings.append("Parcelas con resultado: {} de {}.".format(n_ok, int(planned_plots)))
@@ -1158,14 +1185,16 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
 </style></head><body><div class="c">
 <header><h1>CobDosel v{version} — Cobertura del dosel por sitio</h1>
 <div>Sitio: {site}{op}</div></header>
-<section><div>Cobertura del dosel del sitio (media de las parcelas, Índice CaCo)</div>
+<section><div>Cobertura del dosel del sitio (media de todas las fotos válidas, Índice CaCo)</div>
 <div class="big">{mean} %</div>
 <p>Parcelas con resultado: {nok}{nplan} · Fotos válidas: {fv} de {ft}</p>
 <p>Método del nivel de corte: {rule}</p>
 <p>Revisión del nivel de corte: {rev}</p>{pending_html}{sky_html}</section>
 <section><h2>Parcelas</h2><table><tr><th>Parcela</th>{repl_th}<th class='c'>Fotos válidas</th>
 <th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table>
-<p style='font-size:.82rem;color:#52606d'>Mín. y Máx.: entre las fotos válidas de la parcela; «—» si tiene una sola.</p></section>
+<p style='font-size:.82rem;color:#52606d'>Mín. y Máx.: entre las fotos válidas de la parcela; «—» si tiene una sola.
+Cálculo: CaCo de cada foto con 2 decimales; la media de cada parcela es descriptiva; el resultado del sitio es la
+media de todas las fotos válidas, redondeada a 2 decimales.</p></section>
 <section><h2>Fotos</h2><table><tr><th>Parcela</th><th>Punto</th><th>Archivo</th><th>Emparejado por</th>
 <th class='n'>Corte</th><th>Método del corte</th><th>Decisión</th><th class='n'>Máscara (°)</th><th class='n'>Visible (%)</th><th class='n'>CaCo (%)</th>
 </tr>{photos}</table><p style='font-size:.82rem;color:#52606d'>Debajo de cada foto, sus observaciones.</p></section>

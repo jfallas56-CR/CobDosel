@@ -629,7 +629,7 @@ class CobDoselBatchDialog(QDialog):
         s = b["sitio"]
         lines = ["SITIO: {}".format(self.site_edit.text().strip() or "—"),
                  "ANALISTA: {}".format(self.operator_edit.text().strip() or "—"),
-                 "Cobertura del dosel del sitio (media de parcelas, CaCo): {} %".format(
+                 "Cobertura del dosel del sitio (media de todas las fotos válidas, CaCo): {} %".format(
                      fmt_num(s["caco_sitio"]) if s["caco_sitio"] is not None else "—"),
                  "Parcelas con resultado: {}{} · fotos válidas {} de {}".format(
                      s["parcelas_con_resultado"],

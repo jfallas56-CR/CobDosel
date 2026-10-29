@@ -148,14 +148,16 @@ sky = ca.threshold_image(ca.extract_channel(img, "blue_red"), r0["corte"])
 g = ge.glama_indices(ge.glama_ring_counts(sky, (W / 2, H / 2), c2["virtual_radius_px"], r0["cenit_max"],
                                           calibration=c2, projection=c2["projection"]),
                      calibration=c2, radius_px=c2["virtual_radius_px"])
-check("CaCo del lote = motor GLAMA directo", abs(g["canopy_cover_index_pct"] - r0["caco"]) < 1e-9,
+# v0.14.62: el CaCo de la foto se registra con 2 decimales
+check("CaCo del lote = motor GLAMA directo (2 decimales)", abs(g["canopy_cover_index_pct"] - r0["caco"]) <= 0.005 + 1e-9,
       "%.3f" % r0["caco"])
 mean_p = {p["parcela"]: p for p in parc}
 check("parcela 2: media de 4 fotos válidas", mean_p["2"]["validas"] == 4 and mean_p["2"]["fotos"] == 5)
 check("parcela 4: media de 4 fotos (foto borrada)", mean_p["4"]["validas"] == 4)
 check("parcela 5 marcada como reemplazo de 3", mean_p["5"]["reemplaza_a"] == "3")
-exp_site = np.mean([p["caco_media"] for p in parc])
-check("media del sitio = media de las medias de parcela", abs(site["caco_sitio"] - exp_site) < 1e-9,
+# v0.14.62: el sitio es la media de todas las fotos válidas, con 2 decimales
+exp_site = bc.mean_pct([r["caco"] for r in valid])
+check("media del sitio = media de todas las fotos válidas", abs(site["caco_sitio"] - exp_site) < 1e-9,
       "%.2f %%" % site["caco_sitio"])
 check("sin umbral ni veredicto (herramienta general)", "cumple_umbral" not in site and "umbral_pct" not in site
       and not hasattr(bc, "LEGAL_THRESHOLD_PCT"))
