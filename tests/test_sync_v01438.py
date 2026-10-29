@@ -77,6 +77,7 @@ from PIL.TiffImagePlugin import IFDRational as R
 from scipy import ndimage
 rng = np.random.default_rng(0)
 import cobdosel.calibration_store as cs
+import tests._cal_fixtures as _fx
 from cobdosel._version import VERSION
 from cobdosel.canopy_dialog import CobDoselDialog
 import cobdosel.canopy_dialog as cd
@@ -132,14 +133,14 @@ for _ in range(3):
 chk("D) alternar el tipo de lente no repite notas", d.calib_result.text().count("queda en espera") == 0
     and d.calib_result.text().count("Calibración recuperada") == 1, d.calib_result.text().count("recuperada"))
 # B) radio de GLAMA: elegir Rectilínea no cambia la calibración y la lista vuelve a su modelo
-d._on_calibrate_glama_radius(); g = d.calibration["projection"]
+_fx.apply_to_dialog(d, 1618.0); g = d.calibration["projection"]
 d._set_projection_by_code("rectilinear" if g != "rectilinear" else "angular")
 chk("B) radio de GLAMA + otro modelo: la calibración de GLAMA queda en espera y la lista es coherente",
     coherent(d) and d.calibration is None and "conserva el modelo de GLAMA" in d.calib_result.text())
 d._on_calibrate()
 chk("B) el modelo elegido se aplica a la nueva calibración con el círculo", d.calibration is not None
     and d.calibration["projection"] == d._current_projection_code() != g)
-d._on_calibrate_glama_radius(); d._set_projection_by_code("rectilinear" if g != "rectilinear" else "angular")
+_fx.apply_to_dialog(d, 1618.0); d._set_projection_by_code("rectilinear" if g != "rectilinear" else "angular")
 d._set_projection_by_code(g)
 chk("B) volver al modelo de GLAMA recupera la calibración de GLAMA", d.calibration is not None
     and d.calibration.get("glama_radius_px") and coherent(d) and d.calib_result.text().count("conserva el modelo") == 0)

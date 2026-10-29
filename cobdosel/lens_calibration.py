@@ -19,8 +19,6 @@ v0.11.0 (CobDosel):
   se extiende linealmente hasta 90°, de modo que las esquinas de la foto y los anillos
   parcialmente visibles hasta la máscara de horizonte tienen su ángulo cenital real.
 - Nueva clave «max_zenith_frame_deg»: ángulo cenital en la esquina más lejana del fotograma.
-- calibrate_from_glama_radius(): calibración a partir del «Hemisph. radius» de la app GLAMA
-  (pantalla de 1080 px; la pantalla de análisis muestra el recorte cuadrado central de la foto).
 
 v0.10.0 (2026-10-17):
 - Alias de proyección sin entradas inalcanzables; excepción acotada en el cálculo de θ_máx.
@@ -363,85 +361,6 @@ def calibrate_regular_lens(circle_diameter_cm, camera_height_cm,
     }
 
 
-GLAMA_VIEW_WIDTH_PX = 1080   # ancho de la vista de la app GLAMA (pantalla de análisis)
-
-
-def calibrate_from_glama_radius(glama_radius_px, image_width_px, image_height_px,
-                                glama_view_width_px=GLAMA_VIEW_WIDTH_PX,
-                                scale_side="short", glama_projection="polar"):
-    """
-    Calibración a partir del radio del hemisferio de la app GLAMA («Hemisph. radius»).
-
-    GLAMA expresa el radio en píxeles de su vista (1080 px de ancho). En la pantalla de
-    análisis la app muestra el RECORTE CUADRADO CENTRAL de la foto (lado = lado menor), de
-    modo que la escala por el lado menor reproduce la geometría con que GLAMA calcula sus
-    resultados: R_foto = R_GLAMA × lado_menor / 1080. v0.14.53: se quitó la escala por el lado
-    mayor («long»): no reproducía a GLAMA ni la geometría de la cámara (Pixel 10, máscara 63°:
-    analizaba 0–31.7° reales, el círculo salía de la foto y el CaCo variaba hasta 4.7 puntos).
-
-    glama_projection: "polar" (equidistante, cámaras integradas) u "angular" (GLAMA;
-    equivale a ortográfica, r = R·sin θ).
-    """
-    if glama_radius_px <= 0 or glama_view_width_px <= 0:
-        raise ValueError("El radio de GLAMA y el ancho de la vista deben ser positivos.")
-    if scale_side != "short":
-        raise ValueError("La escala por el lado mayor ya no se ofrece: use el lado menor (reproduce "
-                         "GLAMA) o la calibración por círculo D/H.")
-    w, h = float(image_width_px), float(image_height_px)
-    side = min(w, h)
-    R = float(glama_radius_px) * side / float(glama_view_width_px)
-    half_w, half_h = w / 2.0, h / 2.0
-    r_image_half = min(half_w, half_h)
-    corner = math.hypot(half_w, half_h)
-    common = {
-        "lens_type": "regular",
-        "virtual_radius_px": R,
-        "r_image_half_px": r_image_half,
-        "center_xy": [half_w, half_h],
-        "image_width_px": int(image_width_px),
-        "image_height_px": int(image_height_px),
-        "calibration_method": "glama_radius",
-        "glama_radius_px": float(glama_radius_px),
-        "glama_view_width_px": float(glama_view_width_px),
-        "glama_scale_side": scale_side,
-        "glama_compat": True,
-    }
-    if glama_projection == "polar":
-        theta_max_deg = min(90.0, 90.0 * r_image_half / R)
-        cal = {
-            "focal_length_px": R / (math.pi / 2.0),
-            "max_zenith_deg": theta_max_deg,
-            "max_zenith_frame_deg": min(90.0, 90.0 * corner / R),
-            "full_fov_deg": 2.0 * theta_max_deg,
-            "theta_max_rad": math.radians(theta_max_deg),
-            "projection": "angular",
-            "projection_label": PROJECTIONS["angular"]["label"],
-        }
-    else:
-        theta_max_deg = math.degrees(math.asin(min(1.0, r_image_half / R)))
-        cal = {
-            "focal_length_px": R,
-            "max_zenith_deg": theta_max_deg,
-            "max_zenith_frame_deg": math.degrees(math.asin(min(1.0, corner / R))),
-            "full_fov_deg": 2.0 * theta_max_deg,
-            "theta_max_rad": math.radians(theta_max_deg),
-            "projection": "orthographic",
-            "projection_label": PROJECTIONS["orthographic"]["label"],
-        }
-    cal.update(common)
-    cal["glama_recommended_horizon_deg"] = round(90.0 - cal["max_zenith_deg"], 1)
-    return cal
-
-
-def glama_equivalent_radius(calibration, image_width_px, image_height_px,
-                            glama_view_width_px=GLAMA_VIEW_WIDTH_PX):
-    """Radio del hemisferio expresado como «Hemisph. radius» de GLAMA (lado menor / 1080)."""
-    R = calibration.get("virtual_radius_px")
-    if not R:
-        return None
-    return float(R) * float(glama_view_width_px) / float(min(image_width_px, image_height_px))
-
-
 def calibrate_fisheye_from_radius(radius_px, projection="polar",
                                   center_xy=None, image_width_px=None,
                                   image_height_px=None):
@@ -612,20 +531,6 @@ def list_projections():
 
 def projection_note(code):
     return PROJECTIONS.get(code, {}).get("note", "")
-
-
-def true_zenith_of(calibration, zenith_deg, true_focal_px):
-    """v0.14.53: cenit real (lente rectilínea de focal true_focal_px) del píxel que la calibración
-    asigna a zenith_deg. Sirve para las calibraciones con radio de GLAMA (modelo Lineal)."""
-    r = float(zenith_to_pixel_radius(float(zenith_deg), calibration))
-    return math.degrees(math.atan2(r, float(true_focal_px)))
-
-
-def calibration_zenith_for_true(calibration, true_zenith_deg, true_focal_px):
-    """v0.14.53: cenit que la calibración asigna al píxel que en la geometría real está a true_zenith_deg."""
-    import numpy as _np
-    r = float(true_focal_px) * math.tan(math.radians(float(true_zenith_deg)))
-    return float(pixel_radius_to_zenith(_np.array([r]), calibration)[0])
 
 
 def is_fisheye_projection(code):

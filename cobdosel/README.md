@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.62-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.63-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -32,10 +32,9 @@ Salidas: panel de resultados, CSV, capa de puntos GPS (EXIF), vista «Anillos ce
 1. **Imagen:** fotografía cenital original del teléfono (JPEG con EXIF; también PNG, TIFF, WebP; HEIC con `pillow-heif`).
 2. **Calibración:**
    - círculo de diámetro conocido *D* a una distancia *H*, centrado en la foto; medición con **dos diámetros E–O y N–S** o **ajuste de ≥ 5 puntos**, con control de calidad (diferencia ≤ 1 %, centro ≤ 5 % del diámetro);
-   - o el **«Hemisph. radius» de la app GLAMA**;
    - o detección automática del círculo de un ojo de pez.
 
-   Se muestran el radio del hemisferio *R* y su equivalente en GLAMA. La calibración guardada registra en qué foto se midió el círculo.
+   Se muestra el radio del hemisferio *R*. La calibración guardada registra en qué foto se midió el círculo.
 3. **Nivel de corte (1–254):** recomendado (log-normal) o automático (Mínimo u Otsu) sobre el área analizada; un solo criterio para todas las fotos.
 4. **Máscara de horizonte:** Tichý (2016) recomienda > 45° sobre el horizonte, o la Tabla 1 de GLAMA. El análisis llega hasta la máscara; si el círculo sale de la foto se informa el % visible.
 5. **Ejecutar** y exportar CSV / HTML.
@@ -66,7 +65,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
   - si el círculo de la máscara sale de la foto, GLAMA cuenta la franja negra como dosel;
   - GLAMA clasifica la imagen reducida de su pantalla.
 
-  Con la misma geometría, CobDosel y GLAMA coinciden en ≈ 1–2 puntos de CaCo. La opción «geometría de pantalla de GLAMA» reproduce la app para estudios pareados de transición; no debe usarse para el valor oficial.
+  Con la misma geometría, CobDosel y GLAMA coinciden en ≈ 1–2 puntos de CaCo.
 - **Calibración:** geometría exacta `atan(D/2H)`, la misma que usa la app GLAMA (comprobado: el radio del hemisferio de la app coincide con esa fórmula en 15 combinaciones de *D* y *H*). Modelo predeterminado «Rectilínea»; «Lineal» equivale al «Polar» de GLAMA. Las calibraciones antiguas con la aproximación `atan(D/H)/2` se siguen leyendo.
 - **Nivel de corte:** todos los índices dependen del umbral cielo/dosel; fije un criterio y regístrelo.
 - **Validación pendiente:** ni GLAMA ni CobDosel se han validado en Costa Rica contra una referencia independiente (tubo de observación vertical o LiDAR).
@@ -74,6 +73,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.14.63 (2026-10-29):** se retiran la calibración con el radio de GLAMA, la geometría de pantalla de GLAMA y «Comparar con GLAMA (tabla)»; CSV con «;» y coma decimal donde la coma es decimal (Excel); informe del sitio sin avisos repetidos y con contacto; sin «⚠».
 - **0.14.62 (2026-10-29):** resultado del sitio = media de todas las fotos válidas, con el CaCo de cada foto y las medias con 2 decimales (redondeo a la mitad hacia arriba).
 - **0.14.61 (2026-10-27):** formulario desde las fotos con la nota solo en las parcelas dudosas; «1 decisión guardada».
 - **0.14.60 (2026-10-27):** aviso de cielo no uniforme con los cortes ya verificados; plantilla del formulario con instrucciones actuales.

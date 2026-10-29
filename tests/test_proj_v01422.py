@@ -77,6 +77,7 @@ from PIL.TiffImagePlugin import IFDRational as R
 from scipy import ndimage
 rng = np.random.default_rng(0)
 import cobdosel.calibration_store as cs
+import tests._cal_fixtures as _fx
 from cobdosel._version import VERSION
 from cobdosel.canopy_dialog import CobDoselDialog
 import cobdosel.canopy_dialog as cd
@@ -136,5 +137,5 @@ for nm in dir(d):
     if nm.startswith("_on_load_cal"): getattr(d, nm)()
 print("loaded fisheye-detect equisolid: cal", d.calibration.get("projection"), "combo", d._current_projection_code(), "lens", d.lens_combo.currentIndex())
 d.lens_combo.setCurrentIndex(0); d._set_projection_by_code("orthographic")
-d.glama_radius_spin.setValue(500); d._on_calibrate_glama_radius()
+_fx.apply_to_dialog(d, 500)
 print("glama ortho from fisheye: cal", d.calibration.get("projection"), "combo", d._current_projection_code(), "lens", d.lens_combo.currentIndex())

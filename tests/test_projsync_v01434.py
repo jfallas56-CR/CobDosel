@@ -77,6 +77,7 @@ from PIL.TiffImagePlugin import IFDRational as R
 from scipy import ndimage
 rng = np.random.default_rng(0)
 import cobdosel.calibration_store as cs
+import tests._cal_fixtures as _fx
 from cobdosel._version import VERSION
 from cobdosel.canopy_dialog import CobDoselDialog
 import cobdosel.canopy_dialog as cd
@@ -107,7 +108,8 @@ def chk(name, cond, extra=""):
 tmpd = tempfile.mkdtemp(); cs.DEFAULT_DIR = tmpd; cs.LEGACY_DIR = os.path.join(tmpd, "legacy")
 import cobdosel.canopy_dialog as cdm
 cdm.list_calibrations = cs.list_calibrations; cdm.load_calibration = cs.load_calibration
-from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_from_glama_radius
+from cobdosel.lens_calibration import calibrate_regular_lens
+from tests._cal_fixtures import calibrate_from_glama_radius
 os.makedirs(OUT, exist_ok=True); jp = os.path.join(OUT, "p.jpg")
 yy, xx = np.mgrid[0:3000, 0:4000]
 img = np.where(((xx - 2000) ** 2 + (yy - 1500) ** 2 < 900 ** 2)[..., None], [200, 220, 250], [30, 60, 30]).astype(np.uint8)
@@ -144,7 +146,7 @@ chk("cargar calibración Lineal: se aplica tal cual, sin recalcular", d.calibrat
     , (d.calibration["projection"], d._current_projection_code(),
     round(d.calibration["virtual_radius_px"], 1), round(cal_saved["virtual_radius_px"], 1), d._cal_name))
 # Calibración con el radio de GLAMA: no se recalcula, se explica
-d._on_calibrate_glama_radius(); g_R = d.calibration["virtual_radius_px"]; g_proj = d.calibration["projection"]
+_fx.apply_to_dialog(d, 1618.0); g_R = d.calibration["virtual_radius_px"]; g_proj = d.calibration["projection"]
 d._set_projection_by_code("rectilinear" if g_proj != "rectilinear" else "angular")
 chk("radio de GLAMA: otro modelo no la modifica; queda en espera y se explica (0.14.38)", d.calibration is None
     and d._parked_cal[0]["virtual_radius_px"] == g_R and d._parked_cal[0]["projection"] == g_proj

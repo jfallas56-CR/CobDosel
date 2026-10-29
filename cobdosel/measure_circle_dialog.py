@@ -502,12 +502,12 @@ _SCOPE_TITLES = (("fotografia", "Fotografía"), ("medicion", "Medición (puntos 
 def quality_html(res):
     """
     Control de calidad en HTML: veredicto global en negrita y, debajo, los mensajes agrupados
-    por ámbito (fotografía / medición), ⚠ en rojo para lo que hay que repetir y ⓘ en ámbar para
+    por ámbito (fotografía / medición), «Repetir» en rojo para lo que hay que repetir y ⓘ en ámbar para
     las notas informativas.
     """
     import html as _html
     code, text = res.get("verdict") or ("ok", "Dentro de tolerancia.")
-    icon = {"ok": "✓", "usable_avisos": "ⓘ"}.get(code, "⚠")
+    icon = {"ok": "✓", "usable_avisos": "ⓘ"}.get(code, "✗")
     parts = ["<p style='color:{};font-weight:bold;margin:0 0 4px 0'>{} {}</p>".format(
         _VERDICT_COLOURS.get(code, "#1b5e20"), icon, _html.escape(text))]
     for scope, title in _SCOPE_TITLES:
@@ -516,7 +516,7 @@ def quality_html(res):
             continue
         parts.append("<p style='margin:4px 0 0 0'><b>{}:</b></p>".format(title))
         for i in items:
-            colour, mark = ("#b71c1c", "⚠") if i["level"] == "warn" else ("#8a5a00", "ⓘ")
+            colour, mark = ("#b71c1c", "Repetir:") if i["level"] == "warn" else ("#8a5a00", "ⓘ")
             parts.append("<p style='color:{};margin:0 0 2px 12px'>{} {}</p>".format(
                 colour, mark, _html.escape(i["text"]).replace("\n", "<br/>")))
     return "".join(parts)

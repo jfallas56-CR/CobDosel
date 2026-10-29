@@ -48,10 +48,10 @@ PLOT_RADIUS_M = 12.62            # parcela circular de 500 m²
 DEFAULT_FOOTPRINT_M = 6.31       # radio equivalente del cuadrante (125 m²) cubierto por cada foto
 DEFAULT_CAMERA_HEIGHT_M = 1.3
 DEFAULT_TOLERANCE_S = 60.0
-LONG_SIDE_WARNING = ("La calibración usa el radio de GLAMA escalado por el lado mayor: no reproduce GLAMA ni "
-                     "la geometría de la cámara (con la máscara de 63° analiza más cielo del indicado y el CaCo "
-                     "cambia). Esta opción ya no se ofrece: recalibre con el radio de GLAMA (lado menor) o con "
-                     "el círculo D/H.")
+# v0.14.63: la calibración con el radio de la app GLAMA se retiró; una guardada aún se puede leer
+GLAMA_RADIUS_WARNING = ("La calibración se creó con el radio de la app GLAMA (función retirada en v0.14.63): su "
+                        "geometría no es la de la cámara y el área analizada no corresponde a la máscara indicada. "
+                        "Recalibre con el círculo D/H.")
 DEFAULT_MASK_DEG = 63.0          # v0.14.29: estándar de CobDosel (cenit ≤ 27°): círculo completo con teléfonos de 23–25 mm; Tichý (2016) usó 60°
 
 # Grupos de dosel del protocolo (posición del árbol; no se mide la altura). (código, nombre, min m, max m)
@@ -316,7 +316,7 @@ def scan_photos(folder):
 
 
 
-def draft_form_from_photos(folder, out_path, photos_per_plot=5, template_xlsx=None):
+def draft_form_from_photos(folder, out_path, photos_per_plot=5, template_xlsx=None, delimiter=","):
     """
     Crea un formulario de fotos prellenado con todas las fotos de la carpeta, ordenadas por hora EXIF
     (o por nombre si no hay hora): id_foto y hora_captura escritos; parcela y punto asignados por orden,
@@ -370,7 +370,7 @@ def draft_form_from_photos(folder, out_path, photos_per_plot=5, template_xlsx=No
         wb.save(out_path)
     else:
         with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, delimiter=delimiter)      # v0.14.63: «;» donde la coma es decimal
             w.writerow(FORM_COLUMNS)
             w.writerows(rows)
     return out_path, len(photos), warnings
@@ -680,8 +680,8 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
     photos = scan_photos(photo_folder)
     pairs, w2 = match_photos(rows, photos, tolerance_s, clock_offset_s)
     warnings += w2
-    if calibration.get("glama_scale_side") == "long":       # v0.14.53: opción retirada
-        warnings.insert(0, LONG_SIDE_WARNING)
+    if calibration.get("calibration_method") == "glama_radius":       # v0.14.63: función retirada
+        warnings.insert(0, GLAMA_RADIUS_WARNING)
     # Cámaras/lentes: una calibración vale para una lente y un encuadre (no para otra lente o zoom)
     cal_cam = calibration.get("camera") or (calibration.get("measurement") or {}).get("camera")
     if cal_cam and not (cal_cam.get("model") or cal_cam.get("focal_length_mm") or cal_cam.get("focal_length_35mm")):
@@ -916,7 +916,6 @@ def summarize_common_warnings(results):
     Modifica en el lugar el motivo de las fotos excluidas por otra cámara (etiqueta breve). Devuelve la lista
     de avisos.
     """
-    from .canopy_analysis import SKY_UNIFORMITY_LIMIT
     out = []
     with_photo = [r for r in results if r.get("archivo")]
     valid = [r for r in with_photo if r.get("valida")]
@@ -927,24 +926,8 @@ def summarize_common_warnings(results):
                    "calibración.".format(_scope(len(cam), len(with_photo)), detail))
         for r in cam:
             r["motivo"] = "calibración de otra cámara/lente (ver avisos)"
-    sky = [r for r in valid if (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT]
-    if sky:
-        vals = [r["cielo_rango"] for r in sky]
-        rng = "{:.0f}".format(vals[0]) if len(vals) == 1 else "{:.0f}–{:.0f}".format(min(vals), max(vals))
-        # v0.14.60: si el analista ya verificó sus cortes, el aviso lo dice (antes pedía verificarlos igual)
-        done = [r for r in sky if str(r.get("decision") or "").startswith(("aceptado", "ajustado"))]
-        names = sorted({str(r.get("analista") or "").strip() for r in done if str(r.get("analista") or "").strip()})
-        if done and len(done) == len(sky):
-            tail = "Cortes verificados en «Revisar cortes…»{}.".format(
-                " por " + ", ".join(names) if names else "")
-        elif done:
-            tail = "Cortes verificados: {} de {}; verifique los demás en «Revisar cortes…».".format(len(done), len(sky))
-        else:
-            tail = ("Verifique el corte de cada una en «Revisar cortes…»; si es posible, repita esas fotos con "
-                    "cielo uniforme.")
-        out.append("{}: cielo no uniforme (rango de brillo del cielo {}, límite {:.0f}): nubes de distinto brillo, "
-                   "cielo azul, sol o resplandor. {}".format(
-                       _scope(len(sky), len(valid), "fotos válidas"), rng, SKY_UNIFORMITY_LIMIT, tail))
+    # v0.14.63: el cielo no uniforme ya no va en los avisos: lo dice sky_review_line junto al resultado del
+    # sitio (antes aparecía dos veces en el informe y en el panel)
     split = [r for r in valid if "separa dos brillos del cielo" in str(r.get("motivo_revision") or "")]
     if split:
         out.append("{}: otro punto de partida da otro corte que separa dos brillos de lo que ya es cielo (nubes de "
@@ -1023,9 +1006,7 @@ def aggregate(results, planned_plots):
         "pendientes_revision": sum(1 for r in results if r.get("valida") and r.get("revisar")),
         "revision": _decision_summary(results),
     }
-    if site["pendientes_revision"]:
-        warnings.insert(0, "Resultado provisional: {} foto(s) pendientes de revisión del corte "
-                           "(«Revisar cortes…»).".format(site["pendientes_revision"]))
+    # v0.14.63: «Resultado provisional» ya no va en los avisos: el informe y el panel lo dicen junto al resultado
     return {"parcelas": rows, "sitio": site, "avisos": warnings}
 
 
@@ -1042,31 +1023,35 @@ PHOTO_CSV_COLUMNS = ("parcela", "reemplaza_a", "punto", "archivo", "id_foto", "e
 PLOT_CSV_COLUMNS = ("parcela", "reemplaza_a", "fotos", "validas", "caco_media", "caco_min", "caco_max")
 
 
-def write_csvs(batch, out_prefix, version=""):
-    """Escribe <prefijo>_fotos.csv, <prefijo>_parcelas.csv y <prefijo>_sitio.csv. Devuelve las rutas."""
+def write_csvs(batch, out_prefix, version="", delimiter=",", decimal="."):
+    """Escribe <prefijo>_fotos.csv, <prefijo>_parcelas.csv y <prefijo>_sitio.csv. Devuelve las rutas.
+
+    v0.14.63: separador de columnas y decimal elegibles (el diálogo usa los de la configuración regional,
+    csv_format.csv_style: «;» y coma decimal donde la coma es decimal, para que Excel abra las columnas)."""
+    from .csv_format import csv_row
     paths = []
     p1 = out_prefix + "_fotos.csv"
     with open(p1, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, delimiter=delimiter)
         w.writerow(PHOTO_CSV_COLUMNS)
         for r in batch["fotos"]:
-            w.writerow([r.get(k) for k in PHOTO_CSV_COLUMNS])
+            w.writerow(csv_row([r.get(k) for k in PHOTO_CSV_COLUMNS], decimal))
     paths.append(p1)
     p2 = out_prefix + "_parcelas.csv"
     with open(p2, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, delimiter=delimiter)
         w.writerow(PLOT_CSV_COLUMNS)
         for r in batch["parcelas"]:
-            w.writerow([r.get(k) for k in PLOT_CSV_COLUMNS])
+            w.writerow(csv_row([r.get(k) for k in PLOT_CSV_COLUMNS], decimal))
     paths.append(p2)
     p3 = out_prefix + "_sitio.csv"
     with open(p3, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, delimiter=delimiter)
         s = batch["sitio"]
         prm = batch["parametros"]
         keys = list(s.keys()) + ["param_" + k for k in prm.keys()] + ["plugin", "plugin_version"]
         w.writerow(keys)
-        w.writerow(list(s.values()) + list(prm.values()) + ["CobDosel", version])
+        w.writerow(csv_row(list(s.values()) + list(prm.values()), decimal) + ["CobDosel", version])
     paths.append(p3)
     return paths
 
@@ -1078,7 +1063,11 @@ def sky_review_line(results, analyst=None):
     sky = [r for r in valid if (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT]
     if not sky:
         return ""
-    head = "{}: cielo no uniforme.".format(_scope(len(sky), len(valid), "fotos válidas"))
+    vals = [r["cielo_rango"] for r in sky]
+    rng = "{:.0f}".format(vals[0]) if len(vals) == 1 else "{:.0f}–{:.0f}".format(min(vals), max(vals))
+    # v0.14.63: única mención del cielo no uniforme en el informe y el panel (antes también en los avisos)
+    head = ("{}: cielo no uniforme (rango de brillo del cielo {}, límite {:.0f}: nubes de distinto brillo, cielo "
+            "azul, sol o resplandor).").format(_scope(len(sky), len(valid), "fotos válidas"), rng, SKY_UNIFORMITY_LIMIT)
     done = [r for r in sky if str(r.get("decision") or "").startswith(("aceptado", "ajustado"))]
     names = sorted({str(r.get("analista") or "").strip() for r in done if str(r.get("analista") or "").strip()})
     who = ", ".join(names) or (str(analyst).strip() if analyst and str(analyst).strip() else "analista sin nombre")
@@ -1087,7 +1076,8 @@ def sky_review_line(results, analyst=None):
     if done:
         return "{} Verificadas por {}: {}; sin verificar: {} (use «Revisar cortes…»).".format(
             head, who, len(done), len(sky) - len(done))
-    return "{} Sin verificar: revise sus cortes en «Revisar cortes…».".format(head)
+    return ("{} Sin verificar: revise sus cortes en «Revisar cortes…»; si es posible, repita esas fotos con cielo "
+            "uniforme.".format(head))
 
 
 # v0.14.55: nombres legibles de los parámetros en el informe HTML (el CSV conserva las claves)
@@ -1159,13 +1149,14 @@ def write_html(batch, path, version="", site_name=""):
     photo_rows = "".join(_photo_row(r) for r in batch["fotos"])
     # v0.14.47: fotos con cielo no uniforme, junto al resultado del sitio
     from .canopy_analysis import SKY_UNIFORMITY_LIMIT
-    nval = sum(1 for r in batch["fotos"] if r.get("valida"))
     nsky = sum(1 for r in batch["fotos"] if r.get("valida") and (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT)
     sky_html = ("<p style='color:#9a3412;font-weight:700'>{}</p>".format(
         _h.escape(sky_review_line(batch["fotos"], prm.get("analista"))))) if nsky else ""
     pending = s.get("pendientes_revision") or 0
-    pending_html = ("<p style='color:#9a3412;font-weight:700'>Resultado provisional: {} foto(s) pendientes de "
-                    "revisión del nivel de corte.</p>".format(pending)) if pending else ""
+    pending_html = ("<p style='color:#9a3412;font-weight:700'>Resultado provisional: {} pendiente{} de revisión "
+                    "del nivel de corte («Revisar cortes…»).</p>".format(
+                        "1 foto" if pending == 1 else "{} fotos".format(pending), "" if pending == 1 else "s")
+                    ) if pending else ""
     warn = "".join("<li>{}</li>".format(_h.escape(w)) for w in batch["avisos"]) or "<li>Ninguno.</li>"
     params = "".join("<tr><td>{}</td><td>{}</td></tr>".format(_h.escape(PARAM_LABELS.get(k, k)),
                                                               _h.escape(_param_text(v)))
@@ -1200,7 +1191,7 @@ media de todas las fotos válidas, redondeada a 2 decimales.</p></section>
 </tr>{photos}</table><p style='font-size:.82rem;color:#52606d'>Debajo de cada foto, sus observaciones.</p></section>
 <section><h2>Avisos</h2><ul>{warn}</ul></section>
 <section><h2>Parámetros</h2><table>{params}</table></section>
-<footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version}</footer></div></body></html>""".format(
+<footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version} (<a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a>)</footer></div></body></html>""".format(
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
         rule=_h.escape(CUT_RULE_LABELS.get(prm.get("regla_corte"), str(prm.get("regla_corte")))),

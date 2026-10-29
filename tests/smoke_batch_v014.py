@@ -84,6 +84,7 @@ QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.N
 
 import json, csv, shutil
 import cobdosel.calibration_store as cs
+import tests._cal_fixtures as _fx
 OUTD = OUT
 cs.DEFAULT_DIR = os.path.join(OUTD, "cal"); cs.LEGACY_DIR = os.path.join(OUTD, "cal_old")
 from cobdosel import lens_calibration as lc
@@ -105,7 +106,7 @@ class Iface:
 iface = Iface()
 plug = classFactory(iface); plug.initGui()
 check("menú con «Procesamiento por sitio (lote)»", any("lote" in t for t in iface.menus), iface.menus)
-cal = lc.calibrate_from_glama_radius(1618, 2560, 1920)   # v0.14.53: sin «long»
+cal = _fx.calibrate_from_glama_radius(1618, 2560, 1920)   # v0.14.53: sin «long»
 cal["measurement"] = {"mode": "glama_radius", "image_size": [2560, 1920]}
 cs.save_calibration("Pixel10_GLAMA", cal, metadata={"measurement": cal["measurement"]})
 # capa de parcelas en el proyecto

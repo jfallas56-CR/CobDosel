@@ -99,7 +99,8 @@ import tempfile, csv
 import json, shutil, datetime
 from cobdosel.canopy_analysis import (sky_uniformity_range, sky_uniformity_warning, SKY_UNIFORMITY_LIMIT, extract_channel)
 from cobdosel.glama_engine import glama_cut_diagnosis
-from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_from_glama_radius
+from cobdosel.lens_calibration import calibrate_regular_lens
+from tests._cal_fixtures import calibrate_from_glama_radius
 from cobdosel import batch_core as bc
 from cobdosel.cut_review_dialog import CutReviewDialog
 from cobdosel.batch_dialog import CobDoselBatchDialog
@@ -158,13 +159,15 @@ hp = os.path.join(OUT, "lote.html"); bc.write_html(b, hp, VERSION, "S")
 hl = open(hp, encoding="utf-8").read()
 head = hl.split("<h2>Parcelas</h2>")[0]
 chk("2 cielo sin decisión: «1 de 4 fotos válidas: cielo no uniforme. Sin verificar…»",
-    "1 de 4 fotos válidas: cielo no uniforme. Sin verificar" in head, head[-300:])
+    "1 de 4 fotos válidas: cielo no uniforme (rango de brillo del cielo 80" in head and "Sin verificar" in head,
+    head[-300:])   # v0.14.63: la línea incluye el rango (el aviso del cielo dejó de repetirse en «Avisos»)
 chk("2 sin «fuera del protocolo de campo» ni «el resultado depende»", "fuera del protocolo" not in hl and "el resultado depende" not in hl)
 chk("2 avisos: el aviso de cielo sin «fuera del protocolo de campo»",
     not any("fuera del protocolo" in w for w in bc.summarize_common_warnings(b["fotos"])))
 b["fotos"][0]["decision"] = "aceptado"; b["fotos"][0]["analista"] = "Ana"
 chk("2 cielo con decisión: «… Verificadas por Ana.»", bc.sky_review_line(b["fotos"], "Ana") ==
-    "1 de 4 fotos válidas: cielo no uniforme. Verificadas por Ana.", bc.sky_review_line(b["fotos"], "Ana"))
+    "1 de 4 fotos válidas: cielo no uniforme (rango de brillo del cielo 80, límite 50: nubes de distinto brillo, "
+    "cielo azul, sol o resplandor). Verificadas por Ana.", bc.sky_review_line(b["fotos"], "Ana"))
 b["fotos"][0]["analista"] = ""
 chk("2 decisión sin nombre: se usa el analista de la ventana", bc.sky_review_line(b["fotos"], "Luis").endswith("Verificadas por Luis."))
 bc.write_html(b, hp, VERSION, "S"); hl = open(hp, encoding="utf-8").read()

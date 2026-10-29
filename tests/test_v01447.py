@@ -98,7 +98,8 @@ import tempfile, csv
 import json, shutil, datetime
 from cobdosel.canopy_analysis import (sky_uniformity_range, sky_uniformity_warning, SKY_UNIFORMITY_LIMIT, extract_channel)
 from cobdosel.glama_engine import glama_cut_diagnosis
-from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_from_glama_radius
+from cobdosel.lens_calibration import calibrate_regular_lens
+from tests._cal_fixtures import calibrate_from_glama_radius
 from cobdosel import batch_core as bc
 from cobdosel.cut_review_dialog import CutReviewDialog
 from cobdosel.batch_dialog import CobDoselBatchDialog
@@ -156,7 +157,8 @@ hp = os.path.join(OUT, "lote.html"); bc.write_html(b, hp, "0.14.47", "S")
 hl = open(hp, encoding="utf-8").read()
 head = hl.split("<h2>Parcelas</h2>")[0]
 chk("2 encabezado del sitio: «2 de 3 fotos válidas: cielo no uniforme»", "2 de 3 fotos válidas: cielo no uniforme" in head)
-chk("2 pie sin autor", "jfallas56" not in hl and "Jorge Fallas" not in hl)
+# v0.14.63: el usuario pidió el contacto en el pie («Generado por CobDosel vX (jfallas56@gmail.com)»)
+chk("2 pie con contacto, sin nombre", "(<a href=\"mailto:jfallas56@gmail.com\">jfallas56@gmail.com</a>)</footer>" in hl and "Jorge Fallas" not in hl)
 bd = CobDoselBatchDialog(None); bd.batch = b; bd._show()
 chk("2 panel: la misma línea arriba", "2 de 3 fotos válidas: cielo no uniforme" in bd.out.toPlainText().split("PARCELAS")[0])
 print("TODO OK" if ok_all else "HAY FALLAS")

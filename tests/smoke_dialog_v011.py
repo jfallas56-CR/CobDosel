@@ -88,6 +88,7 @@ jpg = os.path.join(OUT, "foto_regular.jpg"); img.save(jpg, exif=ex, quality=100,
 
 
 import cobdosel.calibration_store as cs
+import tests._cal_fixtures as _fx
 cs.DEFAULT_DIR = os.path.join(OUT, "cal"); cs.LEGACY_DIR = os.path.join(OUT, "cal_old")
 from cobdosel._version import VERSION
 from cobdosel.canopy_dialog import CobDoselDialog
@@ -243,23 +244,14 @@ check("0.14.9: método del corte registrado (recomendado → ajustado a mano →
 check("botón «Recomendado (log-normal)» y ayuda con procedencia, pasos y referencias",
       d.glama_cut_btn.text() == "Recomendado (log-normal)" and "Implementación independiente" in d.full_help_browser.toPlainText() and "Kittler" in d.full_help_browser.toPlainText()
       and "Recomendado (GLAMA)" not in d.full_help_browser.toPlainText())
-# Geometría de pantalla de GLAMA
-_proj0 = d._current_projection_code()
-d.glama_geometry_check.setChecked(True); d._on_run()
-check("0.14.33: con Rectilínea la geometría de GLAMA no se aplica y se explica qué modelo usar",
-      d.last_results["glama_geometry"] is None and "Lineal (compatible con Polar de GLAMA)" in d.results_text.toPlainText()
-      if _proj0 == "rectilinear" else True, _proj0)
+# v0.14.63: se retiraron la geometría de pantalla de GLAMA, la calibración con el radio de GLAMA y la tabla
+check("0.14.63: sin opciones retiradas de GLAMA en la ventana", not any(hasattr(d, a) for a in (
+    "glama_geometry_check", "glama_radius_spin", "glama_radius_btn", "glama_compare_btn", "glama_stored_check",
+    "glama_rot180_check", "glama_dy_spin")))
 d._set_projection_by_code("angular"); d._on_calibrate()
-d._on_run(); rg = d.last_results
-check("modo geometría GLAMA: conteos en píxeles de la vista 1080×1836",
-      rg["glama_geometry"] is not None and rg["metrics"]["total_pixels_in_frame"] <= 1080 * 1836,
-      "CaCo GLAMA-geom = %.2f %% vs correcta %.2f %%" % (rg["metrics"]["canopy_cover_index_pct"],
-                                                      rg["glama_geometry"]["correct_caco_pct"]))
-check("modo geometría GLAMA avisado en el panel", "GEOMETRÍA DE PANTALLA DE GLAMA" in d.results_text.toPlainText())
-d.glama_geometry_check.setChecked(False)
 
 # Calibración con el radio de GLAMA
-d.glama_radius_spin.setValue(1618.0); d._on_calibrate_glama_radius()   # v0.14.53: siempre lado menor
+_fx.apply_to_dialog(d, 1618.0)   # v0.14.53: siempre lado menor
 check("radio GLAMA 1618 → R = 1618·3000/1080", abs(d.calibration["virtual_radius_px"] - 1618 * 3000 / 1080) < 1e-6,
       "%.1f" % d.calibration["virtual_radius_px"])
 d.zenith_max.setValue(27.0); d._on_run()
@@ -271,9 +263,9 @@ d._on_export_csv()
 rows = list(csv.reader(open(os.path.join(OUT, "res.csv"), encoding="utf-8-sig")))
 hdr, row = rows[0], rows[1]
 need = ["plugin", "plugin_version", "hemisphere_radius_px", "circle_visible_pct",
-        "measurement_mode", "glama_geometry_mode", "exif_orientation"]
-check("CSV con columnas nuevas, sin radio equivalente GLAMA", all(c in hdr for c in need)
-      and "glama_equivalent_radius_px" not in hdr and row[hdr.index("plugin")] == "CobDosel",
+        "measurement_mode", "exif_orientation"]
+check("CSV con columnas nuevas, sin radio equivalente ni geometría de GLAMA", all(c in hdr for c in need)
+      and "glama_equivalent_radius_px" not in hdr and "glama_geometry_mode" not in hdr and row[hdr.index("plugin")] == "CobDosel",
       "%d columnas, %d de sectores" % (len(hdr), len([c for c in hdr if "_S" in c])))
 _seen_default = {}
 def _fake_save(*a, **k):

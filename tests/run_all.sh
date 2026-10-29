@@ -31,7 +31,6 @@ check respuesta_v01438   python3 tests/test_respuesta_v01438.py . "$OUT/respuest
 check hechos_v01438      python3 tests/test_hechos_v01438.py .
 check teclado_v01439     python3 tests/test_teclado_v01439.py . "$OUT/teclado" "$QT"
 check heic_v01439        python3 tests/test_heic_v01439.py . "$OUT/heic"
-check glama_cmp_v01441   python3 tests/test_glama_cmp_v01441.py . "$OUT/glama_cmp" "$QT" ${COBDOSEL_FOTOS:-}
 check v01442             python3 tests/test_v01442.py . "$OUT/v01442" "$QT" ${COBDOSEL_FOTOS_CIELO:-}
 check v01443             python3 tests/test_v01443.py . "$OUT/v01443" "$QT"
 check v01444             python3 tests/test_v01444.py . "$OUT/v01444" "$QT"
@@ -43,8 +42,6 @@ check v01449             python3 tests/test_v01449.py . "$OUT/v01449" "$QT" ${CO
 check v01450             python3 tests/test_v01450.py . "$OUT/v01450" "$QT"
 check v01451             python3 tests/test_v01451.py . "$OUT/v01451" "$QT"
 check v01452             python3 tests/test_v01452.py . "$OUT/v01452" "$QT"
-check v01453             python3 tests/test_v01453.py . "$OUT/v01453" "$QT"
-check v01454             python3 tests/test_v01454.py . "$OUT/v01454" "$QT"
 check v01455             python3 tests/test_v01455.py . "$OUT/v01455" "$QT"
 check v01456             python3 tests/test_v01456.py . "$OUT/v01456" "$QT"
 check v01457             python3 tests/test_v01457.py . "$OUT/v01457" "$QT"
@@ -52,6 +49,7 @@ check v01459             python3 tests/test_v01459.py . "$OUT/v01459" "$QT"
 check v01460             python3 tests/test_v01460.py . "$OUT/v01460" "$QT"
 check v01461             python3 tests/test_v01461.py . "$OUT/v01461" "$QT"
 check v01462             python3 tests/test_v01462.py . "$OUT/v01462" "$QT"
+check v01463             python3 tests/test_v01463.py . "$OUT/v01463" "$QT"
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>;
 # COBDOSEL_FOTOS_CIELO=<carpeta> con las 14 fotos de la prueba de uniformidad del cielo (v0.14.42)

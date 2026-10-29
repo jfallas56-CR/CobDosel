@@ -10,6 +10,7 @@ import sys, os, re, math
 sys.path.insert(0, sys.argv[1])
 PLUG = os.path.join(sys.argv[1], "cobdosel")
 from cobdosel import lens_calibration as lc, batch_core as bc, focal_check as fc
+import tests._cal_fixtures as _fx
 
 ok_all = True
 def chk(name, cond, extra=""):
@@ -27,7 +28,7 @@ d_px = 2 * 268.3 * 3000 / 1080.0
 worst_R = worst_m = 0.0
 for D, H, R_app, m_app in GLAMA_APP:
     cal = lc.calibrate_regular_lens(D, H, d_px, 4000, 3000, projection="angular")
-    R_eq = lc.glama_equivalent_radius(cal, 4000, 3000)
+    R_eq = _fx.glama_equivalent_radius(cal, 4000, 3000)
     worst_R = max(worst_R, abs(R_eq - R_app))
     worst_m = max(worst_m, abs((90 - 90 * 540 / R_eq) - m_app))
 chk("H1 GLAMA: «Lineal» con atan(D/2H) reproduce el radio de la app en 15 combinaciones (±1,5 px)", worst_R <= 1.5, round(worst_R, 2))

@@ -18,6 +18,10 @@ v0.9.0:
 - Reporta todos los resultados de GLAMA en pantalla, CSV, capa GPS e Informe HTML.
 - Créditos: Jorge Fallas (jfallas56@gmail.com).
 
+v0.14.63:
+- Se retiran la calibración con el radio de la app GLAMA, la geometría de pantalla de GLAMA y
+  «Comparar con GLAMA (tabla)». Una calibración guardada con el radio de GLAMA se lee con aviso.
+
 v0.11.1 (CobDosel):
 - Geometría de pantalla de GLAMA: centro del hemisferio desplazado 39 px hacia abajo en la
   vista (ajustable); reproduce exactamente «(in Frame)» y «Part of Hemisph.» de la app.
@@ -50,7 +54,6 @@ v0.10.0 (2026-10-17):
 """
 
 import os
-import math
 import json
 import csv
 import datetime
@@ -85,25 +88,21 @@ except ImportError:
 
 from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_int
-from .exif_gps import extract_exif, load_oriented_rgb_image, load_stored_rgb_image
+from .csv_format import csv_style, csv_row
+from .exif_gps import extract_exif, load_oriented_rgb_image
 _STD_MASK_DEG = 63.0     # máscara estándar de CobDosel (igual que batch_core.DEFAULT_MASK_DEG)
 from .lens_calibration import (
     HAS_CV2,
     detect_fisheye_circle,
     calibrate_regular_lens,
     calibrate_fisheye_from_radius,
-    calibrate_from_glama_radius,
-    glama_equivalent_radius,
     zenith_to_pixel_radius,
-    GLAMA_VIEW_WIDTH_PX,
     scale_calibration_to_image,
     list_projections,
     PROJECTIONS_REGULAR,
     PROJECTIONS_FISHEYE,
     projection_note,
     is_fisheye_projection,
-    true_zenith_of,
-    calibration_zenith_for_true,
 )
 from .canopy_analysis import (
     compute_auto_threshold,
@@ -131,7 +130,6 @@ from .canopy_analysis import (
     analysis_circle_visibility,
 )
 from .glama_engine import (
-    glama_mode,
     horizon_zenith_limit,
     glama_ring_counts,
     glama_indices,
@@ -139,12 +137,6 @@ from .glama_engine import (
     glama_cut_diagnosis,
     glama_ring_counts_with_gray,
     GLAMA_CUT_START,
-    glama_view_image,
-    glama_rotate,
-    glama_boxes_label,
-    GLAMA_VIEW_W,
-    GLAMA_VIEW_H,
-    GLAMA_CENTER_DY,
 )
 from .measure_circle_dialog import MeasureCircleDialog
 from .calibration_store import (
@@ -501,29 +493,6 @@ class CobDoselDialog(QDialog):
         cal_btn_row.addWidget(self.save_cal_btn)
         cal_layout.addRow("", cal_btn_row)
 
-        # Calibración directa con el radio del hemisferio de la app GLAMA
-        glama_row = QHBoxLayout()
-        self.glama_radius_spin = QDoubleSpinBox()
-        self.glama_radius_spin.setRange(1.0, 20000.0)
-        self.glama_radius_spin.setDecimals(1)
-        self.glama_radius_spin.setValue(1618.0)
-        self.glama_radius_spin.setSuffix(" px (GLAMA)")
-        self.glama_radius_spin.setToolTip(
-            "«Hemisph. radius» que muestra la app GLAMA (píxeles de su vista de {} px).".format(
-                GLAMA_VIEW_WIDTH_PX))
-        glama_row.addWidget(self.glama_radius_spin)
-        # v0.14.53: siempre por el lado menor (la pantalla de análisis de GLAMA muestra el recorte
-        # cuadrado central: 1080 px de la app = lado menor); se quitó la opción del lado mayor
-        glama_row.addWidget(QLabel("escala por el lado menor (reproduce GLAMA)"), stretch=1)
-        self.glama_radius_btn = QPushButton("Calibrar con radio GLAMA")
-        self.glama_radius_btn.setToolTip(
-            "Crea la calibración a partir del radio de GLAMA: proyección «Polar» de GLAMA\n"
-            "(Lineal en CobDosel), o «Angular» de GLAMA si elige Tipo de lente «Ojo de pez»\n"
-            "y el modelo Ortográfica.")
-        self.glama_radius_btn.clicked.connect(self._on_calibrate_glama_radius)
-        glama_row.addWidget(self.glama_radius_btn)
-        cal_layout.addRow("Opcional — radio de la app GLAMA:", glama_row)
-
         self.calib_result = QLabel("Sin calibrar.")
         self.calib_result.setWordWrap(True)
         cal_layout.addRow("Estado de calibración:", self.calib_result)
@@ -721,61 +690,6 @@ class CobDoselDialog(QDialog):
             "Fracción de claros por anillo × sector de acimut (sector 1 arriba, sentido\n"
             "horario). Útil para detectar un sector con sol directo u obstrucciones.")
         zen_layout.addRow("Sectores de acimut:", self.n_sectors_combo)
-
-        self.glama_geometry_check = QCheckBox(
-            "Reproducir la geometría de pantalla de GLAMA (solo estudios de transición)")
-        self.glama_geometry_check.setToolTip(
-            "Calcula los índices como la app GLAMA: recorte cuadrado central de la foto\n"
-            "reducido a {0} × {0} px, centrado en una vista de {0} × {1} px cuyas franjas negras\n"
-            "cuentan como dosel, y radio = «Hemisph. radius» de GLAMA. Reproduce los sesgos\n"
-            "de la app (escala 3:4 en fotos 4:3, franja negra contada como dosel); úselo solo\n"
-            "para comparar con resultados antiguos de GLAMA, nunca para el valor oficial.".format(
-                GLAMA_VIEW_W, GLAMA_VIEW_H))
-        geo_row = QHBoxLayout()
-        geo_row.addWidget(self.glama_geometry_check, stretch=1)
-        geo_row.addWidget(QLabel("Desplazamiento del centro:"))
-        self.glama_dy_spin = QDoubleSpinBox()
-        self.glama_dy_spin.setRange(-400.0, 400.0)
-        self.glama_dy_spin.setDecimals(1)
-        self.glama_dy_spin.setValue(GLAMA_CENTER_DY)
-        self.glama_dy_spin.setSuffix(" px")
-        self.glama_dy_spin.setToolTip(
-            "Posición vertical del centro del hemisferio de GLAMA respecto del centro de su\n"
-            "vista (px de la vista de {} px; + = hacia abajo). {:g} px reproduce exactamente\n"
-            "las pantallas de resultados de GLAMA en el teléfono del autor («in Frame» y «Part\n"
-            "of Hemisph.»). Para otro teléfono, ajústelo hasta igualar «Part of Hemisph.».".format(
-                GLAMA_VIEW_W, GLAMA_CENTER_DY))
-        geo_row.addWidget(self.glama_dy_spin)
-        zen_layout.addRow("", geo_row)
-
-        # v0.14.41: orientación como en la app (GLAMA no lee la etiqueta EXIF de orientación)
-        orient_row = QHBoxLayout()
-        self.glama_stored_check = QCheckBox("Píxeles en el orden guardado (como GLAMA)")
-        self.glama_stored_check.setChecked(True)
-        self.glama_stored_check.setToolTip(
-            "GLAMA muestra la foto tal como está guardada, sin aplicar la etiqueta EXIF de\n"
-            "orientación; CobDosel la aplica. Marcado: la reproducción usa el orden guardado,\n"
-            "como la app. Desmarcado: usa la foto en la posición en que la muestra CobDosel.")
-        orient_row.addWidget(self.glama_stored_check)
-        orient_row.addWidget(QLabel("Casillas de GLAMA:"))
-        self.glama_rot180_check = QCheckBox("180°")
-        self.glama_rot90_check = QCheckBox("90°")
-        self.glama_tr_check = QCheckBox("Tr.")
-        for cb in (self.glama_rot180_check, self.glama_rot90_check, self.glama_tr_check):
-            cb.setToolTip(
-                "Marque las mismas casillas que en la pantalla «Rotate and transpose image» de\n"
-                "GLAMA. «90°» gira un cuarto de vuelta en sentido antihorario y «180°» media vuelta\n"
-                "(comprobado con la app). «Tr.» se aplica después de los giros (orden no comprobado).\n"
-                "El giro cambia el CaCo de GLAMA porque mueve la franja contada como dosel.")
-            orient_row.addWidget(cb)
-        orient_row.addStretch(1)
-        self.glama_compare_btn = QPushButton("Comparar con GLAMA (tabla)…")
-        self.glama_compare_btn.setToolTip(
-            "Compara varias fotos con los valores anotados de la app GLAMA y separa la diferencia\n"
-            "en residuo de la reproducción, efecto del corte y efecto de la geometría.")
-        self.glama_compare_btn.clicked.connect(self._on_glama_compare)
-        orient_row.addWidget(self.glama_compare_btn)
-        zen_layout.addRow("", orient_row)
 
         self.lai_zenith_max = QDoubleSpinBox()
         self.lai_zenith_max.setRange(10.0, 90.0)
@@ -1114,16 +1028,6 @@ class CobDoselDialog(QDialog):
     def _current_channel_mode(self):
         return self.channel_combo.currentData()
 
-    def _on_glama_compare(self):
-        """v0.14.41: comparación por tabla con los valores anotados de la app GLAMA."""
-        from .glama_compare_dialog import GlamaCompareDialog
-        folder = os.path.dirname(self.image_path) if self.image_path else ""
-        dlg = GlamaCompareDialog(self.calibration, self._cal_name, self._current_channel_mode(),
-                                 self.glama_dy_spin.value(), self.sky_bright_check.isChecked(), folder,
-                                 parent=self)
-        runner = getattr(dlg, "exec", None) or getattr(dlg, "exec_")
-        runner()
-
     def _populate_projections(self, is_fisheye, keep=None):
         """Llena «Modelo de proyección» solo con los modelos del tipo de lente (v0.14.26).
 
@@ -1184,7 +1088,7 @@ class CobDoselDialog(QDialog):
             if self.last_results is not None:
                 self.calib_result.setText(
                     self.calib_result.text().split("\n")[0]
-                    + "\n⚠ El canal de color cambió — vuelva a ejecutar el análisis."
+                    + "\nEl canal de color cambió — vuelva a ejecutar el análisis."
                 )
 
     def _analysis_valid_mask(self, r_px=None, include_horizon_mask=False):
@@ -1881,42 +1785,6 @@ class CobDoselDialog(QDialog):
         )
         self._update_run_button()
 
-    def _on_calibrate_glama_radius(self):
-        """Calibración a partir del «Hemisph. radius» de la app GLAMA."""
-        self._set_short_help_topic("calibracion")
-        if self.image_array is None:
-            QMessageBox.warning(self, "Sin imagen cargada",
-                                "Cargue una imagen primero para conocer sus dimensiones.")
-            return
-        h, w = self.image_array.shape[:2]
-        glama_proj = "angular" if self._current_projection_code() == "orthographic" else "polar"
-        try:
-            cal = calibrate_from_glama_radius(
-                self.glama_radius_spin.value(), w, h,
-                glama_projection=glama_proj,
-            )
-        except ValueError as e:
-            QMessageBox.critical(self, "Error de calibración", str(e))
-            return
-        cal["measurement"] = {
-            "mode": "glama_radius",
-            "summary": "radio GLAMA {:.1f} px, escala por el lado menor".format(
-                self.glama_radius_spin.value())}
-        cal["camera"] = self._current_camera()
-        self.calibration = cal
-        self._cal_name = None      # calibración nueva: «sin guardar» hasta que se guarde
-        self.center_xy = (w / 2.0, h / 2.0)
-        # antes del modelo: el cambio de lente vuelve a llenar la lista de modelos
-        self.lens_combo.setCurrentIndex(0 if is_fisheye_projection(cal["projection"]) else 1)
-        self._set_projection_by_code(cal["projection"])
-        self.save_cal_btn.setEnabled(True)
-        self._show_calibration_summary(cal, "Calibración con radio GLAMA")
-        self._log("Calibración con radio GLAMA: R_GLAMA={:.1f} px → R={:.1f} px en la foto "
-                  "({}×{} px, {}; proyección GLAMA «{}»).".format(
-                      cal["glama_radius_px"], cal["virtual_radius_px"], w, h,
-                      cal["measurement"]["summary"], "Polar" if glama_proj == "polar" else "Angular"))
-        self._update_run_button()
-
     def _current_camera(self):
         """Huella de cámara (EXIF + tamaño) de la foto cargada, o None."""
         if self.image_array is None:
@@ -1953,53 +1821,6 @@ class CobDoselDialog(QDialog):
         exif35 = cam.get("focal_length_35mm") or (self.exif_data or {}).get("focal_length_35mm")
         return check_focal(cal, exif_35mm=exif35, own_reference=self._own_focal_reference(cal))
 
-    def _true_focal_px(self, cal):
-        """v0.14.53: focal real (px, a la resolución de la calibración) para comparar una calibración con
-        radio de GLAMA con la geometría de la cámara: la última calibración por círculo guardada de la
-        misma cámara o, si no hay, la focal equivalente del EXIF. Devuelve (f_px, fuente) o (None, None)."""
-        w, h = cal.get("image_width_px"), cal.get("image_height_px")
-        if not w or not h:
-            return None, None
-        own = self._own_focal_reference(cal)
-        if own:
-            fmm, src = own[1], "calibración «{}»".format(own[0])
-        else:
-            cam = cal.get("camera") or {}
-            fmm = cam.get("focal_length_35mm") or (self.exif_data or {}).get("focal_length_35mm")
-            src = "EXIF {:g} mm eq., aproximado".format(float(fmm)) if fmm else None
-        if not fmm:
-            return None, None
-        return float(fmm) * math.hypot(float(w), float(h)) / 43.27, src
-
-    def _glama_radius_notes(self, cal):
-        """v0.14.53: con radio de GLAMA y lente regular, qué cenit real analiza la máscara y qué máscara
-        cubre lo mismo que la calibración por círculo; aviso si una calibración guardada usa el lado mayor."""
-        out = []
-        if cal.get("calibration_method") != "glama_radius":
-            return out
-        if cal.get("glama_scale_side") == "long":
-            out.append("  ⚠ Escala por el lado mayor: no reproduce GLAMA ni la geometría de la cámara (el área "
-                       "analizada y el CaCo cambian; Pixel 10, máscara 63°: 0–31.7° reales, el círculo sale de "
-                       "la foto). Esta opción ya no se ofrece: recalibre con el radio de GLAMA o con el círculo D/H.")
-        if cal.get("lens_type") != "regular" or cal.get("projection") != "angular":
-            return out
-        f_true, src = self._true_focal_px(cal)
-        if not f_true:
-            out.append("  ⓘ Modelo Lineal de GLAMA: no coincide con la geometría real de la cámara. Guarde una "
-                       "calibración por círculo de esta cámara para ver qué cenit real analiza cada máscara.")
-            return out
-        try:
-            z_std = 90.0 - _STD_MASK_DEG
-            z_true = true_zenith_of(cal, z_std, f_true)
-            m_eq = 90.0 - calibration_zenith_for_true(cal, z_std, f_true)
-        except Exception as e:
-            self._log("[glama] comparación con la geometría real no disponible: {}".format(e), "DEBUG")
-            return out
-        out.append("  ⓘ Geometría real ({}): con máscara de {:.0f}° esta calibración analiza 0–{:.1f}° reales "
-                   "(la calibración por círculo, 0–{:.1f}°); para el área de la calibración por círculo use "
-                   "máscara de {:.1f}°.".format(src, _STD_MASK_DEG, z_true, z_std, m_eq))
-        return out
-
     def _show_calibration_summary(self, cal, title):
         """Texto del estado de calibración: ángulos, R y trazabilidad."""
         w = cal.get("image_width_px") or (
@@ -2031,7 +1852,7 @@ class CobDoselDialog(QDialog):
         lines.append("  Cámara de la calibración: " + camera_label(cal.get("camera")))
         fc = cal.get("focal_check")
         if fc and fc.get("focal_mm"):
-            mark = {"ok": "✓", "note": "ⓘ", "warn": "⚠"}.get(fc.get("level"), "·")
+            mark = {"ok": "✓", "note": "ⓘ", "warn": "Aviso:"}.get(fc.get("level"), "·")
             if fc.get("ref_kind") == "propia":
                 ref = "calibración «{}» de la misma cámara: {:.1f} mm".format(fc.get("ref_name"), fc["ref_mm"])
             elif fc.get("ref_kind") == "exif":
@@ -2043,7 +1864,10 @@ class CobDoselDialog(QDialog):
                 "; {:+.1f} %".format(fc["diff_pct"]) if fc.get("diff_pct") is not None else ""))
         lines.append("  Máscara con el círculo de análisis dentro de la foto: ≥ {:.1f}° — no se aplica "
                      "automáticamente".format(cal.get("glama_recommended_horizon_deg", 90.0 - half_fov)))
-        lines += self._glama_radius_notes(cal)
+        if cal.get("calibration_method") == "glama_radius":
+            # v0.14.63: la calibración con el radio de GLAMA se retiró; una guardada aún se puede leer
+            lines.append("  Calibración creada con el radio de la app GLAMA (función retirada en v0.14.63): "
+                         "su geometría no es la de la cámara. Recalibre con el círculo D/H.")
         self._calib_base = "\n".join(lines)
         self._mark_cut_stale("la calibración")
         self._parked_cal = None          # una calibración nueva o recuperada reemplaza a la que estaba en espera
@@ -2759,68 +2583,6 @@ class CobDoselDialog(QDialog):
                 for note in cam_why:
                     self._log("Cámara: " + note + ".")
 
-            # Modo opcional: geometría de pantalla de GLAMA (solo estudios de transición)
-            glama_geometry = None
-            if self.glama_geometry_check.isChecked() and (
-                    not r_virt or glama_mode(self.calibration.get("projection", "polar")) == "general"):
-                wmsg = ("Geometría de pantalla de GLAMA no aplicada: requiere una calibración con los modelos "
-                        "de GLAMA, «Lineal (compatible con Polar de GLAMA)» u Ortográfica, o una calibración con "
-                        "el radio de GLAMA. Con «Rectilínea» (predeterminado) no se puede reproducir la pantalla "
-                        "de GLAMA.")
-                report_warnings.append(wmsg)
-                self._log(wmsg, "WARN")
-            elif self.glama_geometry_check.isChecked():
-                r_glama = self.calibration.get("glama_radius_px") or glama_equivalent_radius(
-                    self.calibration, w, h)
-                g_boxes = (self.glama_rot180_check.isChecked(), self.glama_rot90_check.isChecked(),
-                           self.glama_tr_check.isChecked())
-                g_note = ""
-                if self.glama_stored_check.isChecked():
-                    s_img, _s, _wh, s_tag, g_note = load_stored_rgb_image(
-                        self.image_path, max_dim=MAX_ANALYSIS_DIM)
-                    g_src = np.asarray(s_img)
-                    g_orient = "orden guardado (EXIF {}), casillas: {}".format(
-                        s_tag if s_tag is not None else "sin etiqueta", glama_boxes_label(*g_boxes))
-                else:
-                    g_src = self.image_array
-                    g_orient = "posición de CobDosel, casillas: {}".format(glama_boxes_label(*g_boxes))
-                if g_note:
-                    report_warnings.append(g_note)
-                    self._log(g_note, "WARN")
-                view, vcen = glama_view_image(glama_rotate(g_src, *g_boxes), GLAMA_VIEW_W, GLAMA_VIEW_H,
-                                              self.glama_dy_spin.value())
-                v_gray = extract_channel(view, channel_mode)
-                v_sky = threshold_image(v_gray, thr, sky_is_bright=self.sky_bright_check.isChecked())
-                proj_g = self.calibration.get("projection", "polar")
-                v_counts = glama_ring_counts(v_sky, vcen, r_glama, glama_zarg,
-                                             calibration=None, projection=proj_g)
-                v_idx = glama_indices(v_counts, radius_px=r_glama)
-                glama_geometry = {
-                    "glama_radius_px": float(r_glama),
-                    "view_w": GLAMA_VIEW_W, "view_h": GLAMA_VIEW_H,
-                    "center_dy": float(self.glama_dy_spin.value()),
-                    "orientation": g_orient,
-                    "correct_caco_pct": metrics["canopy_cover_index_pct"],
-                    "correct_mod_caco_pct": metrics["modified_caco_index_pct"],
-                }
-                for key in ("gap_fraction_pct", "canopy_openness_pct", "canopy_closure_pct",
-                            "canopy_cover_index_pct", "hemisphere_fraction_pct",
-                            "total_pixels_in_circle", "total_pixels_in_frame",
-                            "light_pixels", "dark_pixels",
-                            "reference_zenith_deg", "reference_fraction_pct",
-                            "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct"):
-                    metrics[key] = v_idx[key]
-                metrics["canopy_cover_pct"] = v_idx["canopy_cover_index_pct"]
-                metrics["spherical_cover_pct"] = v_idx["spherical_cover_pct"]
-                metrics["modified_caco_index_pct"] = v_idx["spherical_cover_pct"]
-                wmsg = ("Geometría de pantalla de GLAMA activada (radio GLAMA {:.0f} px, centro "
-                        "{:+.1f} px, {}): los índices reproducen la app, con sus sesgos; CaCo con la "
-                        "geometría correcta = {:.2f} %. No use este modo para el valor oficial.").format(
-                            r_glama, glama_geometry["center_dy"], g_orient,
-                            glama_geometry["correct_caco_pct"])
-                report_warnings.append(wmsg)
-                self._log(wmsg, "WARN")
-
             self.progress.setValue(100)
 
             self.sky_mask = sky_mask
@@ -2850,8 +2612,6 @@ class CobDoselDialog(QDialog):
                 "sky_uniformity_range": sky_range,
                 "sectors": sectors,
                 "n_sectors": n_sectors,
-                "glama_geometry": glama_geometry,
-                "glama_equivalent_radius_px": glama_equivalent_radius(self.calibration, w, h),
                 "run_warnings": report_warnings,
                 "mask_zenith_deg": mask_zen,
                 "camera_photo": photo_cam,
@@ -2927,11 +2687,6 @@ class CobDoselDialog(QDialog):
         lines.append(" doi:10.1111/jvs.12350)")
         lines.append("══════════════════════════════════════════════════════════════════")
         lines.append("")
-        if res.get("glama_geometry"):
-            lines.append("  ⚠ GEOMETRÍA DE PANTALLA DE GLAMA ACTIVADA (estudio de transición):")
-            lines.append("    CaCo con la geometría correcta = {:.2f} %  (no use este modo"
-                         " para el valor oficial)".format(res["glama_geometry"]["correct_caco_pct"]))
-            lines.append("")
         # v0.14.38: la calibración realmente usada, arriba, para ver de inmediato con qué modelo se analizó
         _c = res.get("calibration") or {}
         _dh = (" · D = {:g} cm a H = {:g} cm".format(_c["circle_diameter_cm"], _c["camera_height_cm"])
@@ -3082,7 +2837,7 @@ class CobDoselDialog(QDialog):
                                               exif.get("image_direction_ref") or "ref. ?")
                 if exif.get("image_direction_deg") is not None else ""))
         for wmsg in res.get("run_warnings") or []:
-            lines.append("  ⚠ " + wmsg)
+            lines.append("  Aviso: " + wmsg)
         lines.append("")
         lines.append("── DETALLE POR ANILLOS CENITALES ─────────────────────────────────")
         lines.append(
@@ -3144,7 +2899,7 @@ class CobDoselDialog(QDialog):
             )
         if not lai.get("lai_reliable", True):
             lines.append(
-                "  ⚠ Rango cenital < {:.0f}°: el LAI depende del supuesto de hojas esféricas;"
+                "  Aviso: rango cenital < {:.0f}°: el LAI depende del supuesto de hojas esféricas;"
                 " úselo solo como valor indicativo.".format(LAI_MIN_RELIABLE_ZENITH_DEG)
             )
         lines.append("")
@@ -3281,7 +3036,6 @@ class CobDoselDialog(QDialog):
                 "zenith_frame_max_deg", "circle_visible_pct",
                 "calibration_method", "measurement_mode", "measurement_file",
                 "measurement_image_size", "measurement_diff_pct", "measurement_centre_offset_pct",
-                "glama_geometry_mode", "caco_correct_geometry_pct",
                 "exif_orientation", "exif_image_direction_deg", "cut_level_method",
                 "site_name", "analyst",
                 "glama_reference_zenith_deg", "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct",
@@ -3346,8 +3100,6 @@ class CobDoselDialog(QDialog):
                 "x".join(str(v) for v in ((cal.get("measurement") or {}).get("image_size") or [])),
                 (cal.get("measurement") or {}).get("diff_pct"),
                 (cal.get("measurement") or {}).get("centre_offset_pct"),
-                bool(res.get("glama_geometry")),
-                (res.get("glama_geometry") or {}).get("correct_caco_pct"),
                 exif.get("orientation"),
                 exif.get("image_direction_deg"),
                 res.get("cut_method") or "manual",
@@ -3362,10 +3114,11 @@ class CobDoselDialog(QDialog):
         )
 
         try:
+            sep, dec = csv_style()      # v0.14.63: «;» y coma decimal si la configuración regional usa coma
             with open(path, "w", newline="", encoding="utf-8-sig") as f:
-                w = csv.writer(f)
+                w = csv.writer(f, delimiter=sep)
                 w.writerow(header)
-                w.writerow(row)
+                w.writerow(csv_row(row, dec))
             self._log("Resultados exportados a CSV: " + str(path))
             QMessageBox.information(
                 self, "CSV guardado",
@@ -3572,7 +3325,6 @@ class CobDoselDialog(QDialog):
                 QgsField("lai_rango", _FLOAT),
                 QgsField("radio_px", _FLOAT),
                 QgsField("circ_vis", _FLOAT),
-                QgsField("geom_glama", _INT),
                 QgsField("version", _STR),
             ])
             target_layer.updateFields()
@@ -3603,7 +3355,6 @@ class CobDoselDialog(QDialog):
             float(lai.get("lai_zenith_max_deg", 0.0)),
             float(cal.get("virtual_radius_px") or 0.0),
             float(res.get("circle_visible_pct", 100.0)),
-            1 if res.get("glama_geometry") else 0,
             "CobDosel " + VERSION,
         ])
         target_layer.dataProvider().addFeatures([feat])

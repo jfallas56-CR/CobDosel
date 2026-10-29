@@ -97,7 +97,8 @@ class Iface:
 
 from cobdosel.canopy_dialog import CobDoselDialog
 from cobdosel import batch_core as bc
-from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_from_glama_radius, calibrate_fisheye_from_radius
+from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_fisheye_from_radius
+from tests._cal_fixtures import calibrate_from_glama_radius
 UP = sys.argv[4]
 photo = os.path.join(UP, "5fc4cb4f-image.jpg")
 d = CobDoselDialog(Iface())

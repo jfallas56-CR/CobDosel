@@ -99,7 +99,8 @@ import tempfile, csv
 import json, shutil, datetime
 from cobdosel.canopy_analysis import (sky_uniformity_range, sky_uniformity_warning, SKY_UNIFORMITY_LIMIT, extract_channel)
 from cobdosel.glama_engine import glama_cut_diagnosis
-from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_from_glama_radius
+from cobdosel.lens_calibration import calibrate_regular_lens
+from tests._cal_fixtures import calibrate_from_glama_radius
 from cobdosel import batch_core as bc
 from cobdosel.cut_review_dialog import CutReviewDialog
 from cobdosel.batch_dialog import CobDoselBatchDialog

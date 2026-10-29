@@ -99,7 +99,8 @@ import tempfile, csv
 import json, shutil, datetime
 from cobdosel.canopy_analysis import (sky_uniformity_range, sky_uniformity_warning, SKY_UNIFORMITY_LIMIT, extract_channel)
 from cobdosel.glama_engine import glama_cut_diagnosis
-from cobdosel.lens_calibration import calibrate_regular_lens, calibrate_from_glama_radius
+from cobdosel.lens_calibration import calibrate_regular_lens
+from tests._cal_fixtures import calibrate_from_glama_radius
 from cobdosel import batch_core as bc
 from cobdosel.cut_review_dialog import CutReviewDialog
 from cobdosel.batch_dialog import CobDoselBatchDialog
@@ -123,16 +124,19 @@ from cobdosel import batch_core as bc
 def rec(i, rango, decision="", analista=""):
     return {"parcela": str(i), "archivo": "F%d.jpg" % i, "valida": True, "cielo_rango": rango, "decision": decision, "analista": analista,
             "motivo": "", "motivo_revision": ""}
+# v0.14.63: el cielo no uniforme ya no va en los avisos; sky_review_line (junto al resultado) dice lo mismo
 allv = [rec(1, 67, "aceptado", "JF"), rec(2, 10, "automático")]
-w = [x for x in bc.summarize_common_warnings(allv) if "cielo no uniforme" in x][0]
-chk("1 cortes del cielo no uniforme ya verificados: el aviso lo dice y no pide verificar",
-    "Cortes verificados en «Revisar cortes…» por JF." in w and "Verifique el corte" not in w, w)
+chk("1 sin aviso de cielo en los avisos (lo dice la línea junto al resultado)",
+    not [x for x in bc.summarize_common_warnings(allv) if "cielo no uniforme" in x])
+w = bc.sky_review_line(allv, "JF")
+chk("1 cortes del cielo no uniforme ya verificados: la línea lo dice y no pide verificar",
+    w.endswith("Verificadas por JF.") and "revise" not in w, w)
 part = [rec(1, 67, "aceptado", "JF"), rec(2, 80, "pendiente de revisión"), rec(3, 10)]
-w = [x for x in bc.summarize_common_warnings(part) if "cielo no uniforme" in x][0]
-chk("1 verificados a medias: cuántos y que verifique los demás", "Cortes verificados: 1 de 2" in w, w)
+w = bc.sky_review_line(part, "JF")
+chk("1 verificados a medias: cuántos y que verifique los demás", "Verificadas por JF: 1; sin verificar: 1" in w, w)
 none = [rec(1, 67, "pendiente de revisión"), rec(2, 10)]
-w = [x for x in bc.summarize_common_warnings(none) if "cielo no uniforme" in x][0]
-chk("1 sin verificar: pide verificar en «Revisar cortes…»", "Verifique el corte de cada una" in w, w)
+w = bc.sky_review_line(none, "JF")
+chk("1 sin verificar: pide verificar en «Revisar cortes…»", "Sin verificar: revise sus cortes" in w, w)
 tpl = os.path.join(sys.argv[1], "cobdosel", "plantillas", "Formulario_fotos_CobDosel.xlsx")
 wb = openpyxl.load_workbook(tpl)
 ins = " ".join(str(c.value) for c in wb["Instrucciones"]["A"] if c.value)

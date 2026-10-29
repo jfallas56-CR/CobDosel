@@ -26,6 +26,7 @@ from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsField
 
 from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_num
+from .csv_format import csv_style
 from .calibration_store import list_calibrations, load_calibration, save_calibration, get_last_calibration
 from .camera_check import camera_label
 from .canopy_analysis import CHANNEL_MODES
@@ -318,7 +319,7 @@ class CobDoselBatchDialog(QDialog):
         if not dst:
             return
         try:
-            path, nph, warns = bc.draft_form_from_photos(folder, dst, n)
+            path, nph, warns = bc.draft_form_from_photos(folder, dst, n, delimiter=csv_style()[0])
         except Exception as e:
             QMessageBox.critical(self, "Formulario", str(e))
             return
@@ -339,7 +340,7 @@ class CobDoselBatchDialog(QDialog):
         try:
             cal = load_calibration(name)
         except Exception as e:
-            self.cal_info.setText("⚠ " + str(e))
+            self.cal_info.setText("Aviso: " + str(e))
             return
         cam = cal.get("camera") or (cal.get("measurement") or {}).get("camera")
         has_cam = bool(cam and (cam.get("model") or cam.get("focal_length_mm") or cam.get("focal_length_35mm")))
@@ -359,8 +360,8 @@ class CobDoselBatchDialog(QDialog):
         parts.append("medición: " + ((cal.get("measurement") or {}).get("summary") or "sin registrar"))
         parts.append("cámara: " + (camera_label(cam) if has_cam else "no registrada (use «Registrar cámara…»)"))
         txt = " · ".join(parts)
-        if cal.get("glama_scale_side") == "long":            # v0.14.53
-            txt = "⚠ " + bc.LONG_SIDE_WARNING + "\n" + txt
+        if cal.get("calibration_method") == "glama_radius":            # v0.14.63
+            txt = bc.GLAMA_RADIUS_WARNING + "\n" + txt
         self.cal_info.setText(txt)
 
     def _register_camera(self):
@@ -443,7 +444,7 @@ class CobDoselBatchDialog(QDialog):
                 self.field_combo.addItem(fld.name())
 
     def _log(self, msg, level="INFO"):
-        self.out.append(("⚠ " if level != "INFO" else "") + msg)
+        self.out.append(("Aviso: " if level != "INFO" else "") + msg)
 
     # ------------------------------------------------------------------
     def _on_run(self):
@@ -638,14 +639,14 @@ class CobDoselBatchDialog(QDialog):
                  "Nivel de corte: " + (s.get("revision") or "—"),
                  "", "PARCELAS:"]
         if s.get("pendientes_revision"):
-            lines.insert(0, "⚠ RESULTADO PROVISIONAL: {} foto(s) pendientes de revisión del corte.".format(
-                s["pendientes_revision"]))
+            n_p = s["pendientes_revision"]
+            lines.insert(0, "RESULTADO PROVISIONAL: {} de revisión del corte («Revisar cortes…»).".format(
+                "1 foto pendiente" if n_p == 1 else "{} fotos pendientes".format(n_p)))
         from .canopy_analysis import SKY_UNIFORMITY_LIMIT
-        nval = sum(1 for r in b["fotos"] if r.get("valida"))
         nsky = sum(1 for r in b["fotos"] if r.get("valida") and (r.get("cielo_rango") or 0) > SKY_UNIFORMITY_LIMIT)
         if nsky:                                         # v0.14.47: junto al resultado del sitio
             lines.insert(1 if s.get("pendientes_revision") else 0,
-                         "⚠ " + bc.sky_review_line(b["fotos"], self.operator_edit.text().strip()))
+                         bc.sky_review_line(b["fotos"], self.operator_edit.text().strip()))
         for p in b["parcelas"]:
             lines.append("  {:<8} {:<20} fotos {}/{}  CaCo {}".format(
                 p["parcela"], ("reemplazo de " + str(p["reemplaza_a"])) if p.get("reemplaza_a") else "",
@@ -657,7 +658,7 @@ class CobDoselBatchDialog(QDialog):
                 fmt_num(r["caco"]) if r.get("caco") is not None else "—", r.get("decision") or "",
                 r.get("motivo") or ""))
         if b["avisos"]:
-            lines += ["", "AVISOS:"] + ["  ⚠ " + w for w in b["avisos"]]
+            lines += ["", "AVISOS:"] + ["  - " + w for w in b["avisos"]]
         self.out.setPlainText("\n".join(lines))
 
     def _default_output(self, suffix):
@@ -690,7 +691,8 @@ class CobDoselBatchDialog(QDialog):
         if not base:
             return
         base = base[:-4] if base.lower().endswith(".csv") else base
-        paths = bc.write_csvs(self.batch, base, VERSION)
+        sep, dec = csv_style()          # v0.14.63: «;» y coma decimal si la configuración regional usa coma
+        paths = bc.write_csvs(self.batch, base, VERSION, delimiter=sep, decimal=dec)
         self._log("CSV guardados: " + "; ".join(paths))
         QMessageBox.information(self, "CSV guardados", saved_files_text(paths))
 

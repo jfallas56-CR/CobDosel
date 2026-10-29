@@ -38,13 +38,12 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01448.py` | «Analista» en ventanas, informe y CSV; informe de una foto con sitio, analista y créditos al final; anillos con letra mayor y leyenda arriba (o franja); lote sin máscara por altura ni «5 = Centro…»; cielo «Verificadas por…»; tabla de parcelas |
 | `test_v01461.py` | Formulario desde las fotos: nota solo en parcelas de más de 20 min; singular y plural de las decisiones guardadas |
 | `test_v01462.py` | Sitio = media de todas las fotos válidas con 2 decimales (datos reales 4 × 5: 79,18); parcela con 3 fotos; redondeo 70,005 → 70,01; informe y CSV |
+| `test_v01463.py` | Funciones de GLAMA retiradas (radio, geometría de pantalla, tabla); calibración antigua con aviso; CSV con «;» y coma decimal; avisos sin repetir el cielo ni «Resultado provisional»; pie con contacto; sin «⚠» |
 | `test_v01460.py` | Aviso de cielo no uniforme según la verificación de cortes; plantilla del formulario con instrucciones actuales |
 | `test_v01459.py` | Lote: una exportación por clic (doble clic, barra espaciadora y llamadas repetidas descartadas); mensaje con la carpeta una vez |
 | `test_v01457.py` | Tabla de parcelas: «—» en Mín. y Máx. con una sola foto válida; el CSV conserva los números |
 | `test_v01456.py` | Decisión guardada: «cielo no uniforme» una sola vez en Observaciones; motivo sin «protocolo de campo» |
 | `test_v01455.py` | Parámetros del informe del sitio: nombres legibles, sin «None», fecha sin microsegundos; el CSV conserva las claves |
-| `test_v01454.py` | «Comparar con GLAMA»: plantilla sin llenar (mensaje claro), tabla a medias (omite y avisa), plantilla con «;» y coma decimal, ventana sin traza |
-| `test_v01453.py` | Radio de GLAMA solo por el lado menor; cenit real y máscara equivalente en el resumen (calibración propia o EXIF); aviso para calibraciones guardadas con el lado mayor (resumen, lote, ventana del lote) |
 | `test_v01452.py` | Sin limpieza morfológica en ventanas, análisis, informe y CSV; mismo CaCo en una foto y en el lote; el complemento se importa sin scipy |
 | `test_v01451.py` | Cielo abierto: apertura de GLAMA = área analizada / referencia (44.5 % con 63°), foto = ángulo sólido del encuadre, misma base en el informe, nota metodológica única, columnas nuevas del CSV |
 | `test_v01450.py` | Sin globo de ayuda sobre la foto en la vista previa del nivel de corte ni al medir el círculo |
@@ -54,7 +53,6 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01444.py` | Comprobación de la cámara antes de procesar el sitio: propone la calibración guardada que coincide (Sí), procesar igual (No) o cancelar; sin calibración de esa cámara pide calibrarla |
 | `test_v01443.py` | Operador en la ventana del lote (parámetros, panel, CSV, revisión) y puntos «Foto N» sin avisos falsos (sin formulario, 1, 3 y 5 fotos por parcela) |
 | `test_v01442.py` | Uniformidad del cielo, motivo «separa dos brillos del cielo», lote sin formulario ni número de parcelas, ventana del lote redimensionable, revisión: pregunta por cortes sin aceptar, guardado al aceptar, opacidad; con `COBDOSEL_FOTOS_CIELO`, las 14 fotos de prueba |
-| `test_glama_cmp_v01441.py` | Comparación GLAMA ↔ CobDosel: orden guardado de los píxeles, casillas de giro de GLAMA, descomposición residuo + corte + geometría, tabla y ventana; con fotos reales, el ejemplo verificado de la app (± 0.1) |
 | `consistency_v01423.py` | Coherencia del análisis con fotos reales (requiere fotos reales) |
 
 Las dos últimas pruebas necesitan fotos reales, que no se incluyen en el repositorio: `COBDOSEL_FOTOS=<carpeta> bash tests/run_all.sh PyQt5`.

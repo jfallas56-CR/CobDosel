@@ -77,6 +77,7 @@ from PIL.TiffImagePlugin import IFDRational as R
 from scipy import ndimage
 rng = np.random.default_rng(0)
 import cobdosel.calibration_store as cs
+import tests._cal_fixtures as _fx
 from cobdosel._version import VERSION
 from cobdosel.canopy_dialog import CobDoselDialog
 import cobdosel.canopy_dialog as cd
@@ -137,10 +138,10 @@ for lens0, cal, exp_lens, exp_proj in (
         d.lens_combo.currentIndex() == exp_lens and d._current_projection_code() == exp_proj and d.calibration["projection"] == exp_proj,
         (d.lens_combo.currentIndex(), d._current_projection_code()))
 # Radio GLAMA
-d.lens_combo.setCurrentIndex(0); d._set_projection_by_code("orthographic"); d.glama_radius_spin.setValue(500); d._on_calibrate_glama_radius()
+d.lens_combo.setCurrentIndex(0); d._set_projection_by_code("orthographic"); _fx.apply_to_dialog(d, 500)
 chk("radio GLAMA «Angular» (ojo de pez + Ortográfica) → Ortográfica, lente ojo de pez",
     d.calibration["projection"] == "orthographic" and d.lens_combo.currentIndex() == 0 and d._current_projection_code() == "orthographic")
-d.lens_combo.setCurrentIndex(1); d._on_calibrate_glama_radius()
+d.lens_combo.setCurrentIndex(1); _fx.apply_to_dialog(d, 500)
 chk("radio GLAMA «Polar» (lente regular) → Lineal, lente regular",
     d.calibration["projection"] == "angular" and d.lens_combo.currentIndex() == 1 and d._current_projection_code() == "angular")
 d.zenith_max.setValue(30.0); d.threshold_spin.setValue(128); d._set_cut(128, "manual"); d._on_run()

@@ -12,6 +12,7 @@ from PIL import Image
 from scipy import ndimage
 import openpyxl
 from cobdosel import batch_core as bc, lens_calibration as lc, glama_engine as ge, canopy_analysis as ca
+import tests._cal_fixtures as _fx
 from cobdosel._version import VERSION
 
 fails = []
@@ -116,7 +117,7 @@ check("aviso: hora discrepante con ID coincidente (EXIF − formulario = −300 
 check("aviso: foto sin fila", any("IMG_extra.jpg" in w for w in mw))
 check("aviso: ID no encontrado → por hora", any("GLAMA_MAL_ESCRITO" in w for w in mw))
 
-cal = lc.calibrate_from_glama_radius(1618, 2560, 1920)   # v0.14.53: sin «long»
+cal = _fx.calibrate_from_glama_radius(1618, 2560, 1920)   # v0.14.53: sin «long»
 cal["measurement"] = {"mode": "glama_radius", "image_size": [2560, 1920]}
 t1 = time.time()
 batch = bc.run_batch(photo_dir, form, cal, planned_plots=4, channel_mode="blue_red")

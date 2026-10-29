@@ -273,16 +273,9 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     cal_used = "«{}» · {} · {}R = {:.1f} px".format(
         results.get("calibration_name") or "sin guardar",
         cal.get("projection_label") or cal.get("projection") or "—", _dh, float(cal.get("virtual_radius_px") or 0))
-    geo = results.get("glama_geometry")
-    geometry_banner = (
-        "<div class='warn-box'><strong>Geometría de pantalla de GLAMA activada</strong> (estudio de "
-        "transición): los índices reproducen la app con sus sesgos. Orientación: {}. CaCo con la "
-        "geometría correcta = <strong>{:.2f}%</strong>. No use este informe para el valor oficial.</div>".format(
-            html.escape(geo.get("orientation") or "posición de CobDosel"),
-            geo["correct_caco_pct"]) if geo else "")
     run_warnings_html = "".join(
-        "<div class='warn-box'>⚠ {}</div>".format(html.escape(w))
-        for w in (results.get("run_warnings") or []) if not (geo and "Geometría de pantalla" in w))
+        "<div class='warn-box'>{}</div>".format(html.escape(w))
+        for w in (results.get("run_warnings") or []))
     sectors = results.get("sectors") or []
     n_sec = int(results.get("n_sectors") or 0)
     sector_html = ""
@@ -696,7 +689,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
 
   <section class="card">
     <h2>1. Resultados</h2>
-    {geometry_banner}
     <p><strong>Calibración usada:</strong> {cal_used}</p>
     <div class="caco-box">
       <div class="caco-label">Cobertura del dosel — Índice CaCo</div>
@@ -883,7 +875,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         ring_rows="\n        ".join(ring_rows_html),
         lai_rows="\n        ".join(lai_rows_html),
         images_section=images_section_html,
-        geometry_banner=geometry_banner,
         cal_used=html.escape(cal_used),
         run_warnings_html=run_warnings_html,
         frame_max_str=html.escape(frame_max_str),
