@@ -80,7 +80,7 @@ SHORT_HELP_TOPICS = {
   <li><b>Sectores:</b> fracción de claros por anillo × sector de acimut (S1 arriba, horario).</li>
   <li><b>Anillos del informe:</b> franjas de igual ancho en ángulo cenital («Número de anillos cenitales», 4 por defecto: 0–6,75°, …, 20,25–27° con máscara de 63°). Su «Cobertura» es el cierre del dosel en ese ángulo, sin conversión a la vertical: no la informe como cobertura ni promedie los anillos (el Índice CaCo ya los convierte y los pondera; con 4 anillos el exterior pesa ≈ 42 % y el central ≈ 7 %). Sirven para ver si el dosel es parejo (anillos parecidos: el CaCo es confiable) y, con la tabla por sectores, para ubicar claros.</li>
   <li><b>Anillos cenitales:</b> anillos cada 5° o 10° con etiqueta, cielo en naranja, zona enmascarada en verde azulado, contorno de la máscara y sectores.</li>
-  <li><b>LAI efectivo:</b> rango cenital propio (por defecto 0–60°); con rangos &lt; 45° es indicativo.</li>
+  <li><b>LAI efectivo:</b> solo con lente ojo de pez de 180°, con rango cenital propio (por defecto 0–60°; la foto debe llegar a 45° o más). Con la lente regular del teléfono la foto llega a unos 40° y el LAI es «No aplica» en el panel, el informe y el CSV.</li>
 </ul>
 """,
 }
@@ -164,7 +164,7 @@ FULL_HELP_HTML = """
   <tr><td><b>Índice CaCo</b> (cobertura del dosel)</td><td><code>100 · (1 − Σ T<sup>cos θ</sup>·sin θ·cos θ / Σ sin θ·cos θ)</code> sobre anillos de 1/90 del radio; los anillos sin claros no entran en las sumas, como en GLAMA. Reproduce los valores publicados de la app (≤ 0.02 pts).</td></tr>
   <tr><td><b>Índice CaCo Modificado</b></td><td>Misma conversión, ponderada solo por <code>sin θ</code>; con lentes de teléfono es casi igual al CaCo.</td></tr>
   <tr><td><b>CaCo lineal (versiones ≤ 0.10)</b></td><td>Índice de versiones anteriores, solo para comparar con resultados antiguos; no lo use como cobertura.</td></tr>
-  <tr><td><b>LAI efectivo</b></td><td>Miller (1967) normalizado al rango cenital observado (por defecto 0–60°).</td></tr>
+  <tr><td><b>LAI efectivo</b></td><td>Miller (1967) normalizado al rango cenital observado (por defecto 0–60°). Solo con ojo de pez de 180°; con lente regular, «No aplica».</td></tr>
   <tr><td><b>Círculo de análisis visible</b></td><td>% del círculo de la máscara dentro de la foto; si es &lt; 100 %, parte del círculo se excluye.</td></tr>
   <tr><td><b>Tabla por sectores</b></td><td>Fracción de claros por anillo × sector de acimut (S1 = arriba, sentido horario).</td></tr>
 </table>

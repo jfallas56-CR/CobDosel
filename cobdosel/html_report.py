@@ -31,6 +31,7 @@ from .canopy_analysis import (
     classify_measurement_type,
     compute_hemisphere_fraction,
     CHANNEL_LABELS,
+    LAI_NOT_APPLICABLE,
 )
 from .visualization import (
     render_glama_rings,
@@ -152,10 +153,12 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     mod_caco_index_pct = float(
         metrics.get("spherical_cover_pct", metrics.get("modified_caco_index_pct", caco_index_pct))
     )
-    lai_eff = float(lai.get("lai_effective", 0.0))
-    lai_zmax = float(lai.get("lai_zenith_max_deg", zenith_max_deg))
+    # v0.14.67: el LAI solo se calcula con ojo de pez de 180°; si no, «No aplica»
+    lai_ok = lai.get("applies", True) and lai.get("lai_effective") is not None
+    lai_eff_str = "{:.3f}".format(float(lai["lai_effective"])) if lai_ok else "No aplica"
+    lai_zmax = float(lai.get("lai_zenith_max_deg") or zenith_max_deg)
     lai_reliable = bool(lai.get("lai_reliable", True))
-    lai_note = (
+    lai_note = html.escape("No aplica: " + LAI_NOT_APPLICABLE + ".") if not lai_ok else (
         "Miller (1967) normalizado al rango 0–{:.1f}° (exacto para hojas de distribución "
         "esférica){}".format(
             lai_zmax,
@@ -710,7 +713,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     <table class="data-table">
       <tr><td>Nivel de corte (1–254)</td><td class="num"><strong>{threshold}</strong></td>
           <td>{cut_method} · canal: {channel_label}</td></tr>
-      <tr><td>Índice de área foliar efectivo (Miller)</td><td class="num">{lai_eff:.3f}</td><td>{lai_note}</td></tr>
+      <tr><td>Índice de área foliar efectivo (Miller)</td><td class="num">{lai_eff_str}</td><td>{lai_note}</td></tr>
       <tr><td>Píxeles claros (oscuros)</td><td class="num">{light_px}</td><td>({dark_px} oscuros)</td></tr>
       <tr><td>Píxeles del círculo completo (en la foto)</td><td class="num">{total_circle_px}</td><td>({total_frame_px} en la foto)</td></tr>
     </table>
@@ -822,7 +825,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         threshold=threshold,
         cut_method=html.escape(str(results.get("cut_method") or "manual")),
         channel_label=html.escape(channel_label),
-        lai_eff=lai_eff,
+        lai_eff_str=lai_eff_str,
         zenith_max_deg=zenith_max_deg,
         caco_index_pct=caco_index_pct,
         mod_caco_index_pct=mod_caco_index_pct,
@@ -846,7 +849,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         virt_r_str=html.escape(virt_r_str),
         center_str=html.escape(center_str),
         ring_rows="\n        ".join(ring_rows_html),
-        lai_rows="\n        ".join(lai_rows_html),
+        lai_rows="\n        ".join(lai_rows_html) or "<tr><td colspan='4'>No aplica.</td></tr>",
         images_section=images_section_html,
         cal_used=html.escape(cal_used),
         run_warnings_html=run_warnings_html,

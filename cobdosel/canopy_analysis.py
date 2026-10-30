@@ -765,6 +765,18 @@ def compute_hemisphere_fraction(half_fov_deg):
 # ======================================================================
 # Índice de Área Foliar Efectivo (LAI efectivo de Miller)
 # ======================================================================
+LAI_NOT_APPLICABLE = ("solo con lente ojo de pez de 180°: con la lente regular del teléfono la foto llega a unos "
+                      "40° del cenit y el LAI de Miller necesita al menos {:.0f}°".format(LAI_MIN_RELIABLE_ZENITH_DEG))
+
+
+def lai_applies(calibration, zenith_frame_max_deg):
+    """v0.14.67: el LAI efectivo (Miller 1967) se calcula solo con lente ojo de pez (180°) y si la foto llega
+    al menos a LAI_MIN_RELIABLE_ZENITH_DEG del cenit. Con lente regular, «No aplica»."""
+    return bool(calibration and calibration.get("lens_type") == "fisheye"
+                and zenith_frame_max_deg is not None
+                and float(zenith_frame_max_deg) >= LAI_MIN_RELIABLE_ZENITH_DEG)
+
+
 def compute_effective_lai(per_ring_results, ring_boundaries):
     """
     Calcula el LAI efectivo con la fórmula de Miller (1967) normalizada al rango cenital

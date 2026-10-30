@@ -42,6 +42,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01464.py` | Apertura, cierre y referencia de GLAMA solo en el CSV; sin «NO es cobertura»; nota del densiómetro (±8 puntos con 100 lecturas); tiempo de procesamiento del lote |
 | `test_v01465.py` | Informe de una foto con todo lo de «calibración y máscara» del panel: cámaras y comprobación de lente, n.º de anillos |
 | `test_v01466.py` | Ayuda «Anillos del informe»; pesos del CaCo por anillo; ejemplo de varios estratos (97,66 %) |
+| `test_v01467.py` | «No aplica» en celdas sin valor; LAI solo con ojo de pez de 180°; sin glama_engine ni CaCo lineal; calibración sin R rechazada; residuo del ajuste en el CSV |
 | `test_v01460.py` | Aviso de cielo no uniforme según la verificación de cortes; plantilla del formulario con instrucciones actuales |
 | `test_v01459.py` | Lote: una exportación por clic (doble clic, barra espaciadora y llamadas repetidas descartadas); mensaje con la carpeta una vez |
 | `test_v01457.py` | Tabla de parcelas: «—» en Mín. y Máx. con una sola foto válida; el CSV conserva los números |

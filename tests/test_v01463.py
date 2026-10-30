@@ -60,7 +60,7 @@ chk("1 resumen de la calibración antigua en la ventana: aviso", "función retir
 # 2) CSV para Excel
 chk("2 csv_cell: real con coma decimal", csv_cell(79.18, ",") == "79,18" and csv_cell(79.18, ".") == "79.18")
 chk("2 csv_cell: enteros, booleanos, None y texto sin cambio",
-    csv_cell(5, ",") == 5 and csv_cell(True, ",") is True and csv_cell(None, ",") == ""
+    csv_cell(5, ",") == 5 and csv_cell(True, ",") is True and csv_cell(None, ",") == "No aplica"
     and csv_cell("0.14.63", ",") == "0.14.63")
 import numpy as np  # noqa: E402
 chk("2 csv_cell: numpy float y int", csv_cell(np.float64(70.01), ",") == "70,01" and csv_cell(np.int64(3), ",") == 3)
@@ -89,7 +89,7 @@ chk("2 _sitio.csv: caco_sitio 78,54 (785,39 / 10) y versión intacta",
 chk("2 _sitio.csv: parámetro real con coma (63,0)", site[1][sh.index("param_mascara")] == "63,0")
 paths2 = bc.write_csvs(batch, os.path.join(OUT, "en"), "0.14.63")
 chk("2 por defecto: «,» y punto (sin cambio para otros programas)",
-    open(paths2[1], encoding="utf-8-sig").read().splitlines()[1].startswith("1,,5,5,73.77"),
+    open(paths2[1], encoding="utf-8-sig").read().splitlines()[1].startswith("1,No aplica,5,5,73.77"),
     open(paths2[1], encoding="utf-8-sig").read().splitlines()[1])
 chk("2 ventana del lote y de una foto usan csv_style",
     "delimiter=sep, decimal=dec" in src["batch_dialog.py"] and "w.writerow(csv_row(row, dec))" in dlg

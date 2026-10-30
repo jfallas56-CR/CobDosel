@@ -118,6 +118,8 @@ from .canopy_analysis import (
     sky_uniformity_warning,
     LAI_DEFAULT_ZENITH_MAX_DEG,
     LAI_MIN_RELIABLE_ZENITH_DEG,
+    LAI_NOT_APPLICABLE,
+    lai_applies,
     compute_canopy_metrics,
     classify_measurement_type,
     compute_hemisphere_fraction,
@@ -699,7 +701,8 @@ class CobDoselDialog(QDialog):
         self.lai_zenith_max.setToolTip(
             "Rango cenital usado para el LAI efectivo, independiente de la máscara de\n"
             "horizonte (se limita al semiángulo del lente). Por defecto 0–60°.\n"
-            "Con rangos < {:.0f}° el LAI es solo indicativo.".format(LAI_MIN_RELIABLE_ZENITH_DEG)
+            "Solo con lente ojo de pez de 180° (la foto debe llegar a {:.0f}° o más);\n"
+            "con la lente regular del teléfono el LAI es «No aplica».".format(LAI_MIN_RELIABLE_ZENITH_DEG)
         )
         zen_layout.addRow("Rango cenital para LAI:", self.lai_zenith_max)
 
@@ -2368,6 +2371,14 @@ class CobDoselDialog(QDialog):
                 "Calibre el lente primero."
             )
             return
+        if not self.calibration.get("virtual_radius_px"):
+            # v0.14.67: las calibraciones de versiones ≤ 0.10 no tienen radio del hemisferio; ya no se
+            # analizan con los índices lineales antiguos
+            QMessageBox.warning(self, "Calibración antigua",
+                                "La calibración no tiene radio del hemisferio (R): es de una versión antigua "
+                                "(≤ 0.10). Recalibre con el círculo D/H.")
+            self._log("Calibración sin radio del hemisferio: recalibre con el círculo D/H.", "WARN")
+            return
         try:
             self._horizon_mask_arg()
         except ValueError as e:
@@ -2455,9 +2466,14 @@ class CobDoselDialog(QDialog):
             QApplication.processEvents()
 
             # LAI efectivo sobre su propio rango cenital (independiente de la máscara),
-            # limitado al ángulo cenital máximo presente en la foto
+            # limitado al ángulo cenital máximo presente en la foto.
+            # v0.14.67: solo con ojo de pez de 180° (con lente regular la foto llega a ~40°, por debajo de
+            # los 45° que necesita el LAI de Miller: el valor no sería confiable)
+            lai_ok = lai_applies(self.calibration, zen_frame_max)
             lai_zmax = max(0.1, min(self.lai_zenith_max.value(), zen_frame_max))
-            if abs(lai_zmax - zen_max) < 1e-6:
+            if not lai_ok:
+                lai_boundaries, lai_rings = [], []
+            elif abs(lai_zmax - zen_max) < 1e-6:
                 lai_boundaries = ring_boundaries
                 lai_rings = cover["per_ring"]
             else:
@@ -2480,10 +2496,16 @@ class CobDoselDialog(QDialog):
                     az_grid_s, ring_boundaries, n_sectors)
                 del az_grid_s
             del r_px, zenith_deg
-            lai = compute_effective_lai(lai_rings, lai_boundaries)
+            if lai_ok:
+                lai = compute_effective_lai(lai_rings, lai_boundaries)
+                lai["applies"] = True
+            else:
+                lai = {"applies": False, "lai_effective": None, "lai_zenith_max_deg": None,
+                       "lai_reliable": None, "lai_per_ring": [], "lai_method": "Miller (1967)"}
+                self._log("LAI efectivo: no aplica ({}).".format(LAI_NOT_APPLICABLE), "INFO")
             lai["ring_boundaries"] = lai_boundaries
             lai["per_ring_gap_fraction"] = [r.get("gap_fraction") for r in lai_rings]
-            if not lai["lai_reliable"]:
+            if lai_ok and not lai["lai_reliable"]:
                 self._log(
                     "LAI calculado en 0–{:.1f}° (< {:.0f}°): valor solo indicativo.".format(
                         lai["lai_zenith_max_deg"], LAI_MIN_RELIABLE_ZENITH_DEG
@@ -2507,10 +2529,7 @@ class CobDoselDialog(QDialog):
                 else float(min(horizon_angles))
             )
             r_virt = self.calibration.get("virtual_radius_px")
-            metrics["caco_linear_pct"] = metrics["canopy_cover_index_pct"]
-            metrics["caco_linear_mod_pct"] = metrics["modified_caco_index_pct"]
-            metrics["glama_engine"] = False
-            if r_virt:
+            if r_virt:            # siempre (v0.14.67: sin R no se analiza)
                 counts = glama_ring_counts(
                     sky_mask, self.center_xy, r_virt, glama_zarg,
                     calibration=self.calibration,
@@ -2528,13 +2547,6 @@ class CobDoselDialog(QDialog):
                 metrics["spherical_cover_pct"] = g_idx["spherical_cover_pct"]
                 metrics["unmasked_cover_pct"] = g_idx["unmasked_cover_pct"]
                 metrics["modified_caco_index_pct"] = g_idx["spherical_cover_pct"]
-                metrics["glama_engine"] = True
-            else:
-                self._log(
-                    "Calibración sin radio de hemisferio: se usan los índices lineales de las "
-                    "versiones ≤ 0.10.",
-                    "WARN",
-                )
 
             # Porción visible del círculo de análisis (máscara única; con direcciones se
             # usa el límite cenital mayor)
@@ -2632,7 +2644,7 @@ class CobDoselDialog(QDialog):
                 "Análisis finalizado para '{}': Píxeles círculo={} (fotograma={}), "
                 "Claros={} ({:.2f}%), Oscuros={}, Hemisferio={:.2f}%, Máscara horiz.={:.1f}°, "
                 "Umbral={}, Apertura={:.2f}%, Cierre={:.2f}%, CaCo={:.2f}%, Modif.CaCo={:.2f}%, "
-                "LAIe={:.3f} (0–{:.1f}°).".format(
+                "LAIe={}.".format(
                     os.path.basename(self.image_path),
                     fmt_int(metrics["total_pixels_in_circle"]),
                     fmt_int(metrics["total_pixels_in_frame"]),
@@ -2646,8 +2658,8 @@ class CobDoselDialog(QDialog):
                     metrics["canopy_closure_pct"],
                     metrics["canopy_cover_index_pct"],
                     metrics["modified_caco_index_pct"],
-                    lai["lai_effective"],
-                    lai["lai_zenith_max_deg"],
+                    "{:.3f} (0–{:.1f}°)".format(lai["lai_effective"], lai["lai_zenith_max_deg"])
+                    if lai.get("applies", True) else "no aplica",
                 )
             )
 
@@ -2753,18 +2765,17 @@ class CobDoselDialog(QDialog):
                 metrics.get("spherical_cover_pct", metrics["modified_caco_index_pct"])
             )
         )
-        lines.append(
-            "  CaCo lineal (cos θ·sin θ, versiones ≤ 0.10):       {:6.2f} %".format(
-                metrics.get("caco_linear_pct", metrics["canopy_cover_index_pct"])
+        if lai.get("applies", True):
+            lines.append(
+                "  Índice de Área Foliar Efectivo (LAIe Miller):      {:6.3f}  (0–{:.1f}°{})".format(
+                    lai["lai_effective"],
+                    lai.get("lai_zenith_max_deg", zen_max),
+                    "" if lai.get("lai_reliable", True) else ", INDICATIVO",
+                )
             )
-        )
-        lines.append(
-            "  Índice de Área Foliar Efectivo (LAIe Miller):      {:6.3f}  (0–{:.1f}°{})".format(
-                lai["lai_effective"],
-                lai.get("lai_zenith_max_deg", zen_max),
-                "" if lai.get("lai_reliable", True) else ", INDICATIVO",
-            )
-        )
+        else:
+            lines.append("  Índice de Área Foliar Efectivo (LAIe Miller):      No aplica ({})".format(
+                LAI_NOT_APPLICABLE))
         lines.append("")
         lines.append("── PARÁMETROS DE CALIBRACIÓN Y MÁSCARA DE HORIZONTE ──────────────")
         if exif.get("has_gps"):
@@ -2872,6 +2883,8 @@ class CobDoselDialog(QDialog):
                     for sc in row))
         lines.append("")
         lines.append("── LAI EFECTIVO POR ANILLO ({}) ──".format(lai.get("lai_method", "Miller")))
+        if not lai.get("applies", True):
+            lines.append("  No aplica ({}).".format(LAI_NOT_APPLICABLE))
         lai_bounds = lai.get("ring_boundaries", boundaries)
         lai_gaps = lai.get("per_ring_gap_fraction", [])
         for i, contrib in enumerate(lai.get("lai_per_ring", [])):
@@ -2884,19 +2897,14 @@ class CobDoselDialog(QDialog):
                     contrib,
                 )
             )
-        if not lai.get("lai_reliable", True):
+        if lai.get("applies", True) and not lai.get("lai_reliable", True):
             lines.append(
                 "  Aviso: rango cenital < {:.0f}°: el LAI depende del supuesto de hojas esféricas;"
                 " úselo solo como valor indicativo.".format(LAI_MIN_RELIABLE_ZENITH_DEG)
             )
         lines.append("")
         lines.append(
-            "  Nota: {} (ver Ayuda §4).".format(
-                "CaCo, apertura y cierre calculados según Tichý (2016) (anillos de 1/90 del radio)"
-                if metrics.get("glama_engine") else
-                "sin radio de hemisferio: índices lineales de las versiones ≤ 0.10"
-            )
-        )
+            "  Nota: CaCo calculado según Tichý (2016) (anillos de 1/90 del radio; ver Ayuda §4).")
 
         self.results_text.setPlainText("\n".join(lines))
 
@@ -3001,6 +3009,7 @@ class CobDoselDialog(QDialog):
         n = len(cover["per_ring"])
         lai_bounds = lai.get("ring_boundaries", res["ring_boundaries"])
         n_lai = len(lai["lai_per_ring"])
+        lai_ok = lai.get("applies", True)
         header = (
             [
                 "image_id", "latitude", "longitude", "elevation_m",
@@ -3015,14 +3024,14 @@ class CobDoselDialog(QDialog):
                 "gap_fraction_selected_area_pct", "gap_fraction_unmasked_pct",
                 "canopy_openness_pct", "canopy_closure_pct", "canopy_openness_analysed_pct",
                 "canopy_cover_caco_index_pct", "modified_caco_index_pct",
-                "caco_linear_pct", "glama_engine",
                 "lai_effective", "lai_zenith_max_deg", "lai_reliable",
                 "sky_is_bright", "calibration_approx_formula",
                 "horizon_angles", "plugin", "plugin_version",
                 "hemisphere_radius_px",
                 "zenith_frame_max_deg", "circle_visible_pct",
                 "calibration_method", "measurement_mode", "measurement_file",
-                "measurement_image_size", "measurement_diff_pct", "measurement_centre_offset_pct",
+                "measurement_image_size", "measurement_diff_pct", "measurement_fit_rms_px",
+                "measurement_centre_offset_pct",
                 "exif_orientation", "exif_image_direction_deg", "cut_level_method",
                 "site_name", "analyst",
                 "glama_reference_zenith_deg", "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct",
@@ -3030,10 +3039,10 @@ class CobDoselDialog(QDialog):
             + ["cover_pct_ring{}".format(i + 1) for i in range(n)]
             + ["gap_fraction_ring{}".format(i + 1) for i in range(n)]
             + ["gap_pct_ring{}_S{}".format(sc["ring"], sc["sector"]) for sc in (res.get("sectors") or [])]
-            + [
+            + ([
                 "lai_ring{}_{:g}-{:g}deg".format(i + 1, lai_bounds[i][0], lai_bounds[i][1])
                 for i in range(n_lai)
-            ]
+            ] if lai_ok else ["lai_ring{}".format(i + 1) for i in range(n)])
         )
 
         row = (
@@ -3068,8 +3077,6 @@ class CobDoselDialog(QDialog):
                 metrics.get("canopy_openness_analysed_pct"),
                 metrics["canopy_cover_index_pct"],
                 metrics.get("spherical_cover_pct", metrics["modified_caco_index_pct"]),
-                metrics.get("caco_linear_pct"),
-                metrics.get("glama_engine"),
                 lai["lai_effective"],
                 lai.get("lai_zenith_max_deg"),
                 lai.get("lai_reliable"),
@@ -3086,6 +3093,7 @@ class CobDoselDialog(QDialog):
                 (cal.get("measurement") or {}).get("file"),
                 "x".join(str(v) for v in ((cal.get("measurement") or {}).get("image_size") or [])),
                 (cal.get("measurement") or {}).get("diff_pct"),
+                (cal.get("measurement") or {}).get("fit_rms_px"),
                 (cal.get("measurement") or {}).get("centre_offset_pct"),
                 exif.get("orientation"),
                 exif.get("image_direction_deg"),
@@ -3097,7 +3105,7 @@ class CobDoselDialog(QDialog):
             + [r["cover_pct"] for r in cover["per_ring"]]
             + [r["gap_fraction"] for r in cover["per_ring"]]
             + [sc["gap_pct"] for sc in (res.get("sectors") or [])]
-            + list(lai["lai_per_ring"])
+            + (list(lai["lai_per_ring"]) if lai_ok else [None] * n)
         )
 
         try:
@@ -3338,8 +3346,8 @@ class CobDoselDialog(QDialog):
             float(metrics["canopy_closure_pct"]),
             float(metrics["canopy_cover_index_pct"]),
             float(metrics.get("spherical_cover_pct", metrics["modified_caco_index_pct"])),
-            float(lai["lai_effective"]),
-            float(lai.get("lai_zenith_max_deg", 0.0)),
+            float(lai["lai_effective"]) if lai.get("applies", True) else None,
+            float(lai.get("lai_zenith_max_deg") or 0.0) if lai.get("applies", True) else None,
             float(cal.get("virtual_radius_px") or 0.0),
             float(res.get("circle_visible_pct", 100.0)),
             "CobDosel " + VERSION,

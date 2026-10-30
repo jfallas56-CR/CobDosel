@@ -24,10 +24,15 @@ def csv_style():
     return (";", ",") if dp == "," else (",", ".")
 
 
+NOT_APPLICABLE = "No aplica"     # v0.14.67: celdas sin valor (una base de datos no debe tener celdas vacías)
+
+
 def csv_cell(value, decimal="."):
-    """Valor de una celda: reales con el separador decimal indicado; None vacío; lo demás sin cambio."""
-    if value is None:
-        return ""
+    """Valor de una celda: reales con el separador decimal indicado; None, texto vacío o lista vacía →
+    «No aplica» (v0.14.67); lo demás sin cambio."""
+    if value is None or (isinstance(value, str) and not value.strip()) or (
+            isinstance(value, (list, tuple)) and not value):
+        return NOT_APPLICABLE
     if isinstance(value, bool):
         return value
     if isinstance(value, numbers.Integral):

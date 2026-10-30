@@ -255,7 +255,8 @@ _fx.apply_to_dialog(d, 1618.0)   # v0.14.53: siempre lado menor
 check("radio GLAMA 1618 → R = 1618·3000/1080", abs(d.calibration["virtual_radius_px"] - 1618 * 3000 / 1080) < 1e-6,
       "%.1f" % d.calibration["virtual_radius_px"])
 d.zenith_max.setValue(27.0); d._on_run()
-check("análisis con calibración GLAMA", d.last_results["metrics"]["glama_engine"])
+check("análisis con calibración GLAMA (v0.14.67: sin bandera glama_engine)", "glama_engine" not in d.last_results["metrics"]
+      and d.last_results["metrics"]["canopy_cover_index_pct"] > 0)
 
 # Exportaciones
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "res.csv"), ""))
