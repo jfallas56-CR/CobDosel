@@ -25,6 +25,7 @@ def csv_style():
 
 
 NOT_APPLICABLE = "No aplica"     # v0.14.67: celdas sin valor (una base de datos no debe tener celdas vacías)
+NO_DATA = "Sin datos"            # v0.14.68: dato que debía existir pero falta (p. ej., coordenadas del EXIF)
 
 
 def csv_cell(value, decimal="."):

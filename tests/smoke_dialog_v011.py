@@ -296,12 +296,12 @@ check("informe HTML: «Basado en Tichý (2016)» y autor al final, sin «método
 check("HTML: CobDosel, 2 imágenes, CaCo destacado, sectores",
       ("CobDosel v" + VERSION) in ht and ht.count("data:image/png;base64") == 2 and "caco-box" in ht
       and "por anillo × sector" in ht and "REPORTADOS POR GLAMA" not in ht, d.last_results.get("report_warnings"))
-check("HTML sin «Radio equivalente en GLAMA», «por defecto en GLAMA» ni aviso de círculo; filas alineadas a la izquierda",
+check("HTML sin «Radio equivalente en GLAMA», «por defecto en GLAMA» ni aviso de círculo; valores a la derecha (v0.14.68)",
       "Radio equivalente en GLAMA" not in ht and "por defecto en GLAMA" not in ht and "parcialmente fuera" not in ht
-      and "justify-content: flex-start" in ht)
+      and "justify-content: space-between" in ht)
 d._on_add_gps_point_layer()
 lyr = [l for l in _Proj.instance().layers.values() if isinstance(l, QgsVectorLayer)][0]
-check("capa GPS «Puntos CobDosel (GPS)»", lyr.name() == "Puntos CobDosel (GPS)" and len(lyr._p.attrs) == len(lyr._p.feats[0].a),
+check("capa GNSS «Puntos CobDosel (GNSS)» (v0.14.68)", lyr.name() == "Puntos CobDosel (GNSS)" and len(lyr._p.attrs) == len(lyr._p.feats[0].a),
       "%d campos" % len(lyr._p.attrs))
 d._on_add_glama_visualization()
 ras = [l for l in _Proj.instance().layers.values() if isinstance(l, QgsRasterLayer)]

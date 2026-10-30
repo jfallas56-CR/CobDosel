@@ -2,7 +2,7 @@
 Generador de informes HTML autocontenidos para CobDosel.
 
 Incluye:
-- Nombre y metadatos EXIF/GPS de la imagen
+- Nombre y metadatos EXIF/GNSS de la imagen
 - Parámetros completos de calibración del lente y máscara de horizonte artificial
 - Todos los indicadores reportados por GLAMA (Tichý 2016, https://doi.org/10.1111/jvs.12350)
 - Tabla desglosada por anillos cenitales y LAI efectivo (Miller 1967)
@@ -182,7 +182,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
 
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Metadatos EXIF y GPS
+    # Metadatos EXIF y GNSS
     if exif.get("has_gps"):
         gps_str = "{:.6f}, {:.6f}".format(
             exif["latitude"], exif["longitude"]
@@ -511,7 +511,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   }}
   .kv-row {{
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 10px;
     padding: 6px 0;
     border-bottom: 1px dashed #e4e7eb;
@@ -523,7 +523,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
   }}
   .kv-row span.val {{
     font-weight: 600;
-    text-align: left;
+    text-align: right;
   }}
   .glama-panel {{
     border-radius: 10px;
@@ -738,7 +738,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         <div class="kv-row"><span class="label">Fecha/hora de captura (EXIF):</span><span class="val">{capture_dt}</span></div>
         <div class="kv-row"><span class="label">Cámara de la foto:</span><span class="val">{camera_str}</span></div>
         <div class="kv-row"><span class="label">Cámara de la calibración:</span><span class="val">{cal_camera_str}</span></div>
-        <div class="kv-row"><span class="label">Coordenadas GPS (WGS84):</span><span class="val">{gps_str}</span></div>
+        <div class="kv-row"><span class="label">Coordenadas GNSS (WGS84):</span><span class="val">{gps_str}</span></div>
         <div class="kv-row"><span class="label">Canal de umbralización:</span><span class="val">{channel_label}</span></div>
         <div class="kv-row"><span class="label">Nivel de corte (umbral T):</span><span class="val">{threshold} ({bright_str})</span></div>
         <div class="kv-row"><span class="label">Método del nivel de corte:</span><span class="val">{cut_method}</span></div>

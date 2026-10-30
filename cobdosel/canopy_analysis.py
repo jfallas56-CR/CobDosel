@@ -743,8 +743,8 @@ def classify_measurement_type(zenith_max_deg, horizon_mask_deg=None):
             "cierre angular del dosel. El Índice CaCo lo lleva a la vertical anillo por anillo, suponiendo un "
             "dosel parejo en el área vista. Un cono más estrecho se acerca más a la vertical, pero no es una "
             "medición directa: el densiómetro vertical (GRS) mide la proyección perpendicular punto por punto, "
-            "y como cada lectura solo dice copa o cielo, requiere muchos puntos (con 100 puntos y 80 % de "
-            "cobertura, ±8 puntos al 95 %). Informe la máscara usada.".format(z, m)
+            "y como cada lectura solo se registra como copa o cielo, requiere muchos puntos (con 100 puntos y 80 % de "
+            "cobertura, ±8 puntos al 95 %).".format(z, m)
         ),
     }
 

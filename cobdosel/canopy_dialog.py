@@ -15,7 +15,7 @@ v0.9.0:
 - Panel lateral desplegable de "Ayuda corta" contextual y pestaña de "Ayuda completa".
 - Incluye máscara de horizonte artificial interactiva y calculadora de la Tabla 1 de GLAMA
   (Tamaño de parcela × Altura máxima del dosel) y el óptimo > 45° demostrado por Tichý (2016).
-- Reporta todos los resultados de GLAMA en pantalla, CSV, capa GPS e Informe HTML.
+- Reporta todos los resultados de GLAMA en pantalla, CSV, capa GNSS e Informe HTML.
 - Créditos: Jorge Fallas (jfallas56@gmail.com).
 
 v0.14.63:
@@ -88,7 +88,7 @@ except ImportError:
 
 from .ui_keys import disable_enter_buttons
 from ._version import VERSION, fmt_int
-from .csv_format import csv_style, csv_row
+from .csv_format import csv_style, csv_row, NO_DATA
 from .exif_gps import extract_exif, load_oriented_rgb_image
 _STD_MASK_DEG = 63.0     # máscara estándar de CobDosel (igual que batch_core.DEFAULT_MASK_DEG)
 from .lens_calibration import (
@@ -159,6 +159,11 @@ from .focal_check import check_focal, calibration_focal_mm
 _ORIENTATION_TEXT = {2: "espejo horizontal", 3: "girada 180°", 4: "espejo vertical",
                      5: "espejo y giro 90°", 6: "girada 90° a la derecha", 7: "espejo y giro 270°",
                      8: "girada 90° a la izquierda"}
+
+def _or_no_data(value):
+    """v0.14.68: dato faltante del EXIF (latitud, longitud, altitud) → «Sin datos» en el CSV."""
+    return NO_DATA if value is None or (isinstance(value, str) and not value.strip()) else value
+
 
 def _proj_label(cal):
     """v0.14.38: nombre del modelo para el usuario (CSV, capas, registro); nunca el código interno."""
@@ -788,10 +793,10 @@ class CobDoselDialog(QDialog):
         self.image_btn.setEnabled(False)
         viz_btn_row.addWidget(self.image_btn)
 
-        self.gps_point_btn = QPushButton("Añadir punto GPS al mapa")
+        self.gps_point_btn = QPushButton("Añadir punto GNSS al mapa")
         self.gps_point_btn.setToolTip(
             "Crear o actualizar una capa vectorial de puntos en QGIS con las\n"
-            "coordenadas GPS EXIF y todos los resultados del análisis."
+            "coordenadas GNSS del EXIF y todos los resultados del análisis."
         )
         self.gps_point_btn.clicked.connect(self._on_add_gps_point_layer)
         self.gps_point_btn.setEnabled(False)
@@ -1187,7 +1192,7 @@ class CobDoselDialog(QDialog):
         parts = []
         if self.exif_data.get("has_gps"):
             parts.append(
-                "GPS: {:.6f}, {:.6f}".format(
+                "GNSS: {:.6f}, {:.6f}".format(
                     self.exif_data["latitude"], self.exif_data["longitude"]
                 )
             )
@@ -1196,7 +1201,7 @@ class CobDoselDialog(QDialog):
             self._log("EXIF ilegible en '{}': {}".format(
                 os.path.basename(path), self.exif_data["exif_error"]), "WARN")
         else:
-            parts.append("Sin GPS en EXIF")
+            parts.append("Sin GNSS en EXIF")
         if self.exif_data.get("capture_datetime"):
             parts.append("captura: " + self.exif_data["capture_datetime"])
         parts.append(
@@ -1215,7 +1220,7 @@ class CobDoselDialog(QDialog):
         self.exif_label.setText("  |  ".join(parts))
 
         self._log(
-            "Imagen cargada: '{}' ({}x{} px, escala={:.4f}, GPS={}).".format(
+            "Imagen cargada: '{}' ({}x{} px, escala={:.4f}, GNSS={}).".format(
                 os.path.basename(path),
                 self.image_array.shape[1],
                 self.image_array.shape[0],
@@ -2780,7 +2785,7 @@ class CobDoselDialog(QDialog):
         lines.append("── PARÁMETROS DE CALIBRACIÓN Y MÁSCARA DE HORIZONTE ──────────────")
         if exif.get("has_gps"):
             lines.append(
-                "  Coordenadas GPS:       {:.6f}, {:.6f}".format(
+                "  Coordenadas GNSS:      {:.6f}, {:.6f}".format(
                     exif["latitude"], exif["longitude"]
                 )
             )
@@ -3048,9 +3053,10 @@ class CobDoselDialog(QDialog):
         row = (
             [
                 os.path.basename(res["image_path"]),
-                exif.get("latitude"),
-                exif.get("longitude"),
-                exif.get("elevation_m"),
+                # v0.14.68: sin coordenadas en el EXIF es un dato faltante («Sin datos»), no «No aplica»
+                _or_no_data(exif.get("latitude")),
+                _or_no_data(exif.get("longitude")),
+                _or_no_data(exif.get("elevation_m")),
                 exif.get("capture_datetime"),
                 _proj_label(cal),
                 cal.get("circle_diameter_cm"),
@@ -3273,8 +3279,8 @@ class CobDoselDialog(QDialog):
         exif = self.last_results.get("exif") or {}
         if not exif.get("has_gps"):
             QMessageBox.warning(
-                self, "Sin coordenadas GPS",
-                "Esta fotografía no contiene coordenadas GPS en sus metadatos EXIF."
+                self, "Sin coordenadas GNSS",
+                "Esta fotografía no contiene coordenadas GNSS en sus metadatos EXIF."
             )
             return
 
@@ -3285,7 +3291,7 @@ class CobDoselDialog(QDialog):
         lai = res["lai"]
         cal = res["calibration"]
 
-        layer_name = "Puntos CobDosel (GPS)"
+        layer_name = "Puntos CobDosel (GNSS)"
         target_layer = None
         for lyr in QgsProject.instance().mapLayers().values():
             if isinstance(lyr, QgsVectorLayer) and lyr.name() == layer_name:
@@ -3357,12 +3363,12 @@ class CobDoselDialog(QDialog):
         target_layer.triggerRepaint()
 
         self._log(
-            "Punto GPS añadido a la capa '{}': ({:.6f}, {:.6f}).".format(
+            "Punto GNSS añadido a la capa '{}': ({:.6f}, {:.6f}).".format(
                 layer_name, lat, lon
             )
         )
         QMessageBox.information(
-            self, "Punto GPS añadido",
+            self, "Punto GNSS añadido",
             "Se añadió el punto ({:.6f}, {:.6f}) a la capa '{}'.".format(
                 lat, lon, layer_name
             )

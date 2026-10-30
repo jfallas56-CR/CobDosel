@@ -44,7 +44,7 @@ chk("2 sin «NO es cobertura» en el panel ni en la ayuda", "NO es cobertura" no
 # 3) Nota del densiómetro: por qué muchos puntos
 note = classify_measurement_type(27.0, 63.0)["note"]
 chk("3 nota: cada lectura es copa o cielo; 100 puntos con 80 % → ±8 puntos al 95 %",
-    "solo dice copa o cielo" in note and "±8 puntos al 95 %" in note, note)
+    "solo se registra como copa o cielo" in note and "±8 puntos al 95 %" in note, note)
 # comprobación del número: 1.96·√(0.8·0.2/100) = 0.0784
 chk("3 el ±8 es el binomial: 1.96·√(0.8·0.2/100) = 7.8 puntos",
     abs(196 * (0.8 * 0.2 / 100) ** 0.5 - 7.84) < 0.01)
