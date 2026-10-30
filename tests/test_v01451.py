@@ -150,17 +150,13 @@ m45 = res[45.0][0]
 chk("1 máscara 45° (sale de la foto): área analizada ≤ foto (antes 23.85 % > 16 %)",
     m45["analysed_fraction_abs_pct"] <= m45["hemisphere_fraction_abs_pct"] + 1e-6, (m45["analysed_fraction_abs_pct"], m45["hemisphere_fraction_abs_pct"]))
 ht45 = " ".join(re.sub("<[^>]+>", " ", open(res[45.0][1], encoding="utf-8").read()).split())
-chk("1 informe con máscara 45°: el área analizada no supera a la foto en la misma celda",
-    "foto 16.4 %, área analizada 16.4 %" in ht45, ht45[ht45.find("Del hemisferio real"):][:80])
-hem = ht.split("Índices referidos al hemisferio")[1].split("</table>")[0]
-txt = re.sub("<[^>]+>", " ", hem)
-chk("2 informe: título «convención de GLAMA», no «hemisferio completo» ni «convención general»",
-    "(convención de GLAMA)" in hem and "hemisferio completo" not in ht.split("Índices referidos")[1].split("Nivel de corte, LAI")[0]
-    and "Convención general" not in ht)
-chk("2 informe: la referencia se dice (0–41°, % del hemisferio) y no es universal",
-    "anillos cenitales que alcanza la foto (0–" in txt and "No es una convención universal" in " ".join(txt.split()))
-chk("2 informe: una misma base para la foto y el área analizada", "Del hemisferio real: foto 16." in " ".join(txt.split())
-    and "área analizada 10.9 %" in " ".join(txt.split()))
+# v0.14.64: el informe ya no tiene el grupo de la convención de GLAMA; da la parte del hemisferio real
+chk("1 informe con máscara 45°: el área analizada no supera a la foto",
+    "16.4 % del hemisferio (la foto entera: 16.4 %)" in ht45, ht45[ht45.find("Área analizada"):][:80])
+txt = " ".join(re.sub("<[^>]+>", " ", ht).split())
+chk("2 informe: sin el grupo «Índices referidos al hemisferio» (apertura y cierre de GLAMA solo en el CSV)",
+    "Índices referidos al hemisferio" not in ht and "están en el CSV de resultados" in txt and "Convención general" not in ht)
+chk("2 informe: una misma base para la foto y el área analizada", "10.9 % del hemisferio (la foto entera: 16." in txt)
 nota = re.sub("<[^>]+>", " ", ht.split("Nota metodológica")[1].split("</div>")[0])
 nota = " ".join(nota.split())
 chk("3 nota metodológica: una sola, sin «mide directamente» ni «semiángulo» ni «densiómetro GRS» como equivalencia",
@@ -169,9 +165,9 @@ chk("3 nota metodológica: una sola, sin «mide directamente» ni «semiángulo�
 chk("3 la misma nota a 27° y a 33° (antes cambiaba a los 30°)",
     classify_measurement_type(27.0)["label"] == classify_measurement_type(33.0)["label"]
     and classify_measurement_type(27.0)["type"] == "caco")
-chk("4 panel: apertura «GLAMA, referida a 0–41°» y hemisferio real",
-    "Apertura del dosel (GLAMA, referida a 0–4" in panel and "Hemisferio real en la foto" in panel
-    and "Canopy Openness" not in panel)
+chk("4 panel: sin apertura/cierre de GLAMA ni referencia (v0.14.64), con hemisferio real",
+    "Apertura del dosel (GLAMA" not in panel and "Referencia de GLAMA" not in panel
+    and "Hemisferio real en la foto" in panel and "Canopy Openness" not in panel)
 # CSV de una foto
 _save = QFileDialog.getSaveFileName
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "foto.csv"), ""))

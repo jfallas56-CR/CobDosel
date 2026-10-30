@@ -656,8 +656,11 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
     de dosel). decisions: decisiones de la revisión visual de cortes {archivo: {decision, corte, ...}}
     (ver load_decisions). form_path y planned_plots son opcionales (v0.14.42): sin formulario, las fotos se
     ordenan por hora y se asignan a parcelas de photos_per_plot fotos, como «Crear formulario desde las
-    fotos». Devuelve dict con fotos, parcelas, sitio, avisos y parámetros.
+    fotos». Devuelve dict con fotos, parcelas, sitio, avisos y parámetros. v0.14.64: sitio["tiempo_proceso_s"]
+    = duración del procesamiento (s).
     """
+    import time as _time
+    _t0 = _time.perf_counter()
     decisions = decisions or {}
     if mask_mode == "height":
         if canopy_height_m is None:
@@ -784,6 +787,7 @@ def run_batch(photo_folder, form_path, calibration, planned_plots, mask_mode="fi
             progress(i + 1, n)
     common = summarize_common_warnings(results)
     summary = aggregate(results, planned_plots)
+    summary["sitio"]["tiempo_proceso_s"] = round(_time.perf_counter() - _t0, 1)      # v0.14.64
     warnings = common + warnings          # v0.14.46: los avisos comunes primero (tras «Resultado provisional»)
     return {"fotos": results, "parcelas": summary["parcelas"], "sitio": summary["sitio"],
             "avisos": sorted(warnings + summary["avisos"], key=lambda w: not w.startswith("Resultado provisional")),
@@ -934,6 +938,26 @@ def summarize_common_warnings(results):
                    "distinto brillo, cielo azul o sol). El corte de la foto se mantiene; verifíquelo en «Revisar "
                    "cortes…».".format(_scope(len(split), len(valid), "fotos válidas")))
     return out
+
+
+def duration_text(seconds, n_photos=None):
+    """v0.14.64: «42 s», «3 min 05 s» o «1 h 02 min», y «(22 fotos; 1.9 s por foto)»."""
+    from ._version import fmt_num
+    if seconds is None:
+        return "—"
+    s = max(0.0, float(seconds))
+    if s < 60:
+        txt = "{} s".format(fmt_num(s, 1) if s < 10 else int(round(s)))
+    elif s < 3600:
+        m, r = divmod(int(round(s)), 60)
+        txt = "{} min {:02d} s".format(m, r)
+    else:
+        h, r = divmod(int(round(s)), 3600)
+        txt = "{} h {:02d} min".format(h, r // 60)
+    if n_photos:
+        txt += " ({} foto{}; {} s por foto)".format(n_photos, "" if n_photos == 1 else "s",
+                                                    fmt_num(s / float(n_photos), 1))
+    return txt
 
 
 def round_pct(value, decimals=2):
@@ -1180,7 +1204,8 @@ tr.obs td{{font-size:.82rem;color:#52606d;padding-top:0}} tr.obs ul{{margin:0;pa
 <div class="big">{mean} %</div>
 <p>Parcelas con resultado: {nok}{nplan} · Fotos válidas: {fv} de {ft}</p>
 <p>Método del nivel de corte: {rule}</p>
-<p>Revisión del nivel de corte: {rev}</p>{pending_html}{sky_html}</section>
+<p>Revisión del nivel de corte: {rev}</p>
+<p>Tiempo de procesamiento: {dur}</p>{pending_html}{sky_html}</section>
 <section><h2>Parcelas</h2><table><tr><th>Parcela</th>{repl_th}<th class='c'>Fotos válidas</th>
 <th class='n'>CaCo media (%)</th><th class='n'>Mín.</th><th class='n'>Máx.</th></tr>{plots}</table>
 <p style='font-size:.82rem;color:#52606d'>Mín. y Máx.: entre las fotos válidas de la parcela; «—» si tiene una sola.
@@ -1194,6 +1219,7 @@ media de todas las fotos válidas, redondeada a 2 decimales.</p></section>
 <footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version} (<a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a>)</footer></div></body></html>""".format(
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
+        dur=_h.escape(duration_text(s.get("tiempo_proceso_s"), s.get("fotos_total"))),
         rule=_h.escape(CUT_RULE_LABELS.get(prm.get("regla_corte"), str(prm.get("regla_corte")))),
         op=(" · Analista: " + _h.escape(str(prm["analista"]))) if prm.get("analista") else "",
         sky_html=sky_html, repl_th="<th>Reemplazo</th>" if has_repl else "",

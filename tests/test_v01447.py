@@ -137,8 +137,9 @@ chk("1 autor y contacto una sola vez, al final (v0.14.48)", ht.count("Autor:") =
 chk("1 sin etiquetas en inglés del panel antiguo", not any(t in ht for t in (
     "(Results)", "ARCHIVO (FILE)", "Canopy Openness", "Gap Fraction of Selected Area", "Part of Hemisph.",
     "Cut Level between", "Total No. of Pixels")))
-chk("1 grupos: área analizada / hemisferio (convención de GLAMA, v0.14.51) / corte, LAI y píxeles",
-    "Índices del área analizada" in ht and "Índices referidos al hemisferio (convención de GLAMA)" in ht and "Nivel de corte, LAI y píxeles" in ht)
+# v0.14.64: el grupo de la convención de GLAMA (apertura, cierre, referencia) quedó solo en el CSV
+chk("1 grupos: área analizada / corte, LAI y píxeles, sin el de la convención de GLAMA",
+    "Índices del área analizada" in ht and "Índices referidos al hemisferio (convención de GLAMA)" not in ht and "Nivel de corte, LAI y píxeles" in ht)
 chk("1 «Basado en Tichý (2016)» en el pie", "Basado en Tichý (2016)" in ht and "1. Resultados</h2>" in ht)
 if REAL:
     chk("1 corte no comprobado (foto real): el informe dice por qué",

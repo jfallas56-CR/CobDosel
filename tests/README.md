@@ -39,6 +39,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01461.py` | Formulario desde las fotos: nota solo en parcelas de más de 20 min; singular y plural de las decisiones guardadas |
 | `test_v01462.py` | Sitio = media de todas las fotos válidas con 2 decimales (datos reales 4 × 5: 79,18); parcela con 3 fotos; redondeo 70,005 → 70,01; informe y CSV |
 | `test_v01463.py` | Funciones de GLAMA retiradas (radio, geometría de pantalla, tabla); calibración antigua con aviso; CSV con «;» y coma decimal; avisos sin repetir el cielo ni «Resultado provisional»; pie con contacto; sin «⚠» |
+| `test_v01464.py` | Apertura, cierre y referencia de GLAMA solo en el CSV; sin «NO es cobertura»; nota del densiómetro (±8 puntos con 100 lecturas); tiempo de procesamiento del lote |
 | `test_v01460.py` | Aviso de cielo no uniforme según la verificación de cortes; plantilla del formulario con instrucciones actuales |
 | `test_v01459.py` | Lote: una exportación por clic (doble clic, barra espaciadora y llamadas repetidas descartadas); mensaje con la carpeta una vez |
 | `test_v01457.py` | Tabla de parcelas: «—» en Mín. y Máx. con una sola foto válida; el CSV conserva los números |

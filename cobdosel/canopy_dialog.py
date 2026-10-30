@@ -2722,9 +2722,7 @@ class CobDoselDialog(QDialog):
             lines.append(
                 "  Hemisferio real en la foto (área analizada):      {:6.2f} % ({:.2f} %)".format(
                     metrics["hemisphere_fraction_abs_pct"], metrics.get("analysed_fraction_abs_pct", 0.0)))
-            lines.append(
-                "  Referencia de GLAMA dentro de la foto (0–{:.1f}°): {:6.2f} %".format(
-                    metrics.get("reference_zenith_deg", 0.0), hemi_frac))
+            # v0.14.64: la referencia de GLAMA dentro de la foto queda solo en el CSV
         else:
             lines.append(
                 "  Fracción del hemisferio captada por la cámara:     {:6.2f} %".format(
@@ -2739,16 +2737,7 @@ class CobDoselDialog(QDialog):
         lines.append("  Método del nivel de corte:                         {}".format(
             res.get("cut_method") or "manual"))
         lines.append("  ----------------------------------------------------------------")
-        lines.append(
-            "  Apertura del dosel (GLAMA, referida a 0–{:.1f}°):   {:6.2f} %".format(
-                metrics.get("reference_zenith_deg") or 90.0, metrics["canopy_openness_pct"]
-            )
-        )
-        lines.append(
-            "  Cierre del dosel (GLAMA):                          {:6.2f} %".format(
-                metrics["canopy_closure_pct"]
-            )
-        )
+        # v0.14.64: apertura y cierre con la convención de GLAMA quedan solo en el CSV
         lines.append(
             "  Apertura del área analizada (0–{:.1f}°):            {:6.2f} %".format(
                 zen_max, metrics.get("canopy_openness_analysed_pct", 0.0)
@@ -2776,8 +2765,6 @@ class CobDoselDialog(QDialog):
                 "" if lai.get("lai_reliable", True) else ", INDICATIVO",
             )
         )
-        lines.append("  Nota: la cobertura del dosel (proyección vertical de las copas) se estima con el Índice CaCo;")
-        lines.append("  el cierre del dosel NO es cobertura.")
         lines.append("")
         lines.append("── PARÁMETROS DE CALIBRACIÓN Y MÁSCARA DE HORIZONTE ──────────────")
         if exif.get("has_gps"):

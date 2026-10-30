@@ -199,8 +199,8 @@ ht = open(os.path.join(OUT, "foto.html"), encoding="utf-8").read()
 hdr = ht.split("1. Resultados")[0]
 chk("3 encabezado: Nombre del sitio y Analista", "<strong>Sitio:</strong> Sitio Río Frío · <strong>Analista:</strong> Ana Mora" in hdr)
 chk("3 sin «El cierre del dosel no es cobertura»", "El cierre del dosel no es cobertura" not in ht)
-chk("3 hemisferio: convención de GLAMA, no «convención de Tichý 2016» (v0.14.51)", "convención de Tichý 2016" not in ht
-    and "No es una convención universal" in " ".join(ht.split()))
+chk("3 sin «convención de Tichý 2016»; la convención de GLAMA solo en el CSV (v0.14.64)", "convención de Tichý 2016" not in ht
+    and "están en el CSV de resultados" in " ".join(ht.split()))
 foot = ht.split("<footer>")[1]
 chk("3 pie: «Basado en Tichý (2016)», luego CobDosel para QGIS · Autor · Contacto, al final",
     foot.index("Basado en Tichý (2016)") < foot.index("para QGIS · Autor: Jorge Fallas · Contacto:")

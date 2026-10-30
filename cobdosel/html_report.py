@@ -103,30 +103,14 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     zenith_max_deg = float(results.get("zenith_max_deg", half_fov))
     horizon_mask_deg = float(results.get("horizon_mask_deg", max(0.0, 90.0 - zenith_max_deg)))
 
-    hemi_frac = float(
-        metrics.get(
-            "hemisphere_fraction_pct",
-            compute_hemisphere_fraction(half_fov),
-        )
-    )
-    # v0.14.51: referencia de la apertura de GLAMA (anillos que alcanza la foto) y fracciones del
-    # hemisferio real, todas sobre la misma base (antes se mezclaban en una misma celda)
-    ref_zen = metrics.get("reference_zenith_deg")
-    ref_frac = metrics.get("reference_fraction_pct")
+    # v0.14.64: la referencia, la apertura y el cierre con la convención de GLAMA quedan solo en el CSV;
+    # el informe da la parte del hemisferio real que cubren el área analizada y la foto
     photo_hemi_abs = metrics.get("hemisphere_fraction_abs_pct")
     analyzed_hemi_frac = float(metrics["analysed_fraction_abs_pct"]) if metrics.get(
         "analysed_fraction_abs_pct") is not None else compute_hemisphere_fraction(zenith_max_deg)
     meas = classify_measurement_type(zenith_max_deg, horizon_mask_deg)
-    if ref_zen is not None and ref_frac is not None:
-        ref_txt = "los anillos cenitales que alcanza la foto (0–{:.1f}°, el {:.1f} % del hemisferio)".format(
-            float(ref_zen), float(ref_frac))
-    else:
-        ref_txt = "el hemisferio completo"
-    hemi_row = (
-        "Parte de esa referencia que está dentro de la foto. Del hemisferio real: foto {:.1f} %, área "
-        "analizada {:.1f} %.".format(float(photo_hemi_abs), analyzed_hemi_frac)
-        if photo_hemi_abs is not None else
-        "Parte del hemisferio que cubre la foto; área analizada {:.1f} % del hemisferio.".format(analyzed_hemi_frac))
+    hemi_area_txt = "{:.1f} % del hemisferio{}".format(
+        analyzed_hemi_frac, " (la foto entera: {:.1f} %)".format(float(photo_hemi_abs)) if photo_hemi_abs is not None else "")
 
     channel_mode = results.get("channel_mode", "blue_red")
     channel_label = CHANNEL_LABELS.get(channel_mode, str(channel_mode))
@@ -159,7 +143,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
             100.0 - float(metrics.get("canopy_closure_pct", 0.0)),
         )
     )
-    canopy_closure_pct = float(metrics.get("canopy_closure_pct", 0.0))
     caco_index_pct = float(
         metrics.get(
             "canopy_cover_index_pct",
@@ -708,27 +691,11 @@ def generate_html_report(results, output_path, include_images=True, log=None):
       <tr><td>Apertura del dosel</td><td class="num">{openness_analysed_pct:.2f}%</td>
           <td>Cielo abierto en el área analizada, ponderado por sin θ.</td></tr>
       <tr><td>Fracción de claros</td><td class="num">{gap_unmasked_pct:.2f}%</td>
-          <td>Píxeles de cielo / píxeles del área analizada, sin ponderar (no es cobertura ni apertura).</td></tr>
+          <td>Píxeles de cielo / píxeles del área analizada, sin ponderar.</td></tr>
+      <tr><td>Área analizada</td><td class="num" colspan="2" style="text-align:left">{hemi_area_txt}</td></tr>
     </table>
-
-    <h3 class="sub-h">Índices referidos al hemisferio (convención de GLAMA)</h3>
-    <p class="note-small">Referencia: {ref_txt}. Dentro de ella, lo que queda bajo la máscara o fuera del encuadre
-    cuenta como obstruido: el numerador incluye solo el cielo del área analizada y el denominador, toda la referencia. No es
-    una convención universal de la fotografía hemisférica, sino la de GLAMA, que CobDosel reproduce para comparar. Dependen
-    de la máscara y del lente: con cielo totalmente abierto la apertura no llega al 100 %. Para la cobertura use el Índice
-    CaCo.</p>
-    <table class="data-table">
-      <tr><th>Indicador</th><th class="num">Valor</th><th>Qué mide</th></tr>
-      <tr><td>Apertura del dosel (GLAMA)</td><td class="num">{canopy_openness_pct:.2f}%</td>
-          <td>Cielo abierto del área analizada / referencia, ponderado por ángulo sólido.</td></tr>
-      <tr><td>Cierre del dosel (GLAMA)</td><td class="num">{canopy_closure_pct:.2f}%</td>
-          <td>100 − apertura.</td></tr>
-      <tr><td>Fracción de claros del círculo virtual</td><td class="num">{gap_fraction_pct:.2f}%</td>
-          <td>Píxeles de cielo / píxeles del círculo virtual del hemisferio (radio R), como GLAMA; con lente regular
-          ese círculo es una construcción de cálculo, no parte de la foto.</td></tr>
-      <tr><td>Referencia dentro de la foto</td><td class="num">{hemi_frac:.2f}%</td>
-          <td>{hemi_row}</td></tr>
-    </table>
+    <p class="note-small">La apertura y el cierre del dosel con la convención de GLAMA (referidos a los anillos que
+    alcanza la foto) están en el CSV de resultados.</p>
 
     <h3 class="sub-h">Nivel de corte, LAI y píxeles</h3>
     <table class="data-table">
@@ -838,20 +805,15 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         light_px=fmt_int(light_px),
         dark_px=fmt_int(dark_px),
         gap_unmasked_pct=gap_unmasked_pct,
+        hemi_area_txt=html.escape(hemi_area_txt),
         openness_analysed_pct=float(metrics.get("canopy_openness_analysed_pct", canopy_openness_pct)),
         lai_note=lai_note,
-        gap_fraction_pct=gap_fraction_pct,
-        hemi_frac=hemi_frac,
         horizon_mask_deg=horizon_mask_deg,
-        analyzed_hemi_frac=analyzed_hemi_frac,
-        ref_txt=html.escape(ref_txt), hemi_row=html.escape(hemi_row),
         threshold=threshold,
         cut_method=html.escape(str(results.get("cut_method") or "manual")),
         channel_label=html.escape(channel_label),
         lai_eff=lai_eff,
         zenith_max_deg=zenith_max_deg,
-        canopy_openness_pct=canopy_openness_pct,
-        canopy_closure_pct=canopy_closure_pct,
         caco_index_pct=caco_index_pct,
         mod_caco_index_pct=mod_caco_index_pct,
         meas_label=html.escape(meas["label"]),

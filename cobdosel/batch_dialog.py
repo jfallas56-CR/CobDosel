@@ -495,6 +495,8 @@ class CobDoselBatchDialog(QDialog):
                 progress=lambda i, n: (self.progress.setValue(int(100 * i / max(n, 1))),
                                        QApplication.processEvents()),
                 log=self._log, decisions=decisions, photos_per_plot=self.per_plot_spin.value())
+            self._log("Procesamiento terminado en " + bc.duration_text(
+                self.batch["sitio"].get("tiempo_proceso_s"), self.batch["sitio"].get("fotos_total")) + ".")
             self.batch["parametros"]["calibracion"] = name
             self.batch["parametros"]["revision_cortes"] = (
                 "{} ({})".format(bc.decisions_summary(decisions), bc.DECISIONS_FILE) if decisions else "sin revisión")
@@ -637,6 +639,7 @@ class CobDoselBatchDialog(QDialog):
                      " de {}".format(s["parcelas_planificadas"]) if s.get("parcelas_planificadas") else "",
                      s["fotos_validas"], s["fotos_total"]),
                  "Nivel de corte: " + (s.get("revision") or "—"),
+                 "Tiempo de procesamiento: " + bc.duration_text(s.get("tiempo_proceso_s"), s.get("fotos_total")),
                  "", "PARCELAS:"]
         if s.get("pendientes_revision"):
             n_p = s["pendientes_revision"]
