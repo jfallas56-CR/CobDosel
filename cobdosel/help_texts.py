@@ -78,6 +78,7 @@ SHORT_HELP_TOPICS = {
   <li><b>Índice CaCo:</b> transmitancia de cada anillo de 1/90 del radio llevada a la vertical (<code>T<sup>cos θ</sup></code>) y ponderada por <code>sin θ · cos θ</code>. Es la cobertura del dosel.</li>
   <li><b>CaCo frente a fracción de claros:</b> la fracción de claros es un conteo de píxeles sin ponderar por el ángulo cenital; no es la cobertura ni se compara con la «apertura del dosel» de otros estudios (con fotos de teléfono, el conteo sin ponderar fue 165 % de la apertura ponderada en Bianchi et al. 2017).</li>
   <li><b>Sectores:</b> fracción de claros por anillo × sector de acimut (S1 arriba, horario).</li>
+  <li><b>Anillos del informe:</b> franjas de igual ancho en ángulo cenital («Número de anillos cenitales», 4 por defecto: 0–6,75°, …, 20,25–27° con máscara de 63°). Su «Cobertura» es el cierre del dosel en ese ángulo, sin conversión a la vertical: no la informe como cobertura ni promedie los anillos (el Índice CaCo ya los convierte y los pondera; con 4 anillos el exterior pesa ≈ 42 % y el central ≈ 7 %). Sirven para ver si el dosel es parejo (anillos parecidos: el CaCo es confiable) y, con la tabla por sectores, para ubicar claros.</li>
   <li><b>Anillos cenitales:</b> anillos cada 5° o 10° con etiqueta, cielo en naranja, zona enmascarada en verde azulado, contorno de la máscara y sectores.</li>
   <li><b>LAI efectivo:</b> rango cenital propio (por defecto 0–60°); con rangos &lt; 45° es indicativo.</li>
 </ul>
