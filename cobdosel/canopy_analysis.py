@@ -142,6 +142,19 @@ def sky_uniformity_range(gray_image, sky_mask, area_mask=None):
     return float(p95 - p5)
 
 
+# v0.14.70: sin núcleo de cielo suficiente el rango no se mide («Sin cielo suficiente»). Si además hay bastante
+# cielo en el área (cielo fragmentado: claros pequeños entre ramas finas), se avisa que no se pudo comprobar.
+SKY_NOT_MEASURED = "Sin cielo suficiente"
+SKY_FRAGMENTED_MIN_PCT = 10.0
+SKY_FRAGMENTED_NOTE = "cielo fragmentado: no se pudo comprobar la uniformidad del cielo"
+
+
+def sky_fragmented(sky_range, sky_pixels, area_pixels):
+    """True si el rango del cielo no se pudo medir aunque el cielo ocupa ≥ SKY_FRAGMENTED_MIN_PCT del área."""
+    return (sky_range is None and area_pixels > 0
+            and 100.0 * float(sky_pixels) / float(area_pixels) >= SKY_FRAGMENTED_MIN_PCT)
+
+
 def sky_uniformity_warning(value, short=False):
     """
     Texto del aviso si el cielo no es uniforme, o "" si no hay aviso. short=True: etiqueta breve para cada foto

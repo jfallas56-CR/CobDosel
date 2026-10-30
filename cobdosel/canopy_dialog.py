@@ -119,6 +119,8 @@ from .canopy_analysis import (
     LAI_DEFAULT_ZENITH_MAX_DEG,
     LAI_MIN_RELIABLE_ZENITH_DEG,
     LAI_NOT_APPLICABLE,
+    sky_fragmented,
+    SKY_FRAGMENTED_NOTE,
     lai_applies,
     compute_canopy_metrics,
     classify_measurement_type,
@@ -2438,9 +2440,11 @@ class CobDoselDialog(QDialog):
 
             # v0.14.42: uniformidad del cielo en el área analizada (aviso informativo)
             sky_range = None
+            sky_frag = False
             if self.sky_bright_check.isChecked():
                 area_u = valid_cover & (zenith_deg <= float(self.zenith_max.value()) + 1e-6)
                 sky_range = sky_uniformity_range(self.gray_array, sky_mask & area_u, area_u)
+                sky_frag = sky_fragmented(sky_range, np.count_nonzero(sky_mask & area_u), np.count_nonzero(area_u))
                 del area_u
 
             self.progress.setValue(50)
@@ -2585,6 +2589,10 @@ class CobDoselDialog(QDialog):
                 self._log(wmsg, "WARN")
             elif sky_range is not None:
                 self._log("Cielo uniforme (rango de brillo del cielo {:.0f}).".format(sky_range))
+            elif sky_frag:                                       # v0.14.70
+                wmsg = SKY_FRAGMENTED_NOTE[0].upper() + SKY_FRAGMENTED_NOTE[1:] + "; verifique el corte con la vista previa."
+                report_warnings.append(wmsg)
+                self._log(wmsg, "WARN")
 
             # Misma cámara/lente que la calibración (la resolución puede diferir)
             photo_cam = self._current_camera()
@@ -2648,7 +2656,7 @@ class CobDoselDialog(QDialog):
             self._log(
                 "Análisis finalizado para '{}': Píxeles círculo={} (fotograma={}), "
                 "Claros={} ({:.2f}%), Oscuros={}, Hemisferio={:.2f}%, Máscara horiz.={:.1f}°, "
-                "Umbral={}, Apertura={:.2f}%, Cierre={:.2f}%, CaCo={:.2f}%, Modif.CaCo={:.2f}%, "
+                "Umbral={}, Apertura={:.2f}%, Cierre={:.2f}%, CaCo={:.2f}%, "
                 "LAIe={}.".format(
                     os.path.basename(self.image_path),
                     fmt_int(metrics["total_pixels_in_circle"]),
@@ -2662,7 +2670,6 @@ class CobDoselDialog(QDialog):
                     metrics["canopy_openness_pct"],
                     metrics["canopy_closure_pct"],
                     metrics["canopy_cover_index_pct"],
-                    metrics["modified_caco_index_pct"],
                     "{:.3f} (0–{:.1f}°)".format(lai["lai_effective"], lai["lai_zenith_max_deg"])
                     if lai.get("applies", True) else "no aplica",
                 )
@@ -2763,11 +2770,6 @@ class CobDoselDialog(QDialog):
         lines.append(
             "  ▶ Índice de Cobertura del Dosel (CaCo):            {:6.2f} %   ← cobertura del dosel".format(
                 metrics["canopy_cover_index_pct"]
-            )
-        )
-        lines.append(
-            "  Índice CaCo Modificado (Modif. CaCo):              {:6.2f} %".format(
-                metrics.get("spherical_cover_pct", metrics["modified_caco_index_pct"])
             )
         )
         if lai.get("applies", True):
@@ -3028,7 +3030,7 @@ class CobDoselDialog(QDialog):
                 "light_pixels", "dark_pixels",
                 "gap_fraction_selected_area_pct", "gap_fraction_unmasked_pct",
                 "canopy_openness_pct", "canopy_closure_pct", "canopy_openness_analysed_pct",
-                "canopy_cover_caco_index_pct", "modified_caco_index_pct",
+                "canopy_cover_caco_index_pct",
                 "lai_effective", "lai_zenith_max_deg", "lai_reliable",
                 "sky_is_bright", "calibration_approx_formula",
                 "horizon_angles", "plugin", "plugin_version",
@@ -3082,7 +3084,6 @@ class CobDoselDialog(QDialog):
                 metrics["canopy_closure_pct"],
                 metrics.get("canopy_openness_analysed_pct"),
                 metrics["canopy_cover_index_pct"],
-                metrics.get("spherical_cover_pct", metrics["modified_caco_index_pct"]),
                 lai["lai_effective"],
                 lai.get("lai_zenith_max_deg"),
                 lai.get("lai_reliable"),
@@ -3321,7 +3322,6 @@ class CobDoselDialog(QDialog):
                 QgsField("apertura", _FLOAT),
                 QgsField("cierre", _FLOAT),
                 QgsField("caco_idx", _FLOAT),
-                QgsField("mod_caco", _FLOAT),
                 QgsField("lai_efec", _FLOAT),
                 QgsField("lai_rango", _FLOAT),
                 QgsField("radio_px", _FLOAT),
@@ -3351,7 +3351,6 @@ class CobDoselDialog(QDialog):
             float(metrics["canopy_openness_pct"]),
             float(metrics["canopy_closure_pct"]),
             float(metrics["canopy_cover_index_pct"]),
-            float(metrics.get("spherical_cover_pct", metrics["modified_caco_index_pct"])),
             float(lai["lai_effective"]) if lai.get("applies", True) else None,
             float(lai.get("lai_zenith_max_deg") or 0.0) if lai.get("applies", True) else None,
             float(cal.get("virtual_radius_px") or 0.0),

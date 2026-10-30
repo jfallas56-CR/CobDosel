@@ -36,6 +36,7 @@ from .canopy_analysis import (
     extract_channel, threshold_image, compute_otsu_threshold, compute_radius_grid,
     compute_zenith_grid, analysis_circle_visibility, sky_uniformity_range, sky_uniformity_warning,
     CHANNEL_LABELS,
+    sky_fragmented, SKY_FRAGMENTED_NOTE, SKY_NOT_MEASURED,
 )
 from .glama_engine import (  # noqa: F401  (glama_cut_iterated se reexporta por compatibilidad)
     glama_ring_counts, glama_ring_counts_with_gray, glama_indices, glama_recommended_cut,
@@ -518,7 +519,7 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
                   cut_rule="glama", fixed_cut=None):
     """
     Analiza una foto con la calibración dada y la máscara (cenit máximo, grados). Devuelve dict con
-    caco, modif_caco, apertura, cierre, fraccion_claros, corte, metodo_corte, visible_pct, tamaño y avisos.
+    caco, apertura, cierre, fraccion_claros, corte, metodo_corte, visible_pct, tamaño y avisos.
     """
     # v0.14.38: sin parámetros ignorados en silencio
     if cut_rule == "fixed" and fixed_cut is None:
@@ -582,6 +583,8 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     area = compute_zenith_grid(compute_radius_grid((h, w), c), cal) <= zenith_max_deg
     sky_range = sky_uniformity_range(gray, sky & area, area) if sky_is_bright else None
     sky_short = sky_uniformity_warning(sky_range, short=True)
+    if sky_is_bright and sky_fragmented(sky_range, np.count_nonzero(sky & area), np.count_nonzero(area)):
+        warns.append(SKY_FRAGMENTED_NOTE)            # v0.14.70: nota; la foto no queda «a revisar» por esto
     reasons = list(diag["reasons"]) if not diag["ok"] else []
     if sky_short:
         reasons.append(sky_short)
@@ -602,7 +605,6 @@ def analyze_photo(path, calibration, zenith_max_deg, channel_mode="blue_red", sk
     return {
         # v0.14.62: el CaCo de la foto se registra con 2 decimales y todos los cálculos usan ese valor
         "caco": round_pct(idx["canopy_cover_index_pct"]),
-        "modif_caco": idx["spherical_cover_pct"],
         "apertura": idx["canopy_openness_pct"],
         "cierre": idx["canopy_closure_pct"],
         "fraccion_claros": idx["gap_fraction_pct"],
@@ -1089,7 +1091,7 @@ PHOTO_CSV_COLUMNS = ("parcela", "reemplaza_a", "punto", "archivo", "id_foto", "e
                      "camara", "tamano_px",
                      "mascara_horizonte", "cenit_max", "corte", "metodo_corte", "corte_auto", "decision",
                      "analista", "nota", "motivo_revision", "inicios",
-                     "caco", "modif_caco", "apertura", "cierre", "fraccion_claros", "visible_pct",
+                     "caco", "apertura", "cierre", "fraccion_claros", "visible_pct",
                      "cielo_rango", "apertura_ref_cenit")
 PLOT_CSV_COLUMNS = ("parcela", "reemplaza_a", "fotos", "validas", "caco_media", "caco_min", "caco_max")
 
@@ -1106,7 +1108,10 @@ def write_csvs(batch, out_prefix, version="", delimiter=",", decimal="."):
         w = csv.writer(f, delimiter=delimiter)
         w.writerow(PHOTO_CSV_COLUMNS)
         for r in batch["fotos"]:
-            w.writerow(csv_row([r.get(k) for k in PHOTO_CSV_COLUMNS], decimal))
+            vals = [r.get(k) for k in PHOTO_CSV_COLUMNS]
+            if r.get("archivo") and r.get("cielo_rango") is None and r.get("caco") is not None:
+                vals[PHOTO_CSV_COLUMNS.index("cielo_rango")] = SKY_NOT_MEASURED     # v0.14.70
+            w.writerow(csv_row(vals, decimal))
     paths.append(p1)
     p2 = out_prefix + "_parcelas.csv"
     with open(p2, "w", newline="", encoding="utf-8-sig") as f:

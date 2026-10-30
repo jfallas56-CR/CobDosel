@@ -34,8 +34,8 @@ def csv_cell(value, decimal="."):
     if value is None or (isinstance(value, str) and not value.strip()) or (
             isinstance(value, (list, tuple)) and not value):
         return NOT_APPLICABLE
-    if isinstance(value, bool):
-        return value
+    if isinstance(value, bool) or type(value).__name__ in ("bool_", "bool"):   # numpy 1 y 2
+        return "Sí" if value else "No"           # v0.14.70: «Sí»/«No» en lugar de True/False
     if isinstance(value, numbers.Integral):
         return int(value)
     if isinstance(value, numbers.Real):

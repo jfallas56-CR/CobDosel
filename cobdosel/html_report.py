@@ -150,9 +150,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
             metrics.get("canopy_cover_pct", 0.0),
         )
     )
-    mod_caco_index_pct = float(
-        metrics.get("spherical_cover_pct", metrics.get("modified_caco_index_pct", caco_index_pct))
-    )
     # v0.14.67: el LAI solo se calcula con ojo de pez de 180°; si no, «No aplica»
     lai_ok = lai.get("applies", True) and lai.get("lai_effective") is not None
     lai_eff_str = "{:.3f}".format(float(lai["lai_effective"])) if lai_ok else "No aplica"
@@ -698,8 +695,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
       <tr><th>Indicador</th><th class="num">Valor</th><th>Qué mide</th></tr>
       <tr><td><strong>Índice CaCo</strong></td><td class="num"><strong>{caco_index_pct:.2f}%</strong></td>
           <td>Transmitancia de cada anillo llevada a la vertical (T<sup>cos θ</sup>), ponderada por sin θ · cos θ.</td></tr>
-      <tr><td>Índice CaCo modificado</td><td class="num">{mod_caco_index_pct:.2f}%</td>
-          <td>Misma conversión, ponderada solo por el ángulo sólido (sin θ); menos sensible a claros cerca del borde.</td></tr>
       <tr><td>Apertura del dosel</td><td class="num">{openness_analysed_pct:.2f}%</td>
           <td>Cielo abierto en el área analizada, ponderado por sin θ.</td></tr>
       <tr><td>Fracción de claros</td><td class="num">{gap_unmasked_pct:.2f}%</td>
@@ -828,7 +823,6 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         lai_eff_str=lai_eff_str,
         zenith_max_deg=zenith_max_deg,
         caco_index_pct=caco_index_pct,
-        mod_caco_index_pct=mod_caco_index_pct,
         meas_label=html.escape(meas["label"]),
         cal_camera_str=html.escape(cal_camera_str),
         meas_note=html.escape(meas["note"]),

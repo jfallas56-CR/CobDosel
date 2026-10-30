@@ -60,7 +60,7 @@ chk("1 resumen de la calibración antigua en la ventana: aviso", "función retir
 # 2) CSV para Excel
 chk("2 csv_cell: real con coma decimal", csv_cell(79.18, ",") == "79,18" and csv_cell(79.18, ".") == "79.18")
 chk("2 csv_cell: enteros, booleanos, None y texto sin cambio",
-    csv_cell(5, ",") == 5 and csv_cell(True, ",") is True and csv_cell(None, ",") == "No aplica"
+    csv_cell(5, ",") == 5 and csv_cell(True, ",") == "Sí" and csv_cell(None, ",") == "No aplica"
     and csv_cell("0.14.63", ",") == "0.14.63")
 import numpy as np  # noqa: E402
 chk("2 csv_cell: numpy float y int", csv_cell(np.float64(70.01), ",") == "70,01" and csv_cell(np.int64(3), ",") == 3)

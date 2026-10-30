@@ -121,7 +121,7 @@ from cobdosel.lens_calibration import calibrate_fisheye_from_radius
 # 1) «No aplica»
 chk("1 csv_cell: None, texto vacío y lista vacía → «No aplica»",
     csv_cell(None) == "No aplica" and csv_cell("  ") == "No aplica" and csv_cell([]) == "No aplica"
-    and csv_cell(0) == 0 and csv_cell(False) is False and csv_cell(0.0, ",") == "0,0")
+    and csv_cell(0) == 0 and csv_cell(False) == "No" and csv_cell(0.0, ",") == "0,0")
 # 2) lai_applies
 chk("2 LAI: lente regular → no aplica", not lai_applies({"lens_type": "regular"}, 40.6))
 chk("2 LAI: ojo de pez que llega a 90° → aplica", lai_applies({"lens_type": "fisheye"}, 90.0))

@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.14.69-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.14.70-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -20,7 +20,6 @@ El **Índice CaCo** es la cobertura del dosel: proyección vertical del dosel, c
 | Fracción del hemisferio captada | Fracción visible de cada anillo de 1°, ponderada por ángulo sólido |
 | Apertura / cierre del dosel | Anillos de 1° ponderados por ángulo sólido; lo enmascarado cuenta como obstruido |
 | **Índice CaCo** (cobertura del dosel) | Transmitancia de cada anillo llevada a la vertical (`T^cos θ`), ponderada por `sin θ · cos θ` |
-| Índice CaCo Modificado | Igual, ponderado por `sin θ` |
 | Nivel de corte recomendado (log-normal) | Cruce de dos log-normales ajustadas al histograma. Implementación independiente en Python del procedimiento del nivel de corte recomendado de la app GLAMA (Tichý 2016), reconstruido a partir de la app y verificado con sus resultados. Pasos en la Ayuda §10. |
 | Fracción de claros por sector | Anillo × sector de acimut (S1 = arriba, sentido horario) |
 | LAI efectivo | Miller (1967) normalizado al rango cenital observado (por defecto 0–60°); solo con ojo de pez de 180° («No aplica» con lente regular) |
@@ -73,6 +72,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.14.70 (2026-10-30):** sin CaCo modificado en las salidas; «Sí»/«No» en los CSV; «Sin cielo suficiente» y nota de cielo fragmentado.
 - **0.14.69 (2026-10-30):** avisos de consistencia por parcela (varios días, más de 20 min, rango > 30 puntos); mismo pie en los dos informes.
 - **0.14.68 (2026-10-30):** GNSS en lugar de GPS; «Sin datos» para coordenadas faltantes; valores del informe alineados a la derecha; nota del densiómetro.
 - **0.14.67 (2026-10-30):** «No aplica» en las celdas sin valor de los CSV; LAI solo con ojo de pez de 180°; sin índices lineales antiguos; residuo del ajuste de círculo en el CSV.

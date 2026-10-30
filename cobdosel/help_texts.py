@@ -6,7 +6,7 @@ Autor: Jorge Fallas (jfallas56@gmail.com)
 SHORT_HELP_TOPICS = {
     "resumen": """
 <h3>Guía rápida — CobDosel v__VERSION__</h3>
-<p><b>CobDosel</b> (cobertura del dosel) estima en QGIS la <b>cobertura del dosel</b> a partir de fotografías cenitales con el método de <b>Tichý (2016)</b> (<a href="https://doi.org/10.1111/jvs.12350">doi:10.1111/jvs.12350</a>): <b>Índice CaCo</b>, Índice CaCo Modificado, apertura/cierre del dosel y LAI efectivo.</p>
+<p><b>CobDosel</b> (cobertura del dosel) estima en QGIS la <b>cobertura del dosel</b> a partir de fotografías cenitales con el método de <b>Tichý (2016)</b> (<a href="https://doi.org/10.1111/jvs.12350">doi:10.1111/jvs.12350</a>): <b>Índice CaCo</b>, apertura del área analizada, fracción de claros y, con ojo de pez de 180°, LAI efectivo.</p>
 <ol>
   <li><b>1. Imagen:</b> fotografía tomada con el teléfono nivelado, apuntando al cenit.</li>
   <li><b>2. Calibración:</b> círculo de diámetro conocido <i>D</i> a la distancia <i>H</i> (recomendado: dos diámetros E–O y N–S), o el radio del hemisferio de la app GLAMA.</li>
@@ -162,7 +162,6 @@ FULL_HELP_HTML = """
   <tr><td><b>Referencia de GLAMA dentro de la foto</b> (solo en el CSV)</td><td>Parte de la referencia (los anillos cenitales que alcanza la foto, hasta su esquina) que está dentro de la foto, ponderada por ángulo sólido: ≈ 67 % con fotos 4:3 de un teléfono de unos 25 mm y «Rectilínea» (≈ 61 % con «Lineal»). No es la fracción del hemisferio; el panel y el informe dan la del hemisferio real (≈ 16 % la foto; ≈ 11 % el área analizada con máscara de 63°).</td></tr>
   <tr><td><b>Apertura / cierre del dosel (GLAMA)</b> (solo en el CSV)</td><td>Cielo abierto del área analizada / referencia (anillos que alcanza la foto; hemisferio completo solo con ojo de pez de 180°); lo enmascarado y lo fuera del encuadre cuenta como obstruido; cierre = 100 − apertura. Dependen de la máscara y del lente: con cielo totalmente abierto, máscara de 63° y un Pixel 10 la apertura es 44,5 %. También la apertura del área analizada (100 % con cielo abierto).</td></tr>
   <tr><td><b>Índice CaCo</b> (cobertura del dosel)</td><td><code>100 · (1 − Σ T<sup>cos θ</sup>·sin θ·cos θ / Σ sin θ·cos θ)</code> sobre anillos de 1/90 del radio; los anillos sin claros no entran en las sumas, como en GLAMA. Reproduce los valores publicados de la app (≤ 0.02 pts).</td></tr>
-  <tr><td><b>Índice CaCo Modificado</b></td><td>Misma conversión, ponderada solo por <code>sin θ</code>; con lentes de teléfono es casi igual al CaCo.</td></tr>
   <tr><td><b>CaCo lineal (versiones ≤ 0.10)</b></td><td>Índice de versiones anteriores, solo para comparar con resultados antiguos; no lo use como cobertura.</td></tr>
   <tr><td><b>LAI efectivo</b></td><td>Miller (1967) normalizado al rango cenital observado (por defecto 0–60°). Solo con ojo de pez de 180°; con lente regular, «No aplica».</td></tr>
   <tr><td><b>Círculo de análisis visible</b></td><td>% del círculo de la máscara dentro de la foto; si es &lt; 100 %, parte del círculo se excluye.</td></tr>
