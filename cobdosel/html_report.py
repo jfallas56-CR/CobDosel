@@ -172,6 +172,8 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     else:
         mask_str = "{:.1f}° sobre el horizonte (cenit 0–{:.1f}°)".format(
             horizon_mask_deg, 90.0 - horizon_mask_deg)
+    if results.get("n_rings"):                    # v0.14.65: como en el panel
+        mask_str += ", {} anillos".format(int(results["n_rings"]))
     calib_formula = ("aproximada atan(D/H)/2 (calibración antigua)" if cal.get("glama_compat")
                      else "geometría exacta, atan(D/2H)")
 
@@ -192,6 +194,13 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         p for p in (exif.get("camera_make"), exif.get("camera_model")) if p
     ]
     camera_str = " ".join(cam_parts) if cam_parts else "No especificado"
+    # v0.14.65: como en el panel: cámara de la foto (huella) y de la calibración, y si es la misma lente
+    from .camera_check import camera_label
+    if results.get("camera_photo"):
+        camera_str = "{} [{}]".format(camera_label(results.get("camera_photo")),
+                                      {True: "misma lente que la calibración", False: "OTRA LENTE que la calibración",
+                                       None: "no verificada"}.get(results.get("camera_check")))
+    cal_camera_str = camera_label(cal.get("camera"))
 
     img_w = cal.get("image_width_px") or "—"
     img_h = cal.get("image_height_px") or "—"
@@ -724,7 +733,8 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         <div class="kv-row"><span class="label">Nombre del archivo:</span><span class="val">{image_name}</span></div>
         <div class="kv-row"><span class="label">Dimensiones analizadas:</span><span class="val">{dim_str}</span></div>
         <div class="kv-row"><span class="label">Fecha/hora de captura (EXIF):</span><span class="val">{capture_dt}</span></div>
-        <div class="kv-row"><span class="label">Cámara / Dispositivo:</span><span class="val">{camera_str}</span></div>
+        <div class="kv-row"><span class="label">Cámara de la foto:</span><span class="val">{camera_str}</span></div>
+        <div class="kv-row"><span class="label">Cámara de la calibración:</span><span class="val">{cal_camera_str}</span></div>
         <div class="kv-row"><span class="label">Coordenadas GPS (WGS84):</span><span class="val">{gps_str}</span></div>
         <div class="kv-row"><span class="label">Canal de umbralización:</span><span class="val">{channel_label}</span></div>
         <div class="kv-row"><span class="label">Nivel de corte (umbral T):</span><span class="val">{threshold} ({bright_str})</span></div>
@@ -817,6 +827,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         caco_index_pct=caco_index_pct,
         mod_caco_index_pct=mod_caco_index_pct,
         meas_label=html.escape(meas["label"]),
+        cal_camera_str=html.escape(cal_camera_str),
         meas_note=html.escape(meas["note"]),
         dim_str=html.escape(dim_str),
         capture_dt=html.escape(str(capture_dt)),
