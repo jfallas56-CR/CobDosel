@@ -736,10 +736,10 @@ def generate_html_report(results, output_path, include_images=True, log=None):
         <div class="kv-row"><span class="label">Nombre del archivo:</span><span class="val">{image_name}</span></div>
         <div class="kv-row"><span class="label">Dimensiones analizadas:</span><span class="val">{dim_str}</span></div>
         <div class="kv-row"><span class="label">Fecha/hora de captura (EXIF):</span><span class="val">{capture_dt}</span></div>
-        <div class="kv-row"><span class="label">Cámara de la foto:</span><span class="val">{camera_str}</span></div>
+        <div class="kv-row"><span class="label">Cámara:</span><span class="val">{camera_str}</span></div>
         <div class="kv-row"><span class="label">Cámara de la calibración:</span><span class="val">{cal_camera_str}</span></div>
         <div class="kv-row"><span class="label">Coordenadas GNSS (WGS84):</span><span class="val">{gps_str}</span></div>
-        <div class="kv-row"><span class="label">Canal de umbralización:</span><span class="val">{channel_label}</span></div>
+        <div class="kv-row"><span class="label">Canal de color:</span><span class="val">{channel_label}</span></div>
         <div class="kv-row"><span class="label">Nivel de corte (umbral T):</span><span class="val">{threshold} ({bright_str})</span></div>
         <div class="kv-row"><span class="label">Método del nivel de corte:</span><span class="val">{cut_method}</span></div>
       </div>

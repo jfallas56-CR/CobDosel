@@ -122,8 +122,8 @@ chk("3 cielo no uniforme: una sola vez, con el rango", txt.count("cielo no unifo
     txt.count("cielo no uniforme"))
 chk("3 «Resultado provisional»: una sola vez, en singular", txt.count("Resultado provisional") == 1
     and "1 foto pendiente de revisión" in txt and "foto(s)" not in txt)
-chk("3 pie: «Generado por CobDosel v0.14.63 (jfallas56@gmail.com)»",
-    "Generado por CobDosel v0.14.63 (" in ht and 'mailto:jfallas56@gmail.com">jfallas56@gmail.com</a>)</footer>' in ht)
+chk("3 pie con contacto (v0.14.69: igual al de una foto)",
+    "<strong>CobDosel v0.14.63</strong> para QGIS · Autor: Jorge Fallas · Contacto:" in ht and 'mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></footer>' in ht)
 lis = re.findall(r"<li>(.*?)</li>", ht.split("<h2>Avisos</h2>")[1].split("</section>")[0])
 chk("3 avisos sin textos duplicados", len(lis) == len(set(lis)), lis)
 

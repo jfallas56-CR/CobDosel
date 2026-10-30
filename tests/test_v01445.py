@@ -142,7 +142,7 @@ b["parametros"]["analista"] = "Jorge Fallas"
 hp = os.path.join(OUT, "lote.html"); bc.write_html(b, hp, "0.14.45", "Prueba")
 html = open(hp, encoding="utf-8").read()
 chk("3 informe: sin «Basado en Tichý» en el encabezado; analista en el encabezado",
-    "Basado en Tichý" not in html and "Analista: Jorge Fallas" in html)
+    "Basado en Tichý" not in html.split("</header>")[0] and "Analista: Jorge Fallas" in html)   # v0.14.69: en el pie sí
 chk("3 informe: observaciones en una segunda fila por foto (lista)", html.count("<tr class='obs") == sum(1 for r in b["fotos"] if r.get("motivo"))
     and "<th>Observaciones</th>" not in html and "<li>decisión guardada (2026-10-24 10:41, Ana)" in html)
 from cobdosel.canopy_analysis import sky_uniformity_warning

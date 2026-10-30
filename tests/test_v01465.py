@@ -141,7 +141,7 @@ items = {
     "medición": (c.get("measurement") or {}).get("summary") or "—",
     "cámara de la calibración": "Cámara de la calibración:",
     # foto sintética sin EXIF: la comprobación de lente queda «no verificada» (con EXIF: «misma lente…»)
-    "cámara de la foto y lente": "Cámara de la foto: cámara desconocida, 2000×1500 [no verificada]",
+    "cámara de la foto y lente": "Cámara: cámara desconocida, 2000×1500 [no verificada]",   # v0.14.69: «Cámara»
     "máscara y anillos": "63.0° sobre el horizonte (cenit 0–27.0°), {} anillos".format(res["n_rings"]),
     "círculo visible": "{:.1f} %".format(res["circle_visible_pct"]),
     "canal": "Azul + Rojo", "clasificación": "Cobertura del dosel estimada con el Índice CaCo (Tichý 2016)",

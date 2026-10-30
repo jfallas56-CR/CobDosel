@@ -639,8 +639,10 @@ def _auto_form_rows(photo_folder, photos_per_plot=5):
         except OSError:
             pass
     n = max(1, int(photos_per_plot))
-    msg = ("Sin formulario de fotos: {} fotos asignadas por orden de hora a {} parcelas de {} fotos. Verifique la "
-           "asignación (o use un formulario).".format(nph, -(-nph // n), n))
+    msg = ("Sin formulario de fotos: {} fotos asignadas por orden de hora a {} parcelas de {} fotos. Las parcelas "
+           "se forman por hora de captura, no por ubicación: verifique la asignación antes de usar las medias de "
+           "parcela (o use un formulario).".format(nph, -(-nph // n), n))
+    warns = [w for w in warns if not w.endswith("abarcan más de 20 min; revise la asignación.")]   # v0.14.69
     return rows, [msg] + warns + w2
 
 
@@ -969,6 +971,50 @@ def round_pct(value, decimals=2):
     return float(Decimal(repr(float(value))).quantize(q, rounding=ROUND_HALF_UP))
 
 
+PLOT_TIME_SPREAD_S = 20 * 60     # v0.14.69: fotos de una parcela con más de 20 min de diferencia
+PLOT_RANGE_POINTS = 30.0         # v0.14.69: rango del CaCo dentro de una parcela que pide revisión
+
+
+def _parse_time(txt):
+    try:
+        return datetime.datetime.fromisoformat(str(txt).strip()) if txt else None
+    except ValueError:
+        return None
+
+
+def plot_consistency_warnings(results):
+    """v0.14.69: avisos (no cambian el resultado) cuando las fotos de una parcela no parecen de una misma
+    parcela: de más de un día, con más de 20 min entre la primera y la última, o con un rango del CaCo de más
+    de 30 puntos. Sirve con cualquier diseño de muestreo y con o sin formulario."""
+    from ._version import fmt_num
+    by_plot, order = {}, []
+    for r in results:
+        p = r.get("parcela")
+        if p not in by_plot:
+            by_plot[p] = []
+            order.append(p)
+        by_plot[p].append(r)
+    out = []
+    for p in order:
+        rs = by_plot[p]
+        times = [t for t in (_parse_time(r.get("hora_exif")) for r in rs if r.get("archivo")) if t]
+        days = sorted({t.date() for t in times})
+        if len(days) > 1:
+            out.append("Parcela {}: fotos de {} días ({}); revise la asignación de parcelas.".format(
+                p, len(days), ", ".join(d.strftime("%d/%m/%Y") for d in days)))
+        elif len(times) > 1 and (max(times) - min(times)).total_seconds() > PLOT_TIME_SPREAD_S:
+            out.append("Parcela {}: fotos con {} de diferencia (más de {} min); revise la asignación de "
+                       "parcelas.".format(p, duration_text((max(times) - min(times)).total_seconds()),
+                                         PLOT_TIME_SPREAD_S // 60))
+        vals = [r["caco"] for r in rs if r.get("valida") and r.get("caco") is not None]
+        if len(vals) > 1 and max(vals) - min(vals) > PLOT_RANGE_POINTS:
+            out.append("Parcela {}: el CaCo de sus fotos va de {} a {} % ({} puntos, más de {:.0f}); revise si son "
+                       "de la misma parcela o si hay un claro o una copa aislada.".format(
+                           p, fmt_num(min(vals)), fmt_num(max(vals)), fmt_num(max(vals) - min(vals)),
+                           PLOT_RANGE_POINTS))
+    return out
+
+
 def mean_pct(values, decimals=2):
     """v0.14.62: media exacta en decimal de valores ya redondeados (sin error de coma flotante: la media de
     70.00 y 70.01 es 70.005 -> 70.01), redondeada a la mitad hacia arriba."""
@@ -1010,6 +1056,7 @@ def aggregate(results, planned_plots):
             warnings.append("Parcela {}: sin fotos válidas; no entra en la media del sitio "
                             "(aplique el mecanismo de reemplazo).".format(p))
         rows.append(d)
+    warnings += plot_consistency_warnings(results)        # v0.14.69
     empty = [d for d in rows if d["caco_media"] is None]
     if rows and len(empty) == len(rows) and len(rows) > 1:      # v0.14.46: un solo aviso si ninguna tiene
         warnings = [w for w in warnings if not w.endswith("(aplique el mecanismo de reemplazo).")]
@@ -1216,7 +1263,10 @@ media de todas las fotos válidas, redondeada a 2 decimales.</p></section>
 </tr>{photos}</table><p style='font-size:.82rem;color:#52606d'>Debajo de cada foto, sus observaciones.</p></section>
 <section><h2>Avisos</h2><ul>{warn}</ul></section>
 <section><h2>Parámetros</h2><table>{params}</table></section>
-<footer style="text-align:center;color:#52606d;margin-top:16px">Generado por CobDosel v{version} (<a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a>)</footer></div></body></html>""".format(
+<footer style="text-align:center;color:#52606d;margin-top:16px">Basado en Tichý (2016),
+<a href="https://doi.org/10.1111/jvs.12350" target="_blank">doi:10.1111/jvs.12350</a>.<br/>
+<strong>CobDosel v{version}</strong> para QGIS · Autor: Jorge Fallas · Contacto:
+<a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></footer></div></body></html>""".format(
         site=_h.escape(site_name or "—"), version=version, mean=_f(s["caco_sitio"]),
         rev=_h.escape(s.get("revision") or "—"), pending_html=pending_html,
         dur=_h.escape(duration_text(s.get("tiempo_proceso_s"), s.get("fotos_total"))),
