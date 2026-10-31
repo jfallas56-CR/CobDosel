@@ -10,6 +10,10 @@ ratón y «Ajustar vista» (tecla F); «Siguiente sin clasificar» (tecla N); se
 de descartar puntos ya clasificados y «Nueva cuadrícula»; campos del modo que no se usa desactivados; contador de
 esquinas; clic derecho quita la última esquina.
 
+v0.15.2: «Siguiente sin clasificar» avanza por la cuadrícula (no vuelve siempre al primero) y marca el punto actual;
+las teclas 1–5 clasifican el punto actual y pasan al siguiente; zoom con botones (+/−) y teclas, y arrastre para
+mover la vista; pestaña «Ayuda» con la ayuda completa; «Sombrear vegetación verde (magenta)».
+
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
@@ -23,7 +27,7 @@ from qgis.PyQt.QtGui import QImage, QPainter, QPen, QColor, QPixmap, QDesktopSer
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton, QLineEdit, QComboBox,
     QDoubleSpinBox, QSpinBox, QGroupBox, QFileDialog, QMessageBox, QRadioButton, QTextEdit, QWidget,
-    QSplitter, QButtonGroup, QCheckBox,
+    QSplitter, QButtonGroup, QCheckBox, QTabWidget, QTextBrowser, QScrollArea,
 )
 
 from ._version import VERSION
@@ -33,15 +37,14 @@ from .calibration_store import list_calibrations, load_calibration
 from .lens_calibration import scale_calibration_to_image
 from .ui_keys import disable_enter_buttons
 from . import ground_cover as gc
+from .help_texts import GROUND_HELP_HTML
 
 HELP = (
-    "<b>Cobertura del suelo</b> con una foto vertical hacia abajo (cámara nivelada, a 1–1,5 m).<br>"
-    "1) Cargue la foto. 2) Elija el área: <b>cuadro</b> (clic en sus 4 esquinas, en cualquier orden; clic derecho "
-    "quita la última) o <b>área fija</b> (altura de la cámara y calibración del teléfono). 3) «Preparar área». "
-    "4) Clasifique los puntos con anillo blanco: elija la clase (teclas 1–5) y haga clic en el punto; se clasifica lo "
-    "que está bajo la cruz. Rueda del ratón: zoom; F: ajustar vista; N: siguiente sin clasificar; V: mostrar u "
-    "ocultar la vegetación verde. 5) Exporte CSV o el informe.<br>La vegetación verde se calcula sola con la regla "
-    "de Canopeo; si difiere más de {:.0f} puntos de ExG − ExR, la foto queda «a revisar».".format(gc.AGREEMENT_LIMIT))
+    "<b>Ayuda corta.</b> 1) Cargue la foto. 2) Área: <b>cuadro</b> (clic en sus 4 esquinas; clic derecho quita la "
+    "última) o <b>área fija</b>. 3) «Preparar área». 4) Pulse <b>N</b>: la vista va al siguiente punto sin "
+    "clasificar (anillo amarillo); pulse <b>1–5</b> para clasificarlo y pasar al siguiente. También puede hacer "
+    "clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre para mover; <b>F</b> ajusta la vista; "
+    "<b>V</b> sombrea la vegetación verde en magenta. 5) Exporte. Ayuda completa: pestaña «Ayuda».")
 
 RIGHT = "right"
 LEFT = "left"
@@ -66,7 +69,12 @@ class ImageCanvas(QWidget):
         self.center = (0.5, 0.5)       # centro de la vista, en px de la imagen
         self.marks = []                # [(x, y, (r, g, b))] en px de la imagen
         self.polygon = []              # [(x, y)] esquinas del cuadro
+        self.current = None            # (x, y) del punto actual (anillo amarillo)
+        self._press = None             # posición de pantalla del clic izquierdo (para distinguir clic y arrastre)
+        self._dragged = False
         self.setMinimumSize(420, 420)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setMouseTracking(True)      # recibe los movimientos del arrastre en todas las plataformas
 
     def set_image(self, rgb, keep_view=False):
         h, w = rgb.shape[:2]
@@ -86,6 +94,11 @@ class ImageCanvas(QWidget):
         if zoom is not None:
             self.zoom = max(1.0, float(zoom))
         self.center = (float(x), float(y))
+        self.update()
+
+    def zoom_by(self, factor):
+        """Acerca o aleja la vista manteniendo el centro."""
+        self.zoom = min(40.0, max(1.0, self.zoom * float(factor)))
         self.update()
 
     def _geom(self):
@@ -128,6 +141,12 @@ class ImageCanvas(QWidget):
             p.drawEllipse(c, rad, rad)
             p.drawLine(QPointF(c.x() - rad * 0.5, c.y()), QPointF(c.x() + rad * 0.5, c.y()))
             p.drawLine(QPointF(c.x(), c.y() - rad * 0.5), QPointF(c.x(), c.y() + rad * 0.5))
+        if self.current is not None:
+            c = QPointF(ox + self.current[0] * s, oy + self.current[1] * s)
+            p.setPen(QPen(QColor(0, 0, 0), 5))
+            p.drawEllipse(c, rad * 1.9, rad * 1.9)
+            p.setPen(QPen(QColor(255, 230, 0), 3))
+            p.drawEllipse(c, rad * 1.9, rad * 1.9)
         p.end()
 
     def wheelEvent(self, e):
@@ -144,16 +163,48 @@ class ImageCanvas(QWidget):
         self.center = (x - (pos.x() - self.width() / 2.0) / s2, y - (pos.y() - self.height() / 2.0) / s2)
         self.update()
 
+    @staticmethod
+    def _pos(e):
+        return e.position() if hasattr(e, "position") else e.pos()
+
     def mousePressEvent(self, e):
         if self.pix is None:
             return
-        pos = e.position() if hasattr(e, "position") else e.pos()
+        self.setFocus()
+        pos = self._pos(e)
+        if e.button() == Qt.MouseButton.RightButton:
+            x, y = self.to_image(pos.x(), pos.y())
+            inside = 0 <= x < self.img_w and 0 <= y < self.img_h
+            self.on_click(x if inside else None, y if inside else None, RIGHT)
+            return
+        self._press = (pos.x(), pos.y(), self.center)
+        self._dragged = False
+
+    def mouseMoveEvent(self, e):
+        if self._press is None:
+            return
+        pos = self._pos(e)
+        dx, dy = pos.x() - self._press[0], pos.y() - self._press[1]
+        if not self._dragged and dx * dx + dy * dy < 36:      # menos de 6 px: todavía es un clic
+            return
+        self._dragged = True
+        s, _ox, _oy = self._geom()
+        cx, cy = self._press[2]
+        self.center = (cx - dx / s, cy - dy / s)
+        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        self.update()
+
+    def mouseReleaseEvent(self, e):
+        if self._press is None:
+            return
+        pos = self._pos(e)
+        dragged, self._press = self._dragged, None
+        self.unsetCursor()
+        if dragged:
+            return
         x, y = self.to_image(pos.x(), pos.y())
-        button = RIGHT if e.button() == Qt.MouseButton.RightButton else LEFT
         if 0 <= x < self.img_w and 0 <= y < self.img_h:
-            self.on_click(x, y, button)
-        elif button == RIGHT:
-            self.on_click(None, None, button)
+            self.on_click(x, y, LEFT)
 
 
 class GroundCoverDialog(QDialog):
@@ -175,6 +226,7 @@ class GroundCoverDialog(QDialog):
         self.meta = {}
         self.res = None
         self.current_class = "seca"
+        self.current_idx = None         # punto al que llevó «Siguiente sin clasificar»
         self._build()
         self._on_mode()
         disable_enter_buttons(self)
@@ -184,7 +236,14 @@ class GroundCoverDialog(QDialog):
         root = QHBoxLayout(self)
         split = QSplitter(Qt.Orientation.Horizontal)
         root.addWidget(split)
+        tabs = QTabWidget()
         left = QWidget(); lv = QVBoxLayout(left)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(left)
+        tabs.addTab(scroll, "Parámetros")
+        self.help_browser = QTextBrowser(); self.help_browser.setOpenExternalLinks(True)
+        self.help_browser.setHtml(GROUND_HELP_HTML)
+        tabs.addTab(self.help_browser, "Ayuda")
+        self.tabs = tabs
         g1 = QGroupBox("1. Foto"); f1 = QFormLayout(g1)
         self.photo_edit = QLineEdit(); self.photo_edit.setReadOnly(True)
         b = QPushButton("Cargar foto…"); b.clicked.connect(self._on_load)
@@ -227,7 +286,7 @@ class GroundCoverDialog(QDialog):
         row2.addWidget(self.new_grid_btn)
         f2.addRow(row2)
         lv.addWidget(g2)
-        g3 = QGroupBox("3. Clase para los clics en los puntos (teclas 1–5)"); v3 = QVBoxLayout(g3)
+        g3 = QGroupBox("3. Clasificar los puntos (teclas 1–5)"); v3 = QVBoxLayout(g3)
         self.class_group = QButtonGroup(self)
         for i, (key, lbl) in enumerate(gc.CLASSES, 1):
             rb = QRadioButton("{} — {}".format(i, lbl)); rb.setProperty("clase", key)
@@ -236,7 +295,7 @@ class GroundCoverDialog(QDialog):
             rb.toggled.connect(lambda on, k=key: on and self._set_class(k))
             self.class_group.addButton(rb, i); v3.addWidget(rb)
         row4 = QHBoxLayout()
-        self.show_green = QCheckBox("Mostrar vegetación verde (V)")
+        self.show_green = QCheckBox("Sombrear vegetación verde en magenta (V)")
         self.show_green.setChecked(False)
         self.show_green.setToolTip("Sombrea en magenta lo que Canopeo clasifica como verde. Desactívelo para ver los "
                                    "colores reales al clasificar.")
@@ -244,9 +303,17 @@ class GroundCoverDialog(QDialog):
         row4.addWidget(self.show_green)
         self.next_btn = QPushButton("Siguiente sin clasificar (N)"); self.next_btn.clicked.connect(self.next_unclassified)
         row4.addWidget(self.next_btn)
-        self.fit_btn = QPushButton("Ajustar vista (F)"); self.fit_btn.clicked.connect(lambda: self.canvas.fit())
-        row4.addWidget(self.fit_btn)
         v3.addLayout(row4)
+        row5 = QHBoxLayout()
+        self.zoom_in_btn = QPushButton("Acercar (+)"); self.zoom_in_btn.clicked.connect(lambda: self.canvas.zoom_by(1.5))
+        self.zoom_out_btn = QPushButton("Alejar (−)"); self.zoom_out_btn.clicked.connect(lambda: self.canvas.zoom_by(1 / 1.5))
+        self.fit_btn = QPushButton("Ajustar vista (F)"); self.fit_btn.clicked.connect(lambda: self.canvas.fit())
+        for w in (self.zoom_in_btn, self.zoom_out_btn, self.fit_btn):
+            row5.addWidget(w)
+        v3.addLayout(row5)
+        self.auto_next = QCheckBox("Al clasificar con 1–5, pasar al siguiente sin clasificar")
+        self.auto_next.setChecked(True)
+        v3.addWidget(self.auto_next)
         lv.addWidget(g3)
         row3 = QHBoxLayout()
         self.csv_btn = QPushButton("Exportar CSV…"); self.csv_btn.clicked.connect(self._on_csv)
@@ -256,7 +323,7 @@ class GroundCoverDialog(QDialog):
         lv.addLayout(row3)
         self.out = QTextEdit(); self.out.setReadOnly(True); lv.addWidget(self.out, 1)
         help_lbl = QLabel(HELP); help_lbl.setWordWrap(True); lv.addWidget(help_lbl)
-        split.addWidget(left)
+        split.addWidget(tabs)
         self.canvas = ImageCanvas(self._on_canvas_click)
         split.addWidget(self.canvas)
         split.setStretchFactor(1, 2)
@@ -288,7 +355,13 @@ class GroundCoverDialog(QDialog):
         k = e.key()
         keys = [getattr(Qt.Key, "Key_{}".format(i)) for i in range(1, 6)]
         if k in keys:
-            self.class_group.button(keys.index(k) + 1).setChecked(True)
+            self.class_key(keys.index(k) + 1)
+            return
+        if k in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
+            self.canvas.zoom_by(1.5)
+            return
+        if k in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
+            self.canvas.zoom_by(1 / 1.5)
             return
         if k == Qt.Key.Key_V:
             self.show_green.setChecked(not self.show_green.isChecked())
@@ -316,6 +389,8 @@ class GroundCoverDialog(QDialog):
         self.photo_edit.setText(path)
         self.canvas.polygon = []
         self.canvas.marks = []
+        self.canvas.current = None
+        self.current_idx = None
         self.canvas.set_image(self.rgb)
         self._update_corner_label()
         self._grid_buttons(False)
@@ -375,6 +450,8 @@ class GroundCoverDialog(QDialog):
         i = int(np.argmin(d))
         tol = max(self.area.shape[:2]) / 40.0
         if d[i] <= tol * tol:
+            self.current_idx = i
+            self.canvas.current = self.points[i]
             self.label_point(i, self.current_class)
 
     def _manual_labels(self):
@@ -424,6 +501,8 @@ class GroundCoverDialog(QDialog):
                                                seed=int(self.seed_spin.value()))
         self.auto = gc.auto_labels(self.points, self.green)
         self.labels = list(self.auto)
+        self.current_idx = None
+        self.canvas.current = None
         meta["semilla"] = self.seed
         self.meta = meta
         self.canvas.polygon = []
@@ -451,6 +530,8 @@ class GroundCoverDialog(QDialog):
         self.points, self.seed = gc.point_grid(self.area.shape, int(self.points_spin.value()), seed=seed)
         self.auto = gc.auto_labels(self.points, self.green)
         self.labels = list(self.auto)
+        self.current_idx = None
+        self.canvas.current = None
         self.meta["semilla"] = self.seed
         self._log("Nueva cuadrícula (semilla {}).".format(self.seed))
         self._refresh()
@@ -469,15 +550,35 @@ class GroundCoverDialog(QDialog):
         self.canvas.set_image(shown, keep_view=not fit)
 
     def next_unclassified(self):
-        """Centra la vista (con zoom) en el siguiente punto sin clasificar."""
-        pend = [i for i, lab in enumerate(self.labels) if lab is None]
-        if not pend:
+        """Centra la vista (con zoom) en el siguiente punto sin clasificar, a partir del punto actual (orden de la
+        cuadrícula, de izquierda a derecha y de arriba abajo; al final vuelve al principio). Lo marca como actual."""
+        n = len(self.labels)
+        if not n:
+            return None
+        start = -1 if self.current_idx is None else self.current_idx
+        order = [(start + k) % n for k in range(1, n + 1)]
+        nxt = next((i for i in order if self.labels[i] is None), None)
+        if nxt is None:
+            self.current_idx = None
+            self.canvas.current = None
+            self.canvas.update()
             self._log("No quedan puntos sin clasificar.")
             return None
-        i = pend[0]
-        x, y = self.points[i]
+        self.current_idx = nxt
+        x, y = self.points[nxt]
+        self.canvas.current = (x, y)
         self.canvas.center_on(x, y, zoom=max(self.canvas.zoom, 4.0))
-        return i
+        self.canvas.setFocus()
+        return nxt
+
+    def class_key(self, k):
+        """Tecla 1–5: elige la clase y, si hay un punto actual, lo clasifica y (opcional) pasa al siguiente."""
+        self.class_group.button(k).setChecked(True)
+        key = gc.CLASSES[k - 1][0]
+        if self.current_idx is not None and self.points:
+            self.label_point(self.current_idx, key)
+            if self.auto_next.isChecked():
+                self.next_unclassified()
 
     def label_point(self, i, key):
         self.labels[i] = key

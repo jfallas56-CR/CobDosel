@@ -273,3 +273,63 @@ FULL_HELP_HTML = """
 <hr/>
 <p><b>Autor y contacto:</b> Jorge Fallas — <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></p>
 """
+
+
+# v0.15.2: ayuda completa de la herramienta «Cobertura del suelo»
+GROUND_HELP_HTML = """
+<h2>Cobertura del suelo (foto hacia abajo)</h2>
+<p>Mide qué parte de un área del suelo está cubierta por <b>vegetación verde</b>, <b>vegetación seca</b>,
+<b>hojarasca</b> y <b>suelo desnudo</b>. Es de uso general: no supone un diseño de muestreo.</p>
+
+<h3>1. Foto</h3>
+<ul>
+  <li>Cámara principal del teléfono (1x), apuntando hacia abajo y nivelada, a 1–1,5 m del suelo.</li>
+  <li>De preferencia con cielo nublado o con el área a la sombra: la luz directa crea sombras que parecen suelo.</li>
+  <li>Use la foto original, con su EXIF (fecha y coordenadas GNSS pasan al CSV y al informe).</li>
+</ul>
+
+<h3>2. Área de muestreo</h3>
+<ul>
+  <li><b>Cuadro:</b> un marco físico cuadrado sobre el suelo (por ejemplo, de 1 × 1 m). Haga clic en sus 4 esquinas
+  interiores, en cualquier orden; el contador indica cuántas lleva y el <b>clic derecho</b> quita la última.
+  CobDosel endereza el cuadro a un cuadrado de 1000 × 1000 px, aunque la cámara no esté perfectamente vertical.
+  <b>Lado del cuadrado</b> = lado interior del marco; solo fija el área que se registra (los porcentajes no dependen
+  de él). Si la foto no tiene marco, use el área fija.</li>
+  <li><b>Área fija:</b> sin marco. Indique la <b>altura de la cámara</b> sobre el suelo, el <b>lado</b> del cuadrado y
+  una <b>calibración «Rectilínea»</b> del teléfono. CobDosel recorta el cuadrado central: lado en px = lado en m ×
+  focal / altura. Supone cámara vertical y suelo plano; si no cabe en la foto, lo avisa.</li>
+  <li><b>Puntos de la cuadrícula</b> (100 por defecto) y <b>semilla</b>: la misma semilla da la misma cuadrícula.
+  «Nueva cuadrícula» usa otra semilla. Si ya hay puntos clasificados a mano, se pregunta antes de descartarlos.</li>
+</ul>
+
+<h3>3. Vegetación verde (automática)</h3>
+<p>Regla de Canopeo (Patrignani y Ochsner 2015): un píxel es verde si R/G &lt; 0,95, B/G &lt; 0,95 y
+2G − R − B &gt; 20. Se compara con ExG − ExR (Meyer y Neto 2008); si difieren más de 5 puntos, la foto queda
+«a revisar». Los puntos que caen en verde se marcan solos (anillo verde).
+<b>Sombrear vegetación verde en magenta (V)</b> muestra lo que Canopeo clasifica como verde; se usa magenta porque
+contrasta con el verde. Desactívelo para clasificar con los colores reales.</p>
+
+<h3>4. Clasificar los puntos</h3>
+<ul>
+  <li>Los puntos sin clasificar tienen <b>anillo blanco</b>. Se clasifica lo que está bajo la <b>cruz</b>.</li>
+  <li><b>Con el teclado (recomendado):</b> pulse <b>N</b> («Siguiente sin clasificar»): la vista se acerca al
+  siguiente punto blanco y lo marca con un <b>anillo amarillo</b>. Pulse <b>1–5</b> para darle la clase; si está
+  marcado «pasar al siguiente», la vista va sola al próximo punto blanco. Si duda, pulse <b>N</b> para saltarlo; se
+  vuelve a él al final de la vuelta.</li>
+  <li><b>Con el ratón:</b> elija la clase y haga clic en cualquier punto (también para corregir un punto verde, por
+  ejemplo musgo o algas sobre suelo desnudo).</li>
+  <li>Clases: 1 vegetación verde, 2 vegetación seca, 3 hojarasca, 4 suelo desnudo, 5 no identificable (sombra o zona
+  borrosa).</li>
+  <li><b>Zoom:</b> rueda del ratón (alrededor del cursor), <b>+</b> / <b>−</b> o los botones «Acercar» y «Alejar».
+  <b>Arrastre</b> con el botón izquierdo para mover la vista. <b>F</b> («Ajustar vista») vuelve al área completa.</li>
+</ul>
+
+<h3>5. Resultado</h3>
+<ul>
+  <li>Vegetación verde por píxeles (Canopeo): la medida de referencia de lo verde, sobre toda el área.</li>
+  <li>Cobertura de cada clase = % de puntos, con su IC 95 % (Wilson). Con 100 puntos y 30 %: 21,9–39,6 %. Dos
+  cuadrículas distintas dan conteos algo distintos: es el error de muestreo de los puntos.</li>
+  <li>«Exportar CSV…»: una fila por foto y otro CSV con cada punto (clase, clase automática, si se corrigió).
+  «Exportar informe HTML…»: resultado, tabla de clases, imagen del área y parámetros.</li>
+</ul>
+"""
