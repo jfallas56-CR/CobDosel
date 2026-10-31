@@ -46,6 +46,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01468.py` | Nota «se registra como copa o cielo»; GNSS; «Sin datos» en latitud, longitud y altitud; valores del informe a la derecha |
 | `test_v01469.py` | Avisos de consistencia por parcela (días, 20 min, rango > 30 puntos); pie del lote igual al de una foto; «Cámara:» y «Canal de color:» |
 | `test_v01470.py` | Sin CaCo modificado; «Sí»/«No»; «Sin cielo suficiente»; nota de cielo fragmentado |
+| `test_suelo_v01500.py` | Cobertura del suelo: Canopeo y ExG − ExR, cuadro enderezado, área fija, cuadrícula de puntos, IC de Wilson, diálogo, CSV, informe y menú |
 | `test_v01460.py` | Aviso de cielo no uniforme según la verificación de cortes; plantilla del formulario con instrucciones actuales |
 | `test_v01459.py` | Lote: una exportación por clic (doble clic, barra espaciadora y llamadas repetidas descartadas); mensaje con la carpeta una vez |
 | `test_v01457.py` | Tabla de parcelas: «—» en Mín. y Máx. con una sola foto válida; el CSV conserva los números |

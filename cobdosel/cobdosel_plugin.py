@@ -3,6 +3,7 @@
 Autor: Jorge Fallas (jfallas56@gmail.com)
 
 Historial:
+- 0.15.0: entrada de menú «Cobertura del suelo».
 - 0.12.0: entrada de menú «Procesamiento por sitio (lote)».
 - 0.11.0: cambio de nombre a CobDosel (clase, menú, icono y registro).
 - 0.10.0 (2026-10-17): el diálogo se importa al abrirlo (initGui no falla si falta
@@ -48,6 +49,8 @@ class CobDosel:
         self.batch_action = None
         self.dialog = None
         self.batch_dialog = None
+        self.ground_action = None
+        self.ground_dialog = None
 
     def _icon(self):
         path = os.path.join(self.plugin_dir, "cobdosel.svg")
@@ -70,6 +73,10 @@ class CobDosel:
             self._icon(), "CobDosel: Procesamiento por sitio (lote)", self.iface.mainWindow())
         self.batch_action.triggered.connect(self.run_batch)
         self.iface.addPluginToMenu(MENU_NAME, self.batch_action)
+        self.ground_action = QAction(
+            self._icon(), "CobDosel: Cobertura del suelo (foto hacia abajo)", self.iface.mainWindow())
+        self.ground_action.triggered.connect(self.run_ground)
+        self.iface.addPluginToMenu(MENU_NAME, self.ground_action)
 
     def unload(self):
         if self.dialog is not None:
@@ -90,10 +97,20 @@ class CobDosel:
                 self.batch_dialog.deleteLater()
             except RuntimeError as e:
                 _LOG.debug("[unload lote] %s", e)
+        if self.ground_action:
+            self.iface.removePluginMenu(MENU_NAME, self.ground_action)
+        if self.ground_dialog is not None:
+            try:
+                self.ground_dialog.close()
+                self.ground_dialog.deleteLater()
+            except RuntimeError as e:
+                _LOG.debug("[unload suelo] %s", e)
         self.action = None
         self.batch_action = None
+        self.ground_action = None
         self.dialog = None
         self.batch_dialog = None
+        self.ground_dialog = None
 
     def run(self):
         if self.dialog is None:
@@ -127,3 +144,16 @@ class CobDosel:
         self.batch_dialog.show()
         self.batch_dialog.raise_()
         self.batch_dialog.activateWindow()
+
+    def run_ground(self):
+        missing = _missing_dependencies()
+        if missing:
+            QMessageBox.critical(self.iface.mainWindow(), "CobDosel — Dependencias faltantes",
+                                 "Faltan paquetes de Python: {}.".format(", ".join(missing)))
+            return
+        if self.ground_dialog is None:
+            from .ground_cover_dialog import GroundCoverDialog
+            self.ground_dialog = GroundCoverDialog(self.iface, self.iface.mainWindow())
+        self.ground_dialog.show()
+        self.ground_dialog.raise_()
+        self.ground_dialog.activateWindow()

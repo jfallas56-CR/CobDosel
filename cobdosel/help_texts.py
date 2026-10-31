@@ -15,6 +15,7 @@ SHORT_HELP_TOPICS = {
   <li><b>5. Ejecutar</b> y exportar el informe HTML y el CSV.</li>
 </ol>
 <p><b>Sitios completos:</b> menú <i>CobDosel → Procesamiento por sitio (lote)</i> (parcelas × fotos, formulario de fotos).</p>
+<p><b>Cobertura del suelo:</b> menú <i>CobDosel → Cobertura del suelo (foto hacia abajo)</i>: vegetación verde automática (Canopeo) y vegetación seca, hojarasca y suelo desnudo por intercepción de puntos, en un cuadro o en un área fija.</p>
 <p><b>Valor de cobertura:</b> el <b>Índice CaCo</b> estima la cobertura del dosel (proyección vertical de las copas) a partir de la foto.</p>
 <hr/>
 <p><b>Autor:</b> Jorge Fallas — <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></p>
