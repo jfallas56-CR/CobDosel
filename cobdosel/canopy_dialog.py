@@ -143,6 +143,8 @@ from .glama_engine import (
     GLAMA_CUT_START,
 )
 from .measure_circle_dialog import MeasureCircleDialog
+from .tile_calibration_dialog import TileCalibrationDialog, measurement_record as tile_measurement_record
+from .tile_calibration import summary_lines as tc_summary_lines
 from .calibration_store import (
     save_calibration,
     load_calibration,
@@ -474,6 +476,15 @@ class CobDoselDialog(QDialog):
         pixel_row.addWidget(self.measure_image_btn)
         pixel_row.addWidget(self.measure_file_btn)
         cal_layout.addRow("Diámetro medido del círculo:", pixel_row)
+
+        # v0.15.3: calibración con baldosas o un rectángulo de tamaño conocido (una o dos alturas)
+        self.tiles_btn = QPushButton("Calibrar con baldosas o un rectángulo conocido…")
+        self.tiles_btn.setToolTip(
+            "Foto hacia abajo de baldosas, un cuadro o una hoja de tamaño conocido: se marcan 4 esquinas.\n"
+            "Con dos fotos a dos alturas medidas desde el mismo punto del teléfono, no importa dónde está el lente.\n"
+            "Da la focal de la lente rectilínea (cámara principal del teléfono) y la inclinación de cada foto.")
+        self.tiles_btn.clicked.connect(self._on_calibrate_tiles)
+        cal_layout.addRow("", self.tiles_btn)
 
         self.glama_cal_check = QCheckBox(
             "Fórmula aproximada (semiángulo = atan(D/H)/2), solo calibraciones antiguas"
@@ -1342,6 +1353,8 @@ class CobDoselDialog(QDialog):
         self.pixel_diameter.setEnabled(not is_fisheye)
         self.measure_image_btn.setEnabled(not is_fisheye)
         self.measure_file_btn.setEnabled(not is_fisheye)
+        if hasattr(self, "tiles_btn"):
+            self.tiles_btn.setEnabled(not is_fisheye)
 
         # v0.14.38: la lista de modelos muestra siempre el modelo de la calibración activa. Si la
         # calibración activa es de otro tipo de lente, queda «en espera» (no se usa) y vuelve al
@@ -1651,6 +1664,44 @@ class CobDoselDialog(QDialog):
                 "La foto de calibración se cargó en CobDosel.\n" if loaded_now else "")
         )
         self._update_run_button()
+
+    def _on_calibrate_tiles(self):
+        """v0.15.3: calibración con baldosas o un rectángulo conocido (tile_calibration_dialog)."""
+        self._set_short_help_topic("calibracion")
+        dlg = TileCalibrationDialog(self, start_path=self.image_path)
+        if _exec_dialog(dlg) != QDialog.DialogCode.Accepted or not dlg.result:
+            return
+        self.apply_tile_calibration(dlg.result)
+
+    def apply_tile_calibration(self, res):
+        """Escribe el círculo equivalente (D, H, diámetro) de la calibración con baldosas y calcula la calibración
+        «Rectilínea». Con una lente rectilínea d = f·D/H es exacto con cualquier D."""
+        if self.image_path is None and res.get("files"):
+            self._load_image_into_dialog(res["files"][0])
+        if self.image_array is None:
+            return
+        if self.lens_combo.currentIndex() != 1:
+            self.lens_combo.setCurrentIndex(1)
+        self._proj_sync_off = True        # la calibración nueva reemplaza a la activa
+        try:
+            self._set_projection_by_code("rectilinear")
+        finally:
+            self._proj_sync_off = False
+        D = round(float(res["side1_cm"]), 2)
+        H = round(float(res["lens_height_cm"]), 2)
+        w, h = res["width_px"], res["height_px"]
+        d_native = res["focal_px"] * D / H
+        self._calib_measure_native = (d_native, (w, h))
+        self.circle_diameter.setValue(D)
+        self.camera_height.setValue(H)
+        aw, ah = self.original_image_size or (w, h)
+        self._set_measured_diameter(d_native * max(aw, ah) / float(max(w, h)) * float(self.image_load_scale or 1.0))
+        self._measure_info = tile_measurement_record(res)
+        for line in res.get("lines") or tc_summary_lines(res):
+            self._log("Calibración con baldosas: " + line, "WARN" if line.startswith("Aviso") else "INFO")
+        self._on_calibrate()
+        if self.calibration is not None and self.calibration.get("projection") == "rectilinear":
+            self.calibration["calibration_method"] = "baldosas"
 
     # ------------------------------------------------------------------
     # Detección automática de ojo de pez

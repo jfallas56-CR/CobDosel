@@ -27,13 +27,13 @@ from qgis.PyQt.QtGui import QImage, QPainter, QPen, QColor, QPixmap, QDesktopSer
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton, QLineEdit, QComboBox,
     QDoubleSpinBox, QSpinBox, QGroupBox, QFileDialog, QMessageBox, QRadioButton, QTextEdit, QWidget,
-    QSplitter, QButtonGroup, QCheckBox, QTabWidget, QTextBrowser, QScrollArea,
+    QSplitter, QButtonGroup, QCheckBox, QTabWidget, QTextBrowser, QScrollArea, QInputDialog,
 )
 
 from ._version import VERSION
 from .csv_format import csv_style
 from .exif_gps import load_oriented_rgb_image, extract_exif
-from .calibration_store import list_calibrations, load_calibration
+from .calibration_store import list_calibrations, load_calibration, save_calibration
 from .lens_calibration import scale_calibration_to_image
 from .ui_keys import disable_enter_buttons
 from . import ground_cover as gc
@@ -270,6 +270,11 @@ class GroundCoverDialog(QDialog):
         for name, _p in list_calibrations():
             self.cal_combo.addItem(name, name)
         f2.addRow("Calibración (área fija):", self.cal_combo)
+        self.tiles_btn = QPushButton("Calibrar con baldosas o un rectángulo conocido…")
+        self.tiles_btn.setToolTip("Crea y guarda una calibración «Rectilínea» con una o dos fotos de baldosas, un "
+                                  "cuadro o una hoja de tamaño conocido.")
+        self.tiles_btn.clicked.connect(self._on_tiles)
+        f2.addRow("", self.tiles_btn)
         self.points_spin = QSpinBox(); self.points_spin.setRange(9, 400); self.points_spin.setValue(gc.DEFAULT_POINTS)
         f2.addRow("Puntos de la cuadrícula:", self.points_spin)
         self.seed_spin = QSpinBox(); self.seed_spin.setRange(0, 999999)
@@ -328,6 +333,38 @@ class GroundCoverDialog(QDialog):
         split.addWidget(self.canvas)
         split.setStretchFactor(1, 2)
         self._grid_buttons(False)
+
+    def _on_tiles(self):
+        """v0.15.3: calibración con baldosas; se guarda con un nombre y queda elegida para el área fija."""
+        from .tile_calibration_dialog import TileCalibrationDialog     # aquí: ese módulo usa ImageCanvas de este
+        dlg = TileCalibrationDialog(self, start_path=self.photo_path)
+        run = getattr(dlg, "exec", None) or dlg.exec_
+        if run() != QDialog.DialogCode.Accepted or not dlg.result:
+            return
+        name, ok = QInputDialog.getText(self, "Guardar calibración", "Nombre del lente / cámara (p. ej., «Pixel 10 "
+                                        "cámara principal»):")
+        if ok and name.strip():
+            self.save_tile_calibration(dlg.result, name.strip())
+
+    def save_tile_calibration(self, res, name):
+        from .tile_calibration_dialog import build_calibration
+        cal = build_calibration(res)
+        path = save_calibration(name, cal, metadata={
+            "circle_diameter_cm": cal["circle_diameter_cm"], "camera_height_cm": cal["camera_height_cm"],
+            "pixel_diameter_px": cal["pixel_diameter_px"], "image_size": [res["width_px"], res["height_px"]],
+            "original_image_size": [res["width_px"], res["height_px"]], "calibration_method": "baldosas"})
+        self.cal_combo.clear()
+        for n, _p in list_calibrations():
+            self.cal_combo.addItem(n, n)
+        i = self.cal_combo.findData(name)
+        if i < 0:
+            i = self.cal_combo.findText(name)
+        if i >= 0:
+            self.cal_combo.setCurrentIndex(i)
+        for line in res.get("lines") or []:
+            self._log(line)
+        self._log("Calibración «{}» guardada ({}).".format(name, path))
+        return path
 
     def _grid_buttons(self, on):
         for w in (self.new_grid_btn, self.next_btn):
