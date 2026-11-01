@@ -43,7 +43,7 @@ HELP = (
     "<b>Ayuda corta.</b> 1) Cargue la foto. 2) Área: <b>cuadro</b> (clic en sus 4 esquinas; clic derecho quita la "
     "última) o <b>área fija</b>. 3) «Preparar área». 4) Pulse <b>N</b>: la vista va al siguiente punto sin "
     "clasificar (anillo amarillo); pulse <b>1–5</b> para clasificarlo y pasar al siguiente. También puede hacer "
-    "clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre para mover; <b>F</b> ajusta la vista; "
+    "clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre o <b>flechas</b> para mover (Mayús: paso mayor); <b>F</b> ajusta la vista; "
     "<b>V</b> sombrea la vegetación verde en magenta. 5) Exporte. Ayuda completa: pestaña «Ayuda».")
 
 RIGHT = "right"
@@ -100,6 +100,35 @@ class ImageCanvas(QWidget):
         """Acerca o aleja la vista manteniendo el centro."""
         self.zoom = min(40.0, max(1.0, self.zoom * float(factor)))
         self.update()
+
+    def pan_by(self, fx, fy):
+        """Mueve la vista una fracción del área visible (v0.15.4: flechas del teclado). El centro queda dentro de la
+        imagen para no perderla de vista."""
+        if self.pix is None:
+            return
+        s, _ox, _oy = self._geom()
+        cx = self.center[0] + fx * self.width() / s
+        cy = self.center[1] + fy * self.height() / s
+        self.center = (min(max(cx, 0.0), float(self.img_w)), min(max(cy, 0.0), float(self.img_h)))
+        self.update()
+
+    def pan_key(self, e):
+        """Flechas: mueven la vista 10 % del área visible (Mayús: 50 %), como en la ventana de medición del círculo.
+        Devuelve True si la tecla era una flecha."""
+        K = Qt.Key
+        dirs = {K.Key_Left: (-1, 0), K.Key_Right: (1, 0), K.Key_Up: (0, -1), K.Key_Down: (0, 1)}
+        d = dirs.get(e.key())
+        if d is None:
+            return False
+        step = 0.5 if e.modifiers() & Qt.KeyboardModifier.ShiftModifier else 0.1
+        self.pan_by(d[0] * step, d[1] * step)
+        return True
+
+    def keyPressEvent(self, e):
+        if self.pan_key(e):
+            e.accept()
+            return
+        super().keyPressEvent(e)      # las demás teclas (1–5, N, F, V, +/−) siguen a la ventana
 
     def _geom(self):
         base = min(self.width() / float(self.img_w), self.height() / float(self.img_h))
@@ -391,6 +420,8 @@ class GroundCoverDialog(QDialog):
     def keyPressEvent(self, e):
         k = e.key()
         keys = [getattr(Qt.Key, "Key_{}".format(i)) for i in range(1, 6)]
+        if self.canvas.pan_key(e):
+            return
         if k in keys:
             self.class_key(keys.index(k) + 1)
             return
@@ -429,6 +460,7 @@ class GroundCoverDialog(QDialog):
         self.canvas.current = None
         self.current_idx = None
         self.canvas.set_image(self.rgb)
+        self.canvas.setFocus()          # flechas, +/− y F funcionan sin hacer clic antes en la foto
         self._update_corner_label()
         self._grid_buttons(False)
         for bb in (self.csv_btn, self.html_btn):

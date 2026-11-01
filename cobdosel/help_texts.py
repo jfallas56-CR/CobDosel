@@ -327,7 +327,7 @@ contrasta con el verde. Desactívelo para clasificar con los colores reales.</p>
   <li>Clases: 1 vegetación verde, 2 vegetación seca, 3 hojarasca, 4 suelo desnudo, 5 no identificable (sombra o zona
   borrosa).</li>
   <li><b>Zoom:</b> rueda del ratón (alrededor del cursor), <b>+</b> / <b>−</b> o los botones «Acercar» y «Alejar».
-  <b>Arrastre</b> con el botón izquierdo para mover la vista. <b>F</b> («Ajustar vista») vuelve al área completa.</li>
+  <b>Arrastre</b> con el botón izquierdo o las <b>flechas</b> del teclado para mover la vista (10 % del área visible por pulsación; con Mayús, 50 %). <b>F</b> («Ajustar vista») vuelve al área completa.</li>
 </ul>
 
 <h3>5. Resultado</h3>

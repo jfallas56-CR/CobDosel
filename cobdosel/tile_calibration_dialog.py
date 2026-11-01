@@ -31,7 +31,7 @@ HELP = (
     "hoja de tamaño conocido) que cubran el centro de la foto. 2) Mida la altura <b>H</b> hasta el suelo. "
     "3) Escriba los lados del rectángulo que va a marcar (con baldosas: paso entre juntas × número de baldosas, "
     "y «Aplicar»). 4) Marque sus 4 esquinas en el centro de las juntas (clic; clic derecho quita la última; rueda "
-    "o +/− para acercar; arrastre para mover). 5) Recomendado: una segunda foto a otra altura (40–60 cm más) "
+    "o +/− para acercar; arrastre o flechas para mover, Mayús + flecha: paso mayor). 5) Recomendado: una segunda foto a otra altura (40–60 cm más) "
     "medida desde el <b>mismo punto</b> del teléfono: así no importa dónde está el lente. 6) «Calcular».")
 
 
@@ -162,6 +162,8 @@ class TileCalibrationDialog(QDialog):
 
     def keyPressEvent(self, e):
         k = e.key()
+        if self.canvas.pan_key(e):
+            return
         if k in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
             self.canvas.zoom_by(1.5); return
         if k == Qt.Key.Key_Minus:
@@ -208,6 +210,7 @@ class TileCalibrationDialog(QDialog):
         self.canvas.set_image(p.rgb)
         self.canvas.polygon = list(p.corners)
         self.canvas.update()
+        self.canvas.setFocus()          # flechas, +/− y F funcionan sin hacer clic antes en la foto
 
     def set_corners(self, i, corners_display):
         self.photos[i].corners = [tuple(map(float, c)) for c in corners_display][:4]

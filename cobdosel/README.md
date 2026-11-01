@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.15.3-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.4-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -72,6 +72,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.15.4 (2026-10-31):** flechas del teclado para mover la vista en «Cobertura del suelo» y «Calibrar con baldosas» (Mayús: paso mayor).
 - **0.15.3 (2026-10-31):** calibración con baldosas o un rectángulo conocido (una o dos alturas): focal, altura real del lente e inclinación de la cámara; en la ventana principal y en «Cobertura del suelo».
 - **0.15.2 (2026-10-30):** cobertura del suelo: N avanza por la cuadrícula, 1–5 clasifican y pasan al siguiente, zoom con botones y arrastre, pestaña «Ayuda».
 - **0.15.1 (2026-10-30):** cobertura del suelo: verde sombreado opcional, puntos con cruz, zoom, siguiente sin clasificar, semilla visible, aviso antes de descartar.
