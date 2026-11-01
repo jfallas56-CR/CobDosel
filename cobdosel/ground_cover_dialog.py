@@ -370,10 +370,13 @@ class GroundCoverDialog(QDialog):
         run = getattr(dlg, "exec", None) or dlg.exec_
         if run() != QDialog.DialogCode.Accepted or not dlg.result:
             return
-        name, ok = QInputDialog.getText(self, "Guardar calibración", "Nombre del lente / cámara (p. ej., «Pixel 10 "
-                                        "cámara principal»):")
+        from .tile_calibration_dialog import default_name
+        name, ok = QInputDialog.getText(self, "Guardar calibración", "Nombre del lente / cámara (se propone uno):",
+                                        QLineEdit.EchoMode.Normal, default_name(dlg.result))
         if ok and name.strip():
             self.save_tile_calibration(dlg.result, name.strip())
+        else:
+            self._log("Calibración con baldosas no guardada: el área fija solo usa calibraciones guardadas.")
 
     def save_tile_calibration(self, res, name):
         from .tile_calibration_dialog import build_calibration

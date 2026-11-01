@@ -141,7 +141,8 @@ class TileCalibrationDialog(QDialog):
         root.addWidget(split, 1)
 
         br = QHBoxLayout(); br.addStretch(1)
-        self.ok_btn = QPushButton("Usar esta calibración"); self.ok_btn.setEnabled(False)
+        self.ok_btn = QPushButton("Usar y guardar esta calibración…"); self.ok_btn.setEnabled(False)
+        self.ok_btn.setToolTip("Aplica la calibración y pide un nombre para guardarla (se propone uno).")
         self.ok_btn.clicked.connect(self.accept)
         cancel = QPushButton("Cancelar"); cancel.clicked.connect(self.reject)
         br.addWidget(self.ok_btn); br.addWidget(cancel)
@@ -273,7 +274,9 @@ class TileCalibrationDialog(QDialog):
             self.ok_btn.setEnabled(False)
             QMessageBox.warning(self, "Calibrar con baldosas", str(e))
             return
-        self.out.setPlainText("\n".join(res["lines"]))
+        self.out.setPlainText("\n".join(res["lines"] + [
+            "", "Siguiente paso: pulse «Usar y guardar esta calibración…» (abajo a la derecha) y confirme el nombre "
+                "propuesto, «{}».".format(default_name(res))]))
         self.ok_btn.setEnabled(True)
 
 
@@ -310,3 +313,12 @@ def build_calibration(res):
     cal["camera"] = res.get("camera")
     cal["calibration_method"] = "baldosas"
     return cal
+
+
+def default_name(res):
+    """Nombre propuesto: modelo de la cámara, «1x», método y altura, p. ej. «Pixel 10_1x_baldosas_H82»."""
+    cam = res.get("camera") or {}
+    model = (cam.get("model") or "camara").replace("/", "-")
+    zoom = cam.get("digital_zoom")
+    z = "{:g}x".format(zoom) if zoom else "1x"
+    return "{}_{}_baldosas_H{:.0f}".format(model, z, res["photos"][0]["height_cm"])

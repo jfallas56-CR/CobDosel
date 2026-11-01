@@ -143,7 +143,8 @@ from .glama_engine import (
     GLAMA_CUT_START,
 )
 from .measure_circle_dialog import MeasureCircleDialog
-from .tile_calibration_dialog import TileCalibrationDialog, measurement_record as tile_measurement_record
+from .tile_calibration_dialog import (TileCalibrationDialog, measurement_record as tile_measurement_record,
+                                      default_name as tile_default_name)
 from .tile_calibration import summary_lines as tc_summary_lines
 from .calibration_store import (
     save_calibration,
@@ -1702,6 +1703,10 @@ class CobDoselDialog(QDialog):
         self._on_calibrate()
         if self.calibration is not None and self.calibration.get("projection") == "rectilinear":
             self.calibration["calibration_method"] = "baldosas"
+            # v0.15.5: se pide el nombre en seguida (antes había que descubrir «Guardar calibración…»)
+            if not self._on_save_calibration(default_name=tile_default_name(res)):
+                self._log("Calibración con baldosas aplicada sin guardar: use «Guardar calibración…» para "
+                          "guardarla.", "WARN")
 
     # ------------------------------------------------------------------
     # Detección automática de ojo de pez
@@ -1985,7 +1990,8 @@ class CobDoselDialog(QDialog):
             self._calib_measure_native = None
         return float(self.pixel_diameter.value())
 
-    def _on_save_calibration(self):
+    def _on_save_calibration(self, _checked=False, default_name=""):
+        """Guarda la calibración activa con un nombre. Devuelve True si se guardó (v0.15.5)."""
         if self.calibration is None:
             QMessageBox.warning(
                 self, "Sin calibrar", "Calcule la calibración primero."
@@ -1994,10 +2000,11 @@ class CobDoselDialog(QDialog):
 
         lens_name, ok = QInputDialog.getText(
             self, "Guardar calibración",
-            "Nombre del lente / cámara (p. ej., 'Cámara principal iPhone 13'):"
+            "Nombre del lente / cámara (p. ej., 'Cámara principal iPhone 13'):",
+            QLineEdit.EchoMode.Normal, default_name or ""
         )
         if not ok or not lens_name.strip():
-            return
+            return False
         # v0.14.23: no sobrescribir en silencio (nombres como «Pixel 10» y «Pixel_10» comparten archivo)
         target = calibration_path(lens_name.strip())
         if os.path.isfile(target):
@@ -2015,7 +2022,7 @@ class CobDoselDialog(QDialog):
             )
             if reply != QMessageBox.StandardButton.Yes:
                 self._log("Calibración no guardada: el nombre «{}» ya existe.".format(lens_name.strip()), "WARN")
-                return
+                return False
 
         try:
             path = save_calibration(
@@ -2046,9 +2053,11 @@ class CobDoselDialog(QDialog):
                 self, "Calibración guardada",
                 "Calibración guardada en:\n" + str(path)
             )
+            return True
         except Exception as e:
             QMessageBox.critical(self, "Error al guardar", str(e))
             self._log("Error al guardar calibración: " + str(e), "ERROR")
+            return False
 
     def _on_load_calibration(self):
         calibrations = list_calibrations()

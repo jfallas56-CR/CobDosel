@@ -229,6 +229,7 @@ res_win = t.result
 # ventana principal
 d = CobDoselDialog(Iface())
 d._load_image_into_dialog(p1)
+QInputDialog.getText = staticmethod(lambda *a, **k: ("", False))     # v0.15.5: pide el nombre; aquí se cancela
 d.apply_tile_calibration(res_win)
 c = d.calibration
 chk("5 ventana principal: calibración «Rectilínea» con la focal de las baldosas (escalada a la foto de análisis)",
