@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.15.9-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.10-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
 
@@ -72,6 +72,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.15.10 (2026-11-02):** cobertura del suelo: regla para puntos dudosos en la ayuda y el manual.
 - **0.15.9 (2026-11-02):** área fija: qué cuadrado cabe a cada altura (ventana, ayuda y manual); foto de distinta proporción que la calibración, rechazada.
 - **0.15.8 (2026-11-02):** cursor en cruz y líneas guía al marcar esquinas; ayuda con buenas prácticas y fotos que conviene evitar.
 - **0.15.7 (2026-11-02):** cobertura del suelo: diferencias entre Canopeo y ExG − ExR en cian y naranja (vista e informe), clases nuevas del usuario, aviso «a revisar» explicado.

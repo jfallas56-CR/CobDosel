@@ -394,6 +394,12 @@ clase nueva como «Vegetación amarillenta»).</p>
   <li><b>1–9</b> (número de la clase) marca esa clase, la asigna al punto actual y, si está marcado «pasar al siguiente», pasa al
   siguiente. <b>«Saltar sin clasificar» (S)</b> pasa al siguiente sin clasificar el actual; se vuelve a él al final
   de la vuelta.</li>
+  <li><b>Regla para puntos dudosos:</b> se clasifica <b>solo el píxel bajo el centro de la cruz</b>, como la aguja de
+  la intercepción de puntos en el campo, que registra solo lo que intercepta (Herrick et al. 2005), y como SamplePoint, donde
+  «el punto de muestreo es siempre un solo píxel» (Booth et al. 2006). Una hoja al lado del centro no cuenta. Si el
+  píxel central es una mezcla (borde de hoja), decide su color dominante a zoom máximo; si no se puede decidir,
+  «No identificable». Use la misma regla en todas las fotos y anote cuántos puntos fueron dudosos (una clase como
+  «Borde» sirve de control, pero conviértala con esta regla antes de informar).</li>
   <li><b>Con el ratón:</b> elija la clase y haga clic en cualquier punto (también para corregir un punto verde, por
   ejemplo musgo o algas sobre suelo desnudo).</li>
   <li>Clases: 1 vegetación verde, 2 vegetación seca, 3 hojarasca, 4 suelo desnudo, 5 no identificable (sombra o zona
