@@ -14,6 +14,9 @@ v0.15.2: «Siguiente sin clasificar» avanza por la cuadrícula (no vuelve siemp
 las teclas 1–5 clasifican el punto actual y pasan al siguiente; zoom con botones (+/−) y teclas, y arrastre para
 mover la vista; pestaña «Ayuda» con la ayuda completa; «Sombrear vegetación verde (magenta)».
 
+v0.15.6: «Siguiente» (N) asigna la clase marcada al punto actual y pasa al siguiente (la primera vez solo muestra el
+primer punto); «Saltar sin clasificar» (S); contador «Sin clasificar: k de n puntos» y número del punto actual.
+
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
@@ -41,9 +44,9 @@ from .help_texts import GROUND_HELP_HTML
 
 HELP = (
     "<b>Ayuda corta.</b> 1) Cargue la foto. 2) Área: <b>cuadro</b> (clic en sus 4 esquinas; clic derecho quita la "
-    "última) o <b>área fija</b>. 3) «Preparar área». 4) Pulse <b>N</b>: la vista va al siguiente punto sin "
-    "clasificar (anillo amarillo); pulse <b>1–5</b> para clasificarlo y pasar al siguiente. También puede hacer "
-    "clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre o <b>flechas</b> para mover (Mayús: paso mayor); <b>F</b> ajusta la vista; "
+    "última) o <b>área fija</b>. 3) «Preparar área». 4) Marque la clase y pulse «Siguiente» (<b>N</b>): "
+    "asigna esa clase al punto actual (anillo amarillo) y pasa al siguiente; la primera vez solo muestra el punto 1. "
+    "<b>1–5</b> cambia la clase y la asigna; <b>S</b> salta el punto. También puede hacer clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre o <b>flechas</b> para mover (Mayús: paso mayor); <b>F</b> ajusta la vista; "
     "<b>V</b> sombrea la vegetación verde en magenta. 5) Exporte. Ayuda completa: pestaña «Ayuda».")
 
 RIGHT = "right"
@@ -255,7 +258,7 @@ class GroundCoverDialog(QDialog):
         self.meta = {}
         self.res = None
         self.current_class = "seca"
-        self.current_idx = None         # punto al que llevó «Siguiente sin clasificar»
+        self.current_idx = None         # punto actual (anillo amarillo)
         self._build()
         self._on_mode()
         disable_enter_buttons(self)
@@ -321,6 +324,9 @@ class GroundCoverDialog(QDialog):
         f2.addRow(row2)
         lv.addWidget(g2)
         g3 = QGroupBox("3. Clasificar los puntos (teclas 1–5)"); v3 = QVBoxLayout(g3)
+        self.progress_lbl = QLabel("Prepare el área para ver los puntos.")
+        self.progress_lbl.setWordWrap(True)
+        v3.addWidget(self.progress_lbl)
         self.class_group = QButtonGroup(self)
         for i, (key, lbl) in enumerate(gc.CLASSES, 1):
             rb = QRadioButton("{} — {}".format(i, lbl)); rb.setProperty("clase", key)
@@ -335,9 +341,19 @@ class GroundCoverDialog(QDialog):
                                    "colores reales al clasificar.")
         self.show_green.toggled.connect(self._redraw_area)
         row4.addWidget(self.show_green)
-        self.next_btn = QPushButton("Siguiente sin clasificar (N)"); self.next_btn.clicked.connect(self.next_unclassified)
-        row4.addWidget(self.next_btn)
         v3.addLayout(row4)
+        # v0.15.6: «Siguiente» asigna la clase marcada al punto actual y pasa al siguiente; «Saltar» no clasifica
+        row6 = QHBoxLayout()
+        self.next_btn = QPushButton("Siguiente (N): asigna la clase marcada")
+        self.next_btn.setToolTip("Asigna la clase marcada arriba al punto actual (anillo amarillo) y pasa al siguiente "
+                                 "sin clasificar. La primera vez solo muestra el primer punto. Si el punto siguiente "
+                                 "es de otra clase, márquela (o pulse 1–5) antes de «Siguiente».")
+        self.next_btn.clicked.connect(self.advance)
+        self.skip_btn = QPushButton("Saltar sin clasificar (S)")
+        self.skip_btn.setToolTip("Pasa al siguiente punto sin clasificar el actual; se vuelve a él al final de la vuelta.")
+        self.skip_btn.clicked.connect(self.next_unclassified)
+        row6.addWidget(self.next_btn); row6.addWidget(self.skip_btn)
+        v3.addLayout(row6)
         row5 = QHBoxLayout()
         self.zoom_in_btn = QPushButton("Acercar (+)"); self.zoom_in_btn.clicked.connect(lambda: self.canvas.zoom_by(1.5))
         self.zoom_out_btn = QPushButton("Alejar (−)"); self.zoom_out_btn.clicked.connect(lambda: self.canvas.zoom_by(1 / 1.5))
@@ -399,7 +415,7 @@ class GroundCoverDialog(QDialog):
         return path
 
     def _grid_buttons(self, on):
-        for w in (self.new_grid_btn, self.next_btn):
+        for w in (self.new_grid_btn, self.next_btn, self.skip_btn):
             w.setEnabled(on)
 
     def _on_mode(self, *_a):
@@ -438,6 +454,9 @@ class GroundCoverDialog(QDialog):
             self.show_green.setChecked(not self.show_green.isChecked())
             return
         if k == Qt.Key.Key_N:
+            self.advance()
+            return
+        if k == Qt.Key.Key_S:
             self.next_unclassified()
             return
         if k == Qt.Key.Key_F:
@@ -457,6 +476,7 @@ class GroundCoverDialog(QDialog):
         self.corners = []
         self.area = None
         self.points, self.labels, self.auto, self.res = [], [], [], None
+        self._update_progress()
         self.photo_edit.setText(path)
         self.canvas.polygon = []
         self.canvas.marks = []
@@ -483,6 +503,7 @@ class GroundCoverDialog(QDialog):
         """Vuelve a la foto completa para marcar o corregir el cuadro."""
         self.area = None
         self.points, self.labels, self.auto, self.res = [], [], [], None
+        self._update_progress()
         self.canvas.marks = []
         self.canvas.set_image(self.rgb)
         self._grid_buttons(False)
@@ -621,6 +642,31 @@ class GroundCoverDialog(QDialog):
             shown[self.green] = (0.55 * shown[self.green] + 0.45 * np.array([255, 0, 255])).astype(np.uint8)
         self.canvas.set_image(shown, keep_view=not fit)
 
+    def advance(self):
+        """«Siguiente» (N): asigna la clase marcada al punto actual, si aún no tiene clase, y pasa al siguiente sin
+        clasificar. Sin punto actual (primera vez), solo muestra el primer punto sin clasificar."""
+        i = self.current_idx
+        if i is not None and self.points and self.labels[i] is None:
+            self.label_point(i, self.current_class)
+        return self.next_unclassified()
+
+    def _update_progress(self):
+        if not self.labels:
+            self.progress_lbl.setText("Prepare el área para ver los puntos.")
+            return
+        n = len(self.labels)
+        pend = sum(1 for lab in self.labels if lab is None)
+        txt = "<b>Sin clasificar: {} de {} puntos</b>".format(pend, n)
+        if self.current_idx is not None:
+            lab = self.labels[self.current_idx]
+            txt += " · punto actual: n.º {} ({})".format(
+                self.current_idx + 1, gc.CLASS_LABELS.get(lab, "sin clasificar") if lab else "sin clasificar")
+        elif pend:
+            txt += " · pulse «Siguiente» (N) para ir al primero"
+        else:
+            txt += " · todos clasificados"
+        self.progress_lbl.setText(txt)
+
     def next_unclassified(self):
         """Centra la vista (con zoom) en el siguiente punto sin clasificar, a partir del punto actual (orden de la
         cuadrícula, de izquierda a derecha y de arriba abajo; al final vuelve al principio). Lo marca como actual."""
@@ -635,12 +681,14 @@ class GroundCoverDialog(QDialog):
             self.canvas.current = None
             self.canvas.update()
             self._log("No quedan puntos sin clasificar.")
+            self._update_progress()
             return None
         self.current_idx = nxt
         x, y = self.points[nxt]
         self.canvas.current = (x, y)
         self.canvas.center_on(x, y, zoom=max(self.canvas.zoom, 4.0))
         self.canvas.setFocus()
+        self._update_progress()
         return nxt
 
     def class_key(self, k):
@@ -674,6 +722,7 @@ class GroundCoverDialog(QDialog):
         self.out.setPlainText("\n".join(lines))
         for bb in (self.csv_btn, self.html_btn):
             bb.setEnabled(True)
+        self._update_progress()
 
     def _default_prefix(self):
         base = os.path.splitext(os.path.basename(self.photo_path or "foto"))[0]

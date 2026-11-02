@@ -318,10 +318,16 @@ contrasta con el verde. Desactívelo para clasificar con los colores reales.</p>
 <h3>4. Clasificar los puntos</h3>
 <ul>
   <li>Los puntos sin clasificar tienen <b>anillo blanco</b>. Se clasifica lo que está bajo la <b>cruz</b>.</li>
-  <li><b>Con el teclado (recomendado):</b> pulse <b>N</b> («Siguiente sin clasificar»): la vista se acerca al
-  siguiente punto blanco y lo marca con un <b>anillo amarillo</b>. Pulse <b>1–5</b> para darle la clase; si está
-  marcado «pasar al siguiente», la vista va sola al próximo punto blanco. Si duda, pulse <b>N</b> para saltarlo; se
-  vuelve a él al final de la vuelta.</li>
+  <li>Arriba del grupo se indica cuántos puntos quedan <b>sin clasificar</b> («Sin clasificar: 37 de 100 puntos») y
+  el número del punto actual (n.º 1 es el de arriba a la izquierda; se cuenta de izquierda a derecha y de arriba
+  abajo).</li>
+  <li><b>«Siguiente» (N)</b> asigna la <b>clase marcada</b> en la lista al punto actual (<b>anillo amarillo</b>) y pasa
+  al siguiente punto sin clasificar. La primera vez solo muestra el primer punto. Cuando muchos puntos seguidos son
+  de la misma clase (por ejemplo, vegetación seca), márquela una vez y pulse «Siguiente» en cada punto; si un punto es
+  de otra clase, marque esa clase (o pulse 1–5) antes de «Siguiente». La clase marcada queda hasta que elija otra.</li>
+  <li><b>1–5</b> marca esa clase, la asigna al punto actual y, si está marcado «pasar al siguiente», pasa al
+  siguiente. <b>«Saltar sin clasificar» (S)</b> pasa al siguiente sin clasificar el actual; se vuelve a él al final
+  de la vuelta.</li>
   <li><b>Con el ratón:</b> elija la clase y haga clic en cualquier punto (también para corregir un punto verde, por
   ejemplo musgo o algas sobre suelo desnudo).</li>
   <li>Clases: 1 vegetación verde, 2 vegetación seca, 3 hojarasca, 4 suelo desnudo, 5 no identificable (sombra o zona

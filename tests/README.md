@@ -48,6 +48,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01470.py` | Sin CaCo modificado; «Sí»/«No»; «Sin cielo suficiente»; nota de cielo fragmentado |
 | `test_suelo_v01500.py` | Cobertura del suelo: Canopeo y ExG − ExR, cuadro enderezado, área fija, cuadrícula de puntos, IC de Wilson, diálogo, CSV, informe y menú |
 | `test_suelo_v01501.py` | Cobertura del suelo: verde sombreado opcional (V), anillos con cruz, siguiente sin clasificar, semilla, aviso antes de descartar, modo y esquinas |
+| `test_suelo_v01506.py` | Cobertura del suelo: «Siguiente» asigna la clase marcada (primera vez solo muestra), la clase se mantiene, otra clase marcada se asigna, «Saltar» (S), punto ya clasificado no cambia, contador y número del punto |
 | `test_suelo_v01505.py` | Calibración con baldosas: «Usar y guardar esta calibración…», nombre propuesto, guardado desde la ventana principal y desde «Cobertura del suelo», cancelar deja la calibración activa sin guardar |
 | `test_suelo_v01504.py` | Flechas del teclado mueven la vista (10 %; Mayús 50 %) en «Cobertura del suelo» y «Calibrar con baldosas»; centro dentro de la imagen; foco en el lienzo al cargar; 1–5 y +/− siguen funcionando |
 | `test_suelo_v01503.py` | Calibración con baldosas: f exacta con cámara inclinada, dos alturas cancelan el punto de medición, errores claros, círculo equivalente «Rectilínea», ventana, ventana principal y guardado desde «Cobertura del suelo» |

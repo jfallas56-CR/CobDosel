@@ -132,7 +132,7 @@ pend = [i for i, lab in enumerate(d.labels) if lab is None]
 a = d.next_unclassified()
 chk("1 N: primer punto sin clasificar, marcado como actual (anillo amarillo)", a == pend[0] and d.canvas.current == d.points[a])
 b = d.next_unclassified()
-chk("1 N otra vez sin clasificar: salta al siguiente (no vuelve al primero)", b == pend[1], (a, b))
+chk("1 «Saltar» (S, v0.15.6; antes N) sin clasificar: salta al siguiente (no vuelve al primero)", b == pend[1], (a, b))
 d.class_key(4)
 chk("2 tecla 4: clasifica el punto actual como suelo y pasa al siguiente sin clasificar",
     d.labels[b] == "suelo" and d.current_idx == pend[2] and d.class_group.checkedId() == 4, (d.labels[b], d.current_idx))
@@ -192,7 +192,7 @@ mev("release", ex + 60, ey + 40, LB, NB)
 chk("4 arrastrar mueve la vista y no clasifica", d.canvas.center != c0 and d.labels == lab_before, (c0, d.canvas.center))
 # ayuda
 chk("5 pestaña «Ayuda» con la ayuda completa", d.tabs.tabText(1) == "Ayuda"
-    and "Siguiente sin clasificar" in d.help_browser.toPlainText() and "anillo amarillo" in d.help_browser.toPlainText())
+    and "Saltar sin clasificar" in d.help_browser.toPlainText() and "anillo amarillo" in d.help_browser.toPlainText())
 chk("5 casilla «Sombrear vegetación verde en magenta (V)»", d.show_green.text() == "Sombrear vegetación verde en magenta (V)")
 print("\nRESULTADO:", "OK" if ok_all else "HAY FALLAS")
 sys.exit(0 if ok_all else 1)
