@@ -30,7 +30,8 @@ HELP = (
     "<b>Ayuda corta.</b> 1) Tome la foto hacia abajo, con el teléfono nivelado, sobre baldosas (o un cuadro o una "
     "hoja de tamaño conocido) que cubran el centro de la foto. 2) Mida la altura <b>H</b> hasta el suelo. "
     "3) Escriba los lados del rectángulo que va a marcar (con baldosas: paso entre juntas × número de baldosas, "
-    "y «Aplicar»). 4) Marque sus 4 esquinas en el centro de las juntas (clic; clic derecho quita la última; rueda "
+    "y «Aplicar»). 4) Marque sus 4 esquinas en el centro de las juntas (cursor en cruz y líneas guía de lado a lado para "
+    "alinearlo con las juntas; clic; clic derecho quita la última; rueda "
     "o +/− para acercar; arrastre o flechas para mover, Mayús + flecha: paso mayor). 5) Recomendado: una segunda foto a otra altura (40–60 cm más) "
     "medida desde el <b>mismo punto</b> del teléfono: así no importa dónde está el lente. 6) «Calcular».")
 
@@ -136,6 +137,8 @@ class TileCalibrationDialog(QDialog):
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(left)
         split.addWidget(scroll)
         self.canvas = ImageCanvas(self._on_canvas_click)
+        self.canvas.guides_fn = lambda: (self.photos[self.active].rgb is not None
+                                         and len(self.photos[self.active].corners) < 4)   # v0.15.8
         split.addWidget(self.canvas)
         split.setSizes([430, 820])
         root.addWidget(split, 1)

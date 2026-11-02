@@ -283,15 +283,44 @@ GROUND_HELP_HTML = """
 <p>Mide qué parte de un área del suelo está cubierta por <b>vegetación verde</b>, <b>vegetación seca</b>,
 <b>hojarasca</b> y <b>suelo desnudo</b>. Es de uso general: no supone un diseño de muestreo.</p>
 
-<h3>1. Foto</h3>
+<h3>1. Foto: buenas prácticas</h3>
 <ul>
-  <li>Cámara principal del teléfono (1x), apuntando hacia abajo y nivelada, a 1–1,5 m del suelo.</li>
-  <li>De preferencia con cielo nublado o con el área a la sombra: la luz directa crea sombras que parecen suelo.</li>
-  <li>Use la foto original, con su EXIF (fecha y coordenadas GNSS pasan al CSV y al informe).</li>
+  <li>Cámara principal del teléfono (<b>1x</b>, sin zoom digital), apuntando <b>hacia abajo y nivelada</b> (una app de
+  nivel de burbuja ayuda), a una <b>altura fija</b> de 1–1,5 m. Con área fija, mida la altura hasta el vidrio de la
+  cámara.</li>
+  <li><b>Luz difusa:</b> cielo nublado, o toda el área a la sombra (una sombrilla o el cuerpo, pero que la sombra la
+  cubra entera). La luz directa crea sombras duras que parecen suelo y reflejos que parecen hojas secas.</li>
+  <li><b>Suelo plano y vegetación baja</b> (pastos, cultivos, coberturas rastreras), con el cuadro completo dentro de
+  la foto y nítido. Temporizador de 3 s para no mover el teléfono.</li>
+  <li>Use la <b>foto original</b>, con su EXIF (fecha y coordenadas GNSS pasan al CSV y al informe), con la misma
+  configuración que la calibración (proporción 4:3).</li>
+  <li>Para comparar fotos (fechas, parcelas), use la misma altura, la misma hora o luz parecida, el mismo número de
+  puntos y la misma lista de clases.</li>
+</ul>
+
+<h3>Fotos que conviene evitar</h3>
+<ul>
+  <li><b>Sol directo con sombras duras:</b> aumenta «No identificable» y las dos reglas del verde fallan en la sombra
+  profunda.</li>
+  <li><b>Cámara inclinada:</b> lo cercano ocupa más píxeles que lo lejano. Con cuadro, el enderezado lo corrige para el
+  área, pero no la vista oblicua de las plantas; con área fija, el área queda mal.</li>
+  <li><b>Plantas altas o a distintas alturas</b> (macetas, arbustos, hojas cerca del lente): lo que está cerca de la
+  cámara se ve más grande y pesa más en los puntos y en los píxeles.</li>
+  <li><b>Follaje que no es verde</b> (hojas moradas, plateadas o glaucas, como la sábila): Canopeo y ExG − ExR no lo
+  cuentan como verde. Clasifíquelo por puntos con una clase propia (por ejemplo, «Vegetación no verde») y no use el
+  verde por píxeles como cobertura vegetal.</li>
+  <li><b>Fotos movidas, desenfocadas o con niebla en el lente</b>; de noche o con flash.</li>
+  <li><b>Pies, la sombra del fotógrafo, el soporte o la regla</b> dentro del área.</li>
+  <li><b>Zoom digital, gran angular (0,5x), recortes, formato 16:9</b> o copias reenviadas por chat (cambian el tamaño
+  y la escala, y pierden el EXIF).</li>
+  <li>Suelo muy húmedo y oscuro, o suelos y piedras verdosas, algas o musgo sobre roca: revise esos puntos.</li>
 </ul>
 
 <h3>2. Área de muestreo</h3>
 <ul>
+  <li><b>Cursor y líneas guía:</b> el cursor es una cruz (el clic cae en su centro). Mientras marca las esquinas, dos
+  líneas finas cruzan toda la imagen por el cursor para alinearlo con los bordes del marco; desaparecen al marcar la
+  cuarta esquina.</li>
   <li><b>Cuadro:</b> un marco físico cuadrado sobre el suelo (por ejemplo, de 1 × 1 m). Haga clic en sus 4 esquinas
   interiores, en cualquier orden; el contador indica cuántas lleva y el <b>clic derecho</b> quita la última.
   CobDosel endereza el cuadro a un cuadrado de 1000 × 1000 px, aunque la cámara no esté perfectamente vertical.

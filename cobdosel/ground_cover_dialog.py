@@ -20,6 +20,9 @@ primer punto); «Saltar sin clasificar» (S); contador «Sin clasificar: k de n 
 v0.15.7: «Nueva clase…» y «Quitar clase nueva…» (clases del usuario, guardadas en ~/.cobdosel/clases_suelo.json;
 teclas 1–9); «Diferencias entre las reglas» (C): cian donde solo ExG − ExR ve verde, naranja donde solo Canopeo.
 
+v0.15.8: cursor en cruz y líneas guía por el cursor mientras se marcan las esquinas (también en «Calibrar con
+baldosas»); ayuda corta y completa con buenas prácticas y fotos que conviene evitar.
+
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
@@ -46,8 +49,12 @@ from . import ground_cover as gc
 from .help_texts import GROUND_HELP_HTML
 
 HELP = (
-    "<b>Ayuda corta.</b> 1) Cargue la foto. 2) Área: <b>cuadro</b> (clic en sus 4 esquinas; clic derecho quita la "
-    "última) o <b>área fija</b>. 3) «Preparar área». 4) Marque la clase y pulse «Siguiente» (<b>N</b>): "
+    "<b>Foto:</b> hacia abajo, nivelada, 1x, a altura fija, con luz difusa (nublado o sombra pareja), suelo plano y "
+    "vegetación baja. <b>Evite:</b> sol directo con sombras duras, cámara inclinada, plantas a distintas alturas, "
+    "follaje morado o plateado (no cuenta como verde), fotos movidas, zoom o copias de chat. Detalles: pestaña "
+    "«Ayuda».<br>"
+    "<b>Ayuda corta.</b> 1) Cargue la foto. 2) Área: <b>cuadro</b> (clic en sus 4 esquinas con la cruz y las líneas guía; clic derecho "
+    "quita la última) o <b>área fija</b>. 3) «Preparar área». 4) Marque la clase y pulse «Siguiente» (<b>N</b>): "
     "asigna esa clase al punto actual (anillo amarillo) y pasa al siguiente; la primera vez solo muestra el punto 1. "
     "<b>1–9</b> (número de la clase) cambia la clase y la asigna; <b>S</b> salta el punto. «Nueva clase…» agrega una "
     "clase. <b>C</b> muestra dónde difieren las reglas del verde (cian y naranja). También puede hacer clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre o <b>flechas</b> para mover (Mayús: paso mayor); <b>F</b> ajusta la vista; "
@@ -77,6 +84,9 @@ class ImageCanvas(QWidget):
         self.marks = []                # [(x, y, (r, g, b))] en px de la imagen
         self.polygon = []              # [(x, y)] esquinas del cuadro
         self.current = None            # (x, y) del punto actual (anillo amarillo)
+        self.guides_fn = None          # v0.15.8: función → True si se dibujan las líneas guía (marcando esquinas)
+        self.hover = None              # posición del cursor en pantalla (para las líneas guía)
+        self.setCursor(Qt.CursorShape.CrossCursor)     # v0.15.8: cruz, con el punto de clic en su centro
         self._press = None             # posición de pantalla del clic izquierdo (para distinguir clic y arrastre)
         self._dragged = False
         self.setMinimumSize(420, 420)
@@ -183,7 +193,27 @@ class ImageCanvas(QWidget):
             p.drawEllipse(c, rad * 1.9, rad * 1.9)
             p.setPen(QPen(QColor(255, 230, 0), 3))
             p.drawEllipse(c, rad * 1.9, rad * 1.9)
+        if self.guides_on() and self.hover is not None:
+            # v0.15.8: líneas guía de lado a lado por el cursor (negro debajo y blanco encima: se ven sobre cualquier fondo)
+            hx, hy = self.hover
+            x0, x1 = max(0.0, ox), min(float(self.width()), ox + self.img_w * s)
+            y0, y1 = max(0.0, oy), min(float(self.height()), oy + self.img_h * s)
+            if x0 <= hx <= x1 and y0 <= hy <= y1:
+                for pen in (QPen(QColor(0, 0, 0), 3), QPen(QColor(255, 255, 255), 1)):
+                    p.setPen(pen)
+                    p.drawLine(QPointF(hx, y0), QPointF(hx, y1))
+                    p.drawLine(QPointF(x0, hy), QPointF(x1, hy))
         p.end()
+
+    def guides_on(self):
+        try:
+            return bool(self.guides_fn and self.guides_fn())
+        except Exception:
+            return False
+
+    def leaveEvent(self, _e):
+        self.hover = None
+        self.update()
 
     def wheelEvent(self, e):
         if self.pix is None:
@@ -217,9 +247,12 @@ class ImageCanvas(QWidget):
         self._dragged = False
 
     def mouseMoveEvent(self, e):
-        if self._press is None:
-            return
         pos = self._pos(e)
+        if self._press is None:
+            if self.guides_on():
+                self.hover = (pos.x(), pos.y())
+                self.update()
+            return
         dx, dy = pos.x() - self._press[0], pos.y() - self._press[1]
         if not self._dragged and dx * dx + dy * dy < 36:      # menos de 6 px: todavía es un clic
             return
@@ -235,7 +268,7 @@ class ImageCanvas(QWidget):
             return
         pos = self._pos(e)
         dragged, self._press = self._dragged, None
-        self.unsetCursor()
+        self.setCursor(Qt.CursorShape.CrossCursor)
         if dragged:
             return
         x, y = self.to_image(pos.x(), pos.y())
@@ -398,6 +431,8 @@ class GroundCoverDialog(QDialog):
         help_lbl = QLabel(HELP); help_lbl.setWordWrap(True); lv.addWidget(help_lbl)
         split.addWidget(tabs)
         self.canvas = ImageCanvas(self._on_canvas_click)
+        self.canvas.guides_fn = lambda: (self.rgb is not None and self.area is None and self.mode_quad.isChecked()
+                                         and len(self.corners) < 4)
         split.addWidget(self.canvas)
         split.setStretchFactor(1, 2)
         self._grid_buttons(False)
