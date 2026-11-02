@@ -207,6 +207,46 @@ def fixed_area_side_px(focal_px, height_m, side_m):
     return float(side_m) * float(focal_px) / float(height_m)
 
 
+FIT_MARGIN = 0.05              # v0.15.9: margen recomendado (cámara unos cm más baja de lo previsto; bordes de la foto)
+
+
+def fixed_area_fit(focal_px, short_side_px, height_m, side_m, margin=FIT_MARGIN):
+    """Qué cuadrado cabe en la foto con área fija (v0.15.9). El cuadrado debe caber en el lado corto de la foto:
+    lado máximo = H · lado corto / f; altura mínima para un lado = lado · f / lado corto. Devuelve dict con
+    max_side_m, max_side_margin_m, min_height_m, min_height_margin_m, fits (exacto) y fits_margin."""
+    if not focal_px or not short_side_px or height_m <= 0 or side_m <= 0:
+        raise ValueError("La focal, el lado corto de la foto, la altura y el lado deben ser positivos.")
+    k = float(short_side_px) / float(focal_px)          # lado máximo / altura
+    max_side = float(height_m) * k
+    min_h = float(side_m) / k
+    return {"max_side_m": max_side, "max_side_margin_m": max_side * (1.0 - margin),
+            "min_height_m": min_h, "min_height_margin_m": min_h / (1.0 - margin),
+            "fits": side_m <= max_side, "fits_margin": side_m <= max_side * (1.0 - margin)}
+
+
+def aspect_mismatch(cal, width_px, height_px, tol=0.01):
+    """Texto del error si la foto y la calibración tienen distinta proporción (v0.15.9), o ''. Una foto 16:9 es un
+    recorte de la 4:3: la calibración no se puede reescalar por el lado corto (la focal quedaría 25 % baja)."""
+    cw, ch = cal.get("image_width_px"), cal.get("image_height_px")
+    if not cw or not ch:
+        return ""
+    a_cal = max(cw, ch) / float(min(cw, ch))
+    a_img = max(width_px, height_px) / float(min(width_px, height_px))
+    if abs(a_cal - a_img) <= tol * a_img:
+        return ""
+    return ("La foto ({}×{} px, proporción {:.3f}) y la calibración ({}×{} px, {:.3f}) tienen distinta proporción: "
+            "una foto 16:9 es un recorte de la 4:3 y el área fija quedaría mal. Use fotos con la proporción de la "
+            "calibración (4:3) o calibre con esa proporción.".format(width_px, height_px, a_img, int(cw), int(ch), a_cal))
+
+
+def fit_table(focal_px, short_side_px, heights=(0.6, 0.8, 1.0, 1.2, 1.5, 2.0),
+              sides=(0.25, 0.5, 0.75, 1.0, 1.25, 1.5), margin=FIT_MARGIN):
+    """Tablas de la ayuda y el manual: [(H, lado máx., lado máx. con margen)] y [(lado, H mín., H mín. con margen)]."""
+    k = float(short_side_px) / float(focal_px)
+    return ([(h, h * k, h * k * (1.0 - margin)) for h in heights],
+            [(s, s / k, s / k / (1.0 - margin)) for s in sides])
+
+
 def crop_fixed_area(rgb, focal_px, height_m, side_m, center=None):
     """Recorta el cuadrado central de side_m × side_m m. Devuelve (recorte, lado_px). Falla si no cabe."""
     h, w = rgb.shape[:2]

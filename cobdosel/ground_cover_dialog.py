@@ -23,6 +23,9 @@ teclas 1–9); «Diferencias entre las reglas» (C): cian donde solo ExG − ExR
 v0.15.8: cursor en cruz y líneas guía por el cursor mientras se marcan las esquinas (también en «Calibrar con
 baldosas»); ayuda corta y completa con buenas prácticas y fotos que conviene evitar.
 
+v0.15.9: área fija: la ventana indica qué cuadrado cabe a la altura escrita y la altura mínima para el lado elegido,
+con la calibración elegida y el tamaño de la foto (ground_cover.fixed_area_fit); tablas en la ayuda y el manual.
+
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
@@ -342,6 +345,13 @@ class GroundCoverDialog(QDialog):
         for name, _p in list_calibrations():
             self.cal_combo.addItem(name, name)
         f2.addRow("Calibración (área fija):", self.cal_combo)
+        # v0.15.9: qué cuadrado cabe con esta altura y esta calibración (se actualiza al escribir)
+        self.fit_lbl = QLabel("")
+        self.fit_lbl.setWordWrap(True)
+        f2.addRow("", self.fit_lbl)
+        for w in (self.side_spin, self.height_spin):
+            w.valueChanged.connect(self._update_fit)
+        self.cal_combo.currentIndexChanged.connect(self._update_fit)
         self.tiles_btn = QPushButton("Calibrar con baldosas o un rectángulo conocido…")
         self.tiles_btn.setToolTip("Crea y guarda una calibración «Rectilínea» con una o dos fotos de baldosas, un "
                                   "cuadro o una hoja de tamaño conocido.")
@@ -476,12 +486,53 @@ class GroundCoverDialog(QDialog):
         for w in (self.new_grid_btn, self.next_btn, self.skip_btn):
             w.setEnabled(on)
 
+    def _update_fit(self, *_a):
+        """Indica el cuadrado más grande que cabe a esta altura y la altura mínima para el lado elegido (v0.15.9)."""
+        if not hasattr(self, "fit_lbl"):
+            return
+        if self.mode_quad.isChecked():
+            self.fit_lbl.setText("")
+            return
+        name = self.cal_combo.currentData()
+        if not name:
+            self.fit_lbl.setText("Elija una calibración «Rectilínea» del teléfono para calcular qué cuadrado cabe.")
+            return
+        try:
+            cal = load_calibration(name)
+            if self.rgb is not None:
+                h, w = self.rgb.shape[:2]
+                bad = gc.aspect_mismatch(cal, w, h)
+                if bad:
+                    self.fit_lbl.setText("<b>No se puede usar:</b> " + bad)
+                    return
+                cal = scale_calibration_to_image(cal, w, h)
+            else:
+                w, h = cal.get("image_width_px"), cal.get("image_height_px")
+            if cal.get("lens_type") != "regular" or cal.get("projection") != "rectilinear":
+                self.fit_lbl.setText("La calibración elegida no es «Rectilínea»: el área fija necesita una.")
+                return
+            H, side = float(self.height_spin.value()), float(self.side_spin.value())
+            r = gc.fixed_area_fit(cal["focal_length_px"], min(w, h), H, side)
+        except Exception as e:      # calibración ilegible: se informa y no se calcula
+            self.fit_lbl.setText("No se pudo leer la calibración: {}".format(e))
+            return
+        txt = ("A {:.2f} m de altura cabe un cuadrado de hasta {:.2f} m ({:.2f} m con 5 % de margen). Para {:.2f} m "
+               "de lado: altura mínima {:.2f} m ({:.2f} m con margen).").format(
+            H, r["max_side_m"], r["max_side_margin_m"], side, r["min_height_m"], r["min_height_margin_m"])
+        if not r["fits"]:
+            txt = "<b>No cabe.</b> " + txt
+        elif not r["fits_margin"]:
+            txt = ("<b>Cabe sin margen:</b> si la foto se toma unos centímetros más abajo, ya no cabe y el cuadrado "
+                   "queda pegado a los bordes de la foto. ") + txt
+        self.fit_lbl.setText(txt)
+
     def _on_mode(self, *_a):
         quad = self.mode_quad.isChecked()
         self.corner_lbl.setEnabled(quad)
         self.clear_btn.setEnabled(quad)
         for w in (self.height_spin, self.cal_combo):
             w.setEnabled(not quad)
+        self._update_fit()
         if not quad and self.area is None:
             self.corners = []
             self.canvas.polygon = []
@@ -627,6 +678,7 @@ class GroundCoverDialog(QDialog):
         self.current_idx = None
         self.canvas.set_image(self.rgb)
         self.canvas.setFocus()          # flechas, +/− y F funcionan sin hacer clic antes en la foto
+        self._update_fit()              # v0.15.9: el lado corto de esta foto
         self._update_corner_label()
         self._grid_buttons(False)
         for bb in (self.csv_btn, self.html_btn):
@@ -725,7 +777,11 @@ class GroundCoverDialog(QDialog):
             if not name:
                 raise ValueError("El área fija necesita una calibración guardada del teléfono.")
             h, w = self.rgb.shape[:2]
-            cal = scale_calibration_to_image(load_calibration(name), w, h)
+            raw = load_calibration(name)
+            bad = gc.aspect_mismatch(raw, w, h)        # v0.15.9: antes no se comprobaba
+            if bad:
+                raise ValueError(bad)
+            cal = scale_calibration_to_image(raw, w, h)
             f = cal.get("focal_length_px")
             if cal.get("lens_type") != "regular" or cal.get("projection") != "rectilinear":
                 raise ValueError("El área fija necesita una calibración «Rectilínea» de lente regular.")

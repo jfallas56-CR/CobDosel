@@ -333,6 +333,35 @@ GROUND_HELP_HTML = """
   fotos de baldosas, de un cuadro o de una hoja de tamaño conocido, con 4 esquinas marcadas; con dos alturas medidas
   desde el mismo punto del teléfono no importa dónde está el lente). «Usar y guardar esta calibración…» pide el nombre (se propone uno, p. ej. «Pixel 10_1x_baldosas_H82»); la calibración se guarda y queda
   elegida.</li>
+  <li><b>¿Qué cuadrado cabe?</b> Con área fija, el cuadrado tiene que caber en el <b>lado corto</b> de la foto:
+  lado máximo = <i>H</i> × lado corto (px) / f; altura mínima = lado × f / lado corto (px). La ventana lo calcula
+  mientras escribe la altura y el lado, con la calibración elegida («Cabe sin margen» o «No cabe» si hace falta subir
+  la cámara). Conviene dejar un <b>5 % de margen</b>: si la cámara queda unos centímetros más
+  abajo de lo previsto (5 cm a 1 m), el cuadrado todavía cabe, y queda lejos de los bordes de la foto, menos nítidos.
+  <table border="1" cellspacing="0" cellpadding="3">
+  <tr><th>Altura <i>H</i></th><th>Suelo que cubre la foto</th><th>Cuadrado máximo</th><th>Con 5 % de margen</th></tr>
+  <tr><td>0,6 m</td><td>0,82 × 0,62 m</td><td>0,62 m</td><td>0,59 m</td></tr>
+  <tr><td>0,8 m</td><td>1,10 × 0,82 m</td><td>0,82 m</td><td>0,78 m</td></tr>
+  <tr><td>1,0 m</td><td>1,37 × 1,03 m</td><td>1,03 m</td><td>0,98 m</td></tr>
+  <tr><td>1,2 m</td><td>1,65 × 1,23 m</td><td>1,23 m</td><td>1,17 m</td></tr>
+  <tr><td>1,5 m</td><td>2,06 × 1,54 m</td><td>1,54 m</td><td>1,47 m</td></tr>
+  <tr><td>2,0 m</td><td>2,74 × 2,06 m</td><td>2,06 m</td><td>1,95 m</td></tr>
+  </table>
+  Ejemplo: Pixel 10, cámara principal 1x, foto de 4000 × 3000 px, f = 2917 px (calibración con baldosas). Para un
+  cuadrado de 1 × 1 m, altura mínima 0,97 m; con margen, 1,02 m (unos 1,05–1,10 m en el campo).
+  <br>Otros teléfonos (foto 4:3, 1x), con 5 % de margen, según la focal equivalente de 35 mm de la calibración:
+  <table border="1" cellspacing="0" cellpadding="3">
+  <tr><th>Focal equivalente</th><th>Lado máximo / altura</th><th>Altura mínima / lado</th></tr>
+  <tr><td>23 mm</td><td>1,07</td><td>0,93</td></tr>
+  <tr><td>24 mm</td><td>1,03</td><td>0,97</td></tr>
+  <tr><td>25 mm</td><td>0,99</td><td>1,01</td></tr>
+  <tr><td>26 mm</td><td>0,95</td><td>1,05</td></tr>
+  <tr><td>27 mm</td><td>0,91</td><td>1,09</td></tr>
+  <tr><td>28 mm</td><td>0,88</td><td>1,14</td></tr>
+  </table>
+  Regla práctica (24–26 mm): altura de la cámara ≥ 1,05 × lado del cuadrado. Use la focal de la calibración, no la del
+  EXIF (Pixel 10: EXIF 24 mm, calibración 25,2–25,4 mm). Una foto 16:9 tiene el lado corto menor y cabe un cuadrado
+  más pequeño: el protocolo pide 4:3.</li>
   <li><b>Puntos de la cuadrícula</b> (100 por defecto) y <b>semilla</b>: la misma semilla da la misma cuadrícula.
   «Nueva cuadrícula» usa otra semilla. Si ya hay puntos clasificados a mano, se pregunta antes de descartarlos.</li>
 </ul>
