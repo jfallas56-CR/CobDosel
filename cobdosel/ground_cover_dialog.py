@@ -17,6 +17,9 @@ mover la vista; pestaña «Ayuda» con la ayuda completa; «Sombrear vegetación
 v0.15.6: «Siguiente» (N) asigna la clase marcada al punto actual y pasa al siguiente (la primera vez solo muestra el
 primer punto); «Saltar sin clasificar» (S); contador «Sin clasificar: k de n puntos» y número del punto actual.
 
+v0.15.7: «Nueva clase…» y «Quitar clase nueva…» (clases del usuario, guardadas en ~/.cobdosel/clases_suelo.json;
+teclas 1–9); «Diferencias entre las reglas» (C): cian donde solo ExG − ExR ve verde, naranja donde solo Canopeo.
+
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
@@ -26,7 +29,7 @@ import webbrowser
 import numpy as np
 
 from qgis.PyQt.QtCore import Qt, QPointF, QUrl
-from qgis.PyQt.QtGui import QImage, QPainter, QPen, QColor, QPixmap, QDesktopServices
+from qgis.PyQt.QtGui import QImage, QPainter, QPen, QColor, QPixmap, QDesktopServices, QIcon
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton, QLineEdit, QComboBox,
     QDoubleSpinBox, QSpinBox, QGroupBox, QFileDialog, QMessageBox, QRadioButton, QTextEdit, QWidget,
@@ -46,7 +49,8 @@ HELP = (
     "<b>Ayuda corta.</b> 1) Cargue la foto. 2) Área: <b>cuadro</b> (clic en sus 4 esquinas; clic derecho quita la "
     "última) o <b>área fija</b>. 3) «Preparar área». 4) Marque la clase y pulse «Siguiente» (<b>N</b>): "
     "asigna esa clase al punto actual (anillo amarillo) y pasa al siguiente; la primera vez solo muestra el punto 1. "
-    "<b>1–5</b> cambia la clase y la asigna; <b>S</b> salta el punto. También puede hacer clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre o <b>flechas</b> para mover (Mayús: paso mayor); <b>F</b> ajusta la vista; "
+    "<b>1–9</b> (número de la clase) cambia la clase y la asigna; <b>S</b> salta el punto. «Nueva clase…» agrega una "
+    "clase. <b>C</b> muestra dónde difieren las reglas del verde (cian y naranja). También puede hacer clic en cualquier punto. Zoom: rueda, <b>+</b>/<b>−</b>; arrastre o <b>flechas</b> para mover (Mayús: paso mayor); <b>F</b> ajusta la vista; "
     "<b>V</b> sombrea la vegetación verde en magenta. 5) Exporte. Ayuda completa: pestaña «Ayuda».")
 
 RIGHT = "right"
@@ -131,7 +135,7 @@ class ImageCanvas(QWidget):
         if self.pan_key(e):
             e.accept()
             return
-        super().keyPressEvent(e)      # las demás teclas (1–5, N, F, V, +/−) siguen a la ventana
+        super().keyPressEvent(e)      # las demás teclas (1–9, N, S, C, F, V, +/−) siguen a la ventana
 
     def _geom(self):
         base = min(self.width() / float(self.img_w), self.height() / float(self.img_h))
@@ -259,6 +263,9 @@ class GroundCoverDialog(QDialog):
         self.res = None
         self.current_class = "seca"
         self.current_idx = None         # punto actual (anillo amarillo)
+        self.only_x = self.only_c = None    # v0.15.7: verde solo para ExG − ExR / solo para Canopeo
+        self.custom_classes = gc.load_custom_classes()
+        self.classes = gc.class_list(self.custom_classes)
         self._build()
         self._on_mode()
         disable_enter_buttons(self)
@@ -323,17 +330,26 @@ class GroundCoverDialog(QDialog):
         row2.addWidget(self.new_grid_btn)
         f2.addRow(row2)
         lv.addWidget(g2)
-        g3 = QGroupBox("3. Clasificar los puntos (teclas 1–5)"); v3 = QVBoxLayout(g3)
+        self.g3 = g3 = QGroupBox("3. Clasificar los puntos (teclas 1–{})".format(len(self.classes)))
+        v3 = QVBoxLayout(g3)
         self.progress_lbl = QLabel("Prepare el área para ver los puntos.")
         self.progress_lbl.setWordWrap(True)
         v3.addWidget(self.progress_lbl)
         self.class_group = QButtonGroup(self)
-        for i, (key, lbl) in enumerate(gc.CLASSES, 1):
-            rb = QRadioButton("{} — {}".format(i, lbl)); rb.setProperty("clase", key)
-            if key == self.current_class:
-                rb.setChecked(True)
-            rb.toggled.connect(lambda on, k=key: on and self._set_class(k))
-            self.class_group.addButton(rb, i); v3.addWidget(rb)
+        self.class_box = QVBoxLayout()
+        v3.addLayout(self.class_box)
+        self._build_class_radios()
+        rowc = QHBoxLayout()
+        self.new_class_btn = QPushButton("Nueva clase…")
+        self.new_class_btn.setToolTip("Agrega una clase (por ejemplo, «Vegetación amarillenta»); queda guardada para "
+                                      "las próximas fotos. Hasta 9 clases (teclas 1–9).")
+        self.new_class_btn.clicked.connect(self._on_new_class)
+        self.del_class_btn = QPushButton("Quitar clase nueva…")
+        self.del_class_btn.setToolTip("Quita una clase agregada por el usuario (las 5 fijas no se quitan). No se puede "
+                                      "quitar si algún punto de esta foto la tiene.")
+        self.del_class_btn.clicked.connect(self._on_del_class)
+        rowc.addWidget(self.new_class_btn); rowc.addWidget(self.del_class_btn)
+        v3.addLayout(rowc)
         row4 = QHBoxLayout()
         self.show_green = QCheckBox("Sombrear vegetación verde en magenta (V)")
         self.show_green.setChecked(False)
@@ -342,12 +358,19 @@ class GroundCoverDialog(QDialog):
         self.show_green.toggled.connect(self._redraw_area)
         row4.addWidget(self.show_green)
         v3.addLayout(row4)
+        self.show_diff = QCheckBox("Diferencias entre las reglas: cian = verde solo para ExG − ExR, naranja = solo "
+                                   "para Canopeo (C)")
+        self.show_diff.setChecked(False)
+        self.show_diff.setToolTip("Muestra dónde difieren Canopeo y ExG − ExR (suele ser vegetación amarillenta u hojas "
+                                  "en sombra). Una diferencia no es un error de la foto ni de la clasificación.")
+        self.show_diff.toggled.connect(self._redraw_area)
+        v3.addWidget(self.show_diff)
         # v0.15.6: «Siguiente» asigna la clase marcada al punto actual y pasa al siguiente; «Saltar» no clasifica
         row6 = QHBoxLayout()
         self.next_btn = QPushButton("Siguiente (N): asigna la clase marcada")
         self.next_btn.setToolTip("Asigna la clase marcada arriba al punto actual (anillo amarillo) y pasa al siguiente "
                                  "sin clasificar. La primera vez solo muestra el primer punto. Si el punto siguiente "
-                                 "es de otra clase, márquela (o pulse 1–5) antes de «Siguiente».")
+                                 "es de otra clase, márquela (o pulse su número) antes de «Siguiente».")
         self.next_btn.clicked.connect(self.advance)
         self.skip_btn = QPushButton("Saltar sin clasificar (S)")
         self.skip_btn.setToolTip("Pasa al siguiente punto sin clasificar el actual; se vuelve a él al final de la vuelta.")
@@ -361,7 +384,7 @@ class GroundCoverDialog(QDialog):
         for w in (self.zoom_in_btn, self.zoom_out_btn, self.fit_btn):
             row5.addWidget(w)
         v3.addLayout(row5)
-        self.auto_next = QCheckBox("Al clasificar con 1–5, pasar al siguiente sin clasificar")
+        self.auto_next = QCheckBox("Al clasificar con las teclas de número, pasar al siguiente sin clasificar")
         self.auto_next.setChecked(True)
         v3.addWidget(self.auto_next)
         lv.addWidget(g3)
@@ -436,9 +459,91 @@ class GroundCoverDialog(QDialog):
     def _set_class(self, key):
         self.current_class = key
 
+    # ------------------------------------------------------------ clases (v0.15.7: clases nuevas)
+    @staticmethod
+    def _swatch(col):
+        pm = QPixmap(14, 14)
+        pm.fill(QColor(0, 0, 0, 0))
+        p = QPainter(pm)
+        p.setPen(QPen(QColor(0, 0, 0), 1))
+        p.setBrush(QColor(*col))
+        p.drawEllipse(1, 1, 12, 12)
+        p.end()
+        return QIcon(pm)
+
+    def _build_class_radios(self):
+        for b in list(self.class_group.buttons()):
+            self.class_group.removeButton(b)
+            b.setParent(None)
+            b.deleteLater()
+        keys = [k for k, _l, _c in self.classes]
+        if self.current_class not in keys:
+            self.current_class = "seca"
+        for i, (key, lbl, col) in enumerate(self.classes, 1):
+            rb = QRadioButton("{} — {}".format(i, lbl)); rb.setProperty("clase", key)
+            rb.setIcon(self._swatch(col))           # color de la clase (como en la vista y el informe)
+            if key == self.current_class:
+                rb.setChecked(True)
+            rb.toggled.connect(lambda on, k=key: on and self._set_class(k))
+            self.class_group.addButton(rb, i)
+            self.class_box.addWidget(rb)
+        if hasattr(self, "g3"):
+            self.g3.setTitle("3. Clasificar los puntos (teclas 1–{})".format(len(self.classes)))
+
+    def _set_classes(self, custom):
+        self.custom_classes = custom
+        self.classes = gc.class_list(custom)
+        try:
+            gc.save_custom_classes(custom)
+        except OSError as e:
+            self._log("No se pudieron guardar las clases nuevas: {}".format(e))
+        self._build_class_radios()
+        if self.points:
+            self._refresh()
+
+    def add_class(self, name):
+        """Agrega una clase nueva (guardada para las próximas fotos) y la deja marcada."""
+        custom = gc.new_custom_class(name, self.custom_classes)
+        self.current_class = custom[-1]["clave"]
+        self._set_classes(custom)
+        self._log("Clase nueva: «{}» (tecla {}).".format(custom[-1]["nombre"], len(self.classes)))
+        return custom[-1]["clave"]
+
+    def remove_class(self, key):
+        if any(lab == key for lab in self.labels):
+            raise ValueError("Hay puntos de esta foto con esa clase: cámbielos antes de quitarla.")
+        custom = [d for d in self.custom_classes if d["clave"] != key]
+        if len(custom) == len(self.custom_classes):
+            raise ValueError("Solo se pueden quitar las clases agregadas por el usuario.")
+        self._set_classes(custom)
+
+    def _on_new_class(self):
+        names = {l.lower() for _k, l, _c in self.classes}
+        sug = "Vegetación amarillenta" if "vegetación amarillenta" not in names else ""
+        name, ok = QInputDialog.getText(self, "Nueva clase", "Nombre de la clase:", QLineEdit.EchoMode.Normal, sug)
+        if not ok:
+            return
+        try:
+            self.add_class(name)
+        except ValueError as e:
+            QMessageBox.warning(self, "Nueva clase", str(e))
+
+    def _on_del_class(self):
+        if not self.custom_classes:
+            QMessageBox.information(self, "Quitar clase", "No hay clases agregadas por el usuario.")
+            return
+        names = [d["nombre"] for d in self.custom_classes]
+        name, ok = QInputDialog.getItem(self, "Quitar clase", "Clase agregada:", names, 0, False)
+        if not ok:
+            return
+        try:
+            self.remove_class(self.custom_classes[names.index(name)]["clave"])
+        except ValueError as e:
+            QMessageBox.warning(self, "Quitar clase", str(e))
+
     def keyPressEvent(self, e):
         k = e.key()
-        keys = [getattr(Qt.Key, "Key_{}".format(i)) for i in range(1, 6)]
+        keys = [getattr(Qt.Key, "Key_{}".format(i)) for i in range(1, len(self.classes) + 1)]
         if self.canvas.pan_key(e):
             return
         if k in keys:
@@ -458,6 +563,9 @@ class GroundCoverDialog(QDialog):
             return
         if k == Qt.Key.Key_S:
             self.next_unclassified()
+            return
+        if k == Qt.Key.Key_C:
+            self.show_diff.setChecked(not self.show_diff.isChecked())
             return
         if k == Qt.Key.Key_F:
             self.canvas.fit()
@@ -590,6 +698,7 @@ class GroundCoverDialog(QDialog):
             meta.update(modo_area="Área fija", altura_camara_m=float(self.height_spin.value()), calibracion=name)
         self.area = area
         self.green = gc.canopeo_mask(self.area)
+        self.only_x, self.only_c = gc.disagreement_masks(self.area)
         self.points, self.seed = gc.point_grid(self.area.shape, int(self.points_spin.value()),
                                                seed=int(self.seed_spin.value()))
         self.auto = gc.auto_labels(self.points, self.green)
@@ -637,9 +746,12 @@ class GroundCoverDialog(QDialog):
         if self.area is None:
             return
         shown = self.area
-        if self.show_green.isChecked():
-            shown = self.area.copy()
-            shown[self.green] = (0.55 * shown[self.green] + 0.45 * np.array([255, 0, 255])).astype(np.uint8)
+        diff = self.show_diff.isChecked() and self.only_x is not None
+        if self.show_green.isChecked() or diff:
+            green = self.green if self.show_green.isChecked() else None
+            if green is not None and diff:
+                green = self.green & ~self.only_c          # magenta: verde para las dos reglas
+            shown = gc.shade(self.area, green, self.only_x if diff else None, self.only_c if diff else None)
         self.canvas.set_image(shown, keep_view=not fit)
 
     def advance(self):
@@ -660,7 +772,7 @@ class GroundCoverDialog(QDialog):
         if self.current_idx is not None:
             lab = self.labels[self.current_idx]
             txt += " · punto actual: n.º {} ({})".format(
-                self.current_idx + 1, gc.CLASS_LABELS.get(lab, "sin clasificar") if lab else "sin clasificar")
+                self.current_idx + 1, dict((k, l) for k, l, _c in self.classes).get(lab, lab) if lab else "sin clasificar")
         elif pend:
             txt += " · pulse «Siguiente» (N) para ir al primero"
         else:
@@ -692,9 +804,11 @@ class GroundCoverDialog(QDialog):
         return nxt
 
     def class_key(self, k):
-        """Tecla 1–5: elige la clase y, si hay un punto actual, lo clasifica y (opcional) pasa al siguiente."""
+        """Tecla 1–9: elige la clase y, si hay un punto actual, lo clasifica y (opcional) pasa al siguiente."""
+        if not 1 <= k <= len(self.classes):
+            return
         self.class_group.button(k).setChecked(True)
-        key = gc.CLASSES[k - 1][0]
+        key = self.classes[k - 1][0]
         if self.current_idx is not None and self.points:
             self.label_point(self.current_idx, key)
             if self.auto_next.isChecked():
@@ -705,17 +819,18 @@ class GroundCoverDialog(QDialog):
         self._refresh()
 
     def _refresh(self):
-        self.canvas.marks = [(x, y, gc.CLASS_COLORS.get(lab, (255, 255, 255)))
+        colors = {k: c for k, _l, c in self.classes}
+        self.canvas.marks = [(x, y, colors.get(lab, (255, 255, 255)))
                              for (x, y), lab in zip(self.points, self.labels)]
         self.canvas.update()
-        self.res = gc.summarize(self.area, self.labels)
+        self.res = gc.summarize(self.area, self.labels, classes=self.classes)
         r = self.res
         lines = ["Vegetación verde (Canopeo): {:.2f} %   ExG − ExR: {:.2f} %   diferencia {:+.2f}".format(
             r["verde_canopeo_pct"], r["verde_exgexr_pct"], r["diferencia_pct"])]
         if r["revisar"]:
-            lines.append("A REVISAR: Canopeo y ExG − ExR difieren más de {:.0f} puntos.".format(gc.AGREEMENT_LIMIT))
+            lines.append("A revisar: " + gc.agreement_note(r))
         lines.append("Puntos ({}; sin clasificar: {}; semilla {}):".format(r["n_puntos"], r["sin_clasificar"], self.seed))
-        for key, lbl in gc.CLASSES:
+        for key, lbl, _col in self.classes:
             d = r["clases"][key]
             lines.append("  {:<18} {:>4}  {:6.1f} %  (IC 95 %: {:.1f}–{:.1f} %)".format(
                 lbl, d["puntos"], d["pct"], d["ic_inf"], d["ic_sup"]))

@@ -314,6 +314,14 @@ GROUND_HELP_HTML = """
 «a revisar». Los puntos que caen en verde se marcan solos (anillo verde).
 <b>Sombrear vegetación verde en magenta (V)</b> muestra lo que Canopeo clasifica como verde; se usa magenta porque
 contrasta con el verde. Desactívelo para clasificar con los colores reales.</p>
+<p><b>Diferencias entre las reglas (C):</b> <b>cian</b> donde solo ExG − ExR ve verde y <b>naranja</b> donde solo
+Canopeo lo ve; el informe HTML incluye la misma imagen. Las dos reglas ponen en distinto lugar el límite entre el
+verde y el amarillo o la sombra: Canopeo exige R/G &lt; 0,95 (deja fuera hojas amarillentas, en las que el rojo casi
+iguala al verde) y 2G − R − B &gt; 20 en brillo absoluto (deja fuera verde oscuro en sombra); ExG − ExR usa
+proporciones de color y cuenta parte de esos píxeles. Por eso <b>«a revisar» no indica un error de la foto ni de la
+clasificación</b>: indica que hay bastante vegetación amarillenta, sombra, luz directa o suelo de color parecido, y
+que conviene mirar dónde difieren. Los puntos que caen en zonas cian los clasifica el analista (verde, seca o una
+clase nueva como «Vegetación amarillenta»).</p>
 
 <h3>4. Clasificar los puntos</h3>
 <ul>
@@ -324,14 +332,18 @@ contrasta con el verde. Desactívelo para clasificar con los colores reales.</p>
   <li><b>«Siguiente» (N)</b> asigna la <b>clase marcada</b> en la lista al punto actual (<b>anillo amarillo</b>) y pasa
   al siguiente punto sin clasificar. La primera vez solo muestra el primer punto. Cuando muchos puntos seguidos son
   de la misma clase (por ejemplo, vegetación seca), márquela una vez y pulse «Siguiente» en cada punto; si un punto es
-  de otra clase, marque esa clase (o pulse 1–5) antes de «Siguiente». La clase marcada queda hasta que elija otra.</li>
-  <li><b>1–5</b> marca esa clase, la asigna al punto actual y, si está marcado «pasar al siguiente», pasa al
+  de otra clase, marque esa clase (o pulse su número) antes de «Siguiente». La clase marcada queda hasta que elija otra.</li>
+  <li><b>1–9</b> (número de la clase) marca esa clase, la asigna al punto actual y, si está marcado «pasar al siguiente», pasa al
   siguiente. <b>«Saltar sin clasificar» (S)</b> pasa al siguiente sin clasificar el actual; se vuelve a él al final
   de la vuelta.</li>
   <li><b>Con el ratón:</b> elija la clase y haga clic en cualquier punto (también para corregir un punto verde, por
   ejemplo musgo o algas sobre suelo desnudo).</li>
   <li>Clases: 1 vegetación verde, 2 vegetación seca, 3 hojarasca, 4 suelo desnudo, 5 no identificable (sombra o zona
   borrosa).</li>
+  <li><b>Clases nuevas:</b> «Nueva clase…» agrega una (por ejemplo, «Vegetación amarillenta», que se propone), con su
+  color y la tecla siguiente (6, 7…; hasta 9 clases). Quedan guardadas para las próximas fotos. «Quitar clase
+  nueva…» quita una agregada si ningún punto de la foto la tiene; las 5 fijas no se quitan. El CSV y el informe
+  incluyen todas las clases de la lista, y el CSV las nombra en «clases_nuevas».</li>
   <li><b>Zoom:</b> rueda del ratón (alrededor del cursor), <b>+</b> / <b>−</b> o los botones «Acercar» y «Alejar».
   <b>Arrastre</b> con el botón izquierdo o las <b>flechas</b> del teclado para mover la vista (10 % del área visible por pulsación; con Mayús, 50 %). <b>F</b> («Ajustar vista») vuelve al área completa.</li>
 </ul>
@@ -342,6 +354,8 @@ contrasta con el verde. Desactívelo para clasificar con los colores reales.</p>
   <li>Cobertura de cada clase = % de puntos, con su IC 95 % (Wilson). Con 100 puntos y 30 %: 21,9–39,6 %. Dos
   cuadrículas distintas dan conteos algo distintos: es el error de muestreo de los puntos.</li>
   <li>«Exportar CSV…»: una fila por foto y otro CSV con cada punto (clase, clase automática, si se corrigió).
-  «Exportar informe HTML…»: resultado, tabla de clases, imagen del área y parámetros.</li>
+  «Exportar informe HTML…»: resultado, tabla de clases, imagen del área, imagen de las diferencias entre las reglas
+  (cian y naranja) y parámetros. El CSV incluye solo_exgexr_pct y solo_canopeo_pct (% del área donde solo una regla
+  ve verde).</li>
 </ul>
 """

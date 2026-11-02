@@ -17,7 +17,11 @@ import base64
 import csv
 import html as _h
 import io
+import json
 import math
+import os
+import re
+import unicodedata
 
 import numpy as np
 
@@ -31,6 +35,15 @@ CLASSES = (
 CLASS_LABELS = dict(CLASSES)
 CLASS_COLORS = {"verde": (0, 200, 0), "seca": (230, 190, 40), "hojarasca": (150, 90, 30),
                 "suelo": (120, 120, 120), "no_id": (60, 120, 255), None: (255, 255, 255)}
+# v0.15.7: clases nuevas del usuario (archivo JSON en ~/.cobdosel); colores que se asignan en orden
+CUSTOM_CLASSES_FILE = os.path.join(os.path.expanduser("~"), ".cobdosel", "clases_suelo.json")
+CUSTOM_PALETTE = ((200, 220, 0), (255, 105, 180), (0, 150, 136), (128, 0, 128), (255, 69, 0), (70, 130, 180),
+                  (154, 205, 50), (210, 105, 30))
+MAX_CLASSES = 9                # teclas 1–9
+# v0.15.7: diferencias entre las reglas en la vista y el informe
+ONLY_EXGEXR_COLOR = (0, 230, 255)       # cian: verde solo para ExG − ExR
+ONLY_CANOPEO_COLOR = (255, 140, 0)      # naranja: verde solo para Canopeo
+GREEN_SHADE_COLOR = (255, 0, 255)       # magenta: verde según Canopeo
 CANOPEO_DEFAULT = (0.95, 0.95, 20.0)
 AGREEMENT_LIMIT = 5.0          # puntos de diferencia Canopeo − ExG−ExR que dejan la foto «a revisar»
 DEFAULT_POINTS = 100
@@ -52,6 +65,93 @@ def exg_exr_mask(rgb):
     s = np.maximum(a.sum(axis=-1), 1.0)
     r, g, b = a[..., 0] / s, a[..., 1] / s, a[..., 2] / s
     return ((2.0 * g - r - b) - (1.4 * r - g)) > 0.0
+
+
+def disagreement_masks(rgb, params=CANOPEO_DEFAULT):
+    """(verde solo para ExG − ExR, verde solo para Canopeo): dónde difieren las dos reglas (v0.15.7)."""
+    c = canopeo_mask(rgb, *params)
+    x = exg_exr_mask(rgb)
+    return x & ~c, c & ~x
+
+
+def shade(rgb, green=None, only_x=None, only_c=None):
+    """Copia de la imagen con el verde de Canopeo en magenta (55/45) y las diferencias entre las reglas en cian
+    (solo ExG − ExR) y naranja (solo Canopeo), opacos para que se vean (v0.15.7)."""
+    a = np.asarray(rgb, dtype=np.uint8).copy()
+    if green is not None:
+        a[green] = (0.55 * a[green] + 0.45 * np.array(GREEN_SHADE_COLOR)).astype(np.uint8)
+    if only_x is not None:
+        a[only_x] = ONLY_EXGEXR_COLOR
+    if only_c is not None:
+        a[only_c] = ONLY_CANOPEO_COLOR
+    return a
+
+
+def agreement_note(res):
+    """Texto del aviso cuando Canopeo y ExG − ExR difieren más de AGREEMENT_LIMIT puntos (v0.15.7), o ''."""
+    if not res.get("revisar"):
+        return ""
+    return ("Canopeo y ExG − ExR difieren {:.1f} puntos (más de {:.0f}). No indica un error de la foto ni de la "
+            "clasificación: las dos reglas ponen en distinto lugar el límite entre el verde y el amarillo o la sombra. "
+            "Revise dónde difieren (cian: verde solo para ExG − ExR; naranja: verde solo para Canopeo): vegetación "
+            "amarillenta, sombras, luz directa o colores del suelo.".format(abs(res["diferencia_pct"]),
+                                                                          AGREEMENT_LIMIT))
+
+
+# ---------------------------------------------------------------- clases
+def class_key_for(name, existing=()):
+    """Clave para el CSV a partir del nombre: minúsculas sin tildes, «_» en lugar de espacios; única."""
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
+    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_") or "clase"
+    key, k = s, 2
+    while key in existing:
+        key, k = "{}_{}".format(s, k), k + 1
+    return key
+
+
+def load_custom_classes(path=None):
+    """Clases nuevas guardadas: [{"clave", "nombre", "color"}]. Lista vacía si no hay archivo o no se lee."""
+    try:
+        with open(path or CUSTOM_CLASSES_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        return [{"clave": str(d["clave"]), "nombre": str(d["nombre"]), "color": tuple(int(v) for v in d["color"])}
+                for d in data if d.get("clave") and d.get("nombre")]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
+def save_custom_classes(items, path=None):
+    path = path or CUSTOM_CLASSES_FILE
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump([{"clave": d["clave"], "nombre": d["nombre"], "color": list(d["color"])} for d in items], f,
+                  ensure_ascii=False, indent=2)
+    return path
+
+
+def class_list(custom=None):
+    """Lista de clases [(clave, nombre, color)]: las 5 fijas y luego las nuevas."""
+    out = [(k, l, CLASS_COLORS[k]) for k, l in CLASSES]
+    for d in custom or []:
+        out.append((d["clave"], d["nombre"], tuple(d["color"])))
+    return out
+
+
+def new_custom_class(name, custom, color=None):
+    """Agrega una clase nueva (devuelve la lista actualizada). Error si el nombre ya existe o hay 9 clases."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("Escriba el nombre de la clase.")
+    cl = class_list(custom)
+    if any(l.lower() == name.lower() for _k, l, _c in cl):
+        raise ValueError("Ya existe la clase «{}».".format(name))
+    if len(cl) >= MAX_CLASSES:
+        raise ValueError("Se admiten hasta {} clases (teclas 1–9).".format(MAX_CLASSES))
+    used = {c for _k, _l, c in cl}
+    if color is None:
+        color = next((c for c in CUSTOM_PALETTE if c not in used), CUSTOM_PALETTE[len(custom) % len(CUSTOM_PALETTE)])
+    return list(custom) + [{"clave": class_key_for(name, [k for k, _l, _c in cl]), "nombre": name,
+                            "color": tuple(color)}]
 
 
 # ---------------------------------------------------------------- área de muestreo
@@ -156,51 +256,67 @@ def wilson_ci(k, n, z=1.96):
 
 
 # ---------------------------------------------------------------- resultado
-def summarize(area_rgb, labels, params=(CANOPEO_DEFAULT)):
-    """Resultado de una foto: verde por píxeles (Canopeo y ExG − ExR) y % de puntos por clase con IC 95 %."""
+def summarize(area_rgb, labels, params=(CANOPEO_DEFAULT), classes=None):
+    """Resultado de una foto: verde por píxeles (Canopeo y ExG − ExR) y % de puntos por clase con IC 95 %.
+    classes: [(clave, nombre, color)] (v0.15.7; por defecto las 5 fijas)."""
+    classes = list(classes) if classes else class_list()
     cano = canopeo_mask(area_rgb, *params)
     exr = exg_exr_mask(area_rgb)
     green_c = 100.0 * float(cano.mean())
     green_x = 100.0 * float(exr.mean())
     n = len(labels)
-    classes = {}
-    for key, _lbl in CLASSES:
+    counts = {}
+    for key, _lbl, _col in classes:
         k = sum(1 for lab in labels if lab == key)
         lo, hi = wilson_ci(k, n)
-        classes[key] = {"puntos": k, "pct": 100.0 * k / n if n else None, "ic_inf": lo, "ic_sup": hi}
+        counts[key] = {"puntos": k, "pct": 100.0 * k / n if n else None, "ic_inf": lo, "ic_sup": hi}
     pending = sum(1 for lab in labels if lab is None)
     diff = green_c - green_x
     return {
         "verde_canopeo_pct": green_c, "verde_exgexr_pct": green_x, "diferencia_pct": diff,
+        "solo_exgexr_pct": 100.0 * float((exr & ~cano).mean()), "solo_canopeo_pct": 100.0 * float((cano & ~exr).mean()),
         "revisar": abs(diff) > AGREEMENT_LIMIT, "n_puntos": n, "sin_clasificar": pending,
-        "completo": pending == 0, "clases": classes,
+        "completo": pending == 0, "clases": counts, "lista_clases": classes,
         "canopeo_p1": float(params[0]), "canopeo_p2": float(params[1]), "canopeo_p3": float(params[2]),
     }
 
 
-CSV_COLUMNS = (
+_BASE_COLUMNS = (
     "archivo", "fecha_exif", "latitud", "longitud", "sitio", "analista", "modo_area", "lado_m", "area_m2",
     "altura_camara_m", "calibracion", "regla_verde", "canopeo_p1", "canopeo_p2", "canopeo_p3",
-    "verde_canopeo_pct", "verde_exgexr_pct", "diferencia_pct", "revisar", "n_puntos", "semilla", "sin_clasificar",
-    "completo",
-) + tuple("{}_{}".format(c, s) for c, _l in CLASSES for s in ("puntos", "pct", "ic95_inf", "ic95_sup")) + (
-    "plugin", "plugin_version")
+    "verde_canopeo_pct", "verde_exgexr_pct", "diferencia_pct", "solo_exgexr_pct", "solo_canopeo_pct", "revisar",
+    "n_puntos", "semilla", "sin_clasificar", "completo",
+)
+
+
+def csv_columns(classes=None):
+    """Columnas del CSV por foto: las fijas y 4 por clase (puntos, %, IC 95 %), en el orden de las clases."""
+    classes = classes or class_list()
+    return _BASE_COLUMNS + tuple("{}_{}".format(c[0], s) for c in classes
+                                 for s in ("puntos", "pct", "ic95_inf", "ic95_sup")) + (
+        "clases_nuevas", "plugin", "plugin_version")
+
+
+CSV_COLUMNS = csv_columns()
 
 
 def result_row(res, meta):
-    """Fila del CSV (en el orden de CSV_COLUMNS) a partir del resultado y los metadatos de la foto."""
+    """Fila del CSV (en el orden de csv_columns(res["lista_clases"])) a partir del resultado y los metadatos."""
+    classes = res.get("lista_clases") or class_list()
     row = dict(meta)
-    row.update({k: res[k] for k in ("verde_canopeo_pct", "verde_exgexr_pct", "diferencia_pct", "revisar",
-                                    "n_puntos", "sin_clasificar", "completo", "canopeo_p1", "canopeo_p2",
-                                    "canopeo_p3")})
+    row.update({k: res.get(k) for k in ("verde_canopeo_pct", "verde_exgexr_pct", "diferencia_pct", "solo_exgexr_pct",
+                                        "solo_canopeo_pct", "revisar", "n_puntos", "sin_clasificar", "completo",
+                                        "canopeo_p1", "canopeo_p2", "canopeo_p3")})
     row["regla_verde"] = "Canopeo (Patrignani y Ochsner 2015)"
-    for c, _l in CLASSES:
+    fixed = {k for k, _l in CLASSES}
+    row["clases_nuevas"] = "; ".join(l for k, l, _c in classes if k not in fixed) or None
+    for c, _l, _col in classes:
         d = res["clases"][c]
         row["{}_puntos".format(c)] = d["puntos"]
         row["{}_pct".format(c)] = d["pct"]
         row["{}_ic95_inf".format(c)] = d["ic_inf"]
         row["{}_ic95_sup".format(c)] = d["ic_sup"]
-    return [row.get(k) for k in CSV_COLUMNS]
+    return [row.get(k) for k in csv_columns(classes)]
 
 
 def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal="."):
@@ -213,25 +329,26 @@ def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimite
     p1 = out_prefix + ".csv"
     with open(p1, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=delimiter)
-        w.writerow(CSV_COLUMNS)
+        w.writerow(csv_columns(res.get("lista_clases")))
         w.writerow(csv_row(result_row(res, meta), decimal))
+    names = {k: l for k, l, _c in (res.get("lista_clases") or class_list())}
     p2 = out_prefix + "_puntos.csv"
     with open(p2, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=delimiter)
         w.writerow(("archivo", "punto", "x_px", "y_px", "clase", "clase_automatica", "corregido"))
         for i, ((x, y), lab, a) in enumerate(zip(points, labels, auto), 1):
             w.writerow(csv_row([meta.get("archivo"), i, round(x, 1), round(y, 1),
-                                CLASS_LABELS.get(lab, "Sin clasificar") if lab else "Sin clasificar",
-                                CLASS_LABELS.get(a) if a else None, lab != a], decimal))
+                                names.get(lab, lab) if lab else "Sin clasificar",
+                                names.get(a, a) if a else None, lab != a], decimal))
     return [p1, p2]
 
 
-def overlay_image(area_rgb, labels, points, max_px=900, green=None):
-    """Imagen del área con la vegetación verde (Canopeo) sombreada y los puntos por clase (PIL.Image)."""
+def overlay_image(area_rgb, labels, points, max_px=900, green=None, colors=None, only_x=None, only_c=None):
+    """Imagen del área con la vegetación verde (Canopeo) sombreada, las diferencias entre las reglas (opcional) y
+    los puntos por clase (PIL.Image). colors: {clave: (r, g, b)} (v0.15.7: incluye las clases nuevas)."""
     from PIL import Image, ImageDraw
-    a = np.asarray(area_rgb, dtype=np.uint8).copy()
-    if green is not None:
-        a[green] = (0.55 * a[green] + 0.45 * np.array([255, 0, 255])).astype(np.uint8)
+    colors = dict(CLASS_COLORS, **(colors or {}))
+    a = shade(area_rgb, green, only_x, only_c)
     im = Image.fromarray(a)
     s = min(1.0, float(max_px) / max(im.size))
     if s < 1.0:
@@ -240,7 +357,7 @@ def overlay_image(area_rgb, labels, points, max_px=900, green=None):
     rad = max(4, int(min(im.size) / 90))
     for (x, y), lab in zip(points, labels):
         cx, cy = x * s, y * s
-        col = CLASS_COLORS.get(lab, (255, 255, 255))
+        col = colors.get(lab, (255, 255, 255))
         d.ellipse([cx - rad, cy - rad, cx + rad, cy + rad], outline=(0, 0, 0), width=2, fill=col)
     return im
 
@@ -248,21 +365,28 @@ def overlay_image(area_rgb, labels, points, max_px=900, green=None):
 def write_html(res, meta, area_rgb, points, labels, path, version=""):
     """Informe HTML autocontenido de una foto."""
     from ._version import fmt_num
-    im = overlay_image(area_rgb, labels, points, green=canopeo_mask(area_rgb, res["canopeo_p1"],
-                                                                    res["canopeo_p2"], res["canopeo_p3"]))
+    classes = res.get("lista_clases") or class_list()
+    colors = {k: c for k, _l, c in classes}
+    prm3 = (res["canopeo_p1"], res["canopeo_p2"], res["canopeo_p3"])
+    im = overlay_image(area_rgb, labels, points, green=canopeo_mask(area_rgb, *prm3), colors=colors)
     buf = io.BytesIO(); im.save(buf, format="PNG")
     img64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    # v0.15.7: dónde difieren las dos reglas (magenta: verde para las dos; cian: solo ExG − ExR; naranja: solo Canopeo)
+    ox, oc = disagreement_masks(area_rgb, prm3)
+    both = canopeo_mask(area_rgb, *prm3) & ~oc
+    im2 = overlay_image(area_rgb, [], [], green=both, only_x=ox, only_c=oc)
+    buf2 = io.BytesIO(); im2.save(buf2, format="PNG")
+    img2 = base64.b64encode(buf2.getvalue()).decode("ascii")
     f = lambda v, d=2: "—" if v is None else fmt_num(v, d)
     rows = "".join(
         "<tr><td><span class='sw' style='background:rgb{}'></span> {}</td><td class='n'>{}</td><td class='n'>{} %</td>"
         "<td class='n'>{} – {} %</td></tr>".format(
-            CLASS_COLORS[c], _h.escape(lbl), res["clases"][c]["puntos"], f(res["clases"][c]["pct"], 1),
+            tuple(col), _h.escape(lbl), res["clases"][c]["puntos"], f(res["clases"][c]["pct"], 1),
             f(res["clases"][c]["ic_inf"], 1), f(res["clases"][c]["ic_sup"], 1))
-        for c, lbl in CLASSES)
+        for c, lbl, col in classes)
     warn = []
     if res["revisar"]:
-        warn.append("Canopeo y ExG − ExR difieren {} puntos (más de {:.0f}): revise la foto (sombras, luz directa, "
-                    "colores del suelo).".format(f(abs(res["diferencia_pct"]), 1), AGREEMENT_LIMIT))
+        warn.append(agreement_note(res))
     if res["sin_clasificar"]:
         warn.append("Resultado provisional: {} de {} puntos sin clasificar.".format(res["sin_clasificar"],
                                                                                    res["n_puntos"]))
@@ -305,12 +429,18 @@ por puntos, solo los {n} puntos.</p></section>
 <section><h2>Área analizada</h2><img alt="Área analizada" src="data:image/png;base64,{img}">
 <p class="note">Magenta: vegetación verde según Canopeo. Círculos: puntos de la cuadrícula, con el color de su clase
 (blanco: sin clasificar).</p></section>
+<section><h2>Dónde difieren Canopeo y ExG − ExR</h2><img alt="Diferencias entre las reglas" src="data:image/png;base64,{img2}">
+<p class="note">Magenta: verde para las dos reglas. <b>Cian</b>: verde solo para ExG − ExR ({ox} % del área).
+<b>Naranja</b>: verde solo para Canopeo ({oc} % del área). Una diferencia entre las reglas no es un error de la foto ni de la
+clasificación: las dos ponen en distinto lugar el límite entre el verde y el amarillo o la sombra. El cian suele marcar
+vegetación amarillenta u hojas en sombra; la clase de los puntos que caen allí la decide el analista.</p></section>
 <section><h2>Parámetros</h2><table>{prm}</table></section>
 <footer style="text-align:center;color:#52606d;margin-top:16px">Vegetación verde: Patrignani y Ochsner (2015); comprobación:
 Meyer y Neto (2008).<br/><strong>CobDosel v{version}</strong> para QGIS · Autor: Jorge Fallas · Contacto:
 <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></footer></div></body></html>""".format(
         version=version, head=head, green=f(res["verde_canopeo_pct"]), gx=f(res["verde_exgexr_pct"]),
-        diff=f(res["diferencia_pct"]), warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm)
+        diff=f(res["diferencia_pct"]), warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm, img2=img2,
+        ox=f(res.get("solo_exgexr_pct"), 2), oc=f(res.get("solo_canopeo_pct"), 2))
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)
     return path
