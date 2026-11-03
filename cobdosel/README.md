@@ -1,8 +1,11 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.15.10-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.11-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
-Complemento de QGIS que estima la **cobertura del dosel** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
+Complemento de QGIS con dos herramientas:
+
+- **Cobertura del dosel:** a partir de fotografías cenitales de teléfono u ojo de pez con el método de **Tichý (2016)** ([doi:10.1111/jvs.12350](https://doi.org/10.1111/jvs.12350)).
+- **Cobertura del suelo (foto hacia abajo):** vegetación verde automática (Canopeo) y vegetación seca, hojarasca, suelo desnudo y clases propias por intercepción de puntos.
 
 **Autor:** Jorge Fallas (jfallas56@gmail.com)
 
@@ -31,6 +34,7 @@ Salidas: panel de resultados, CSV, capa de puntos GNSS (EXIF), vista «Anillos c
 1. **Imagen:** fotografía cenital original del teléfono (JPEG con EXIF; también PNG, TIFF, WebP; HEIC con `pillow-heif`).
 2. **Calibración:**
    - círculo de diámetro conocido *D* a una distancia *H*, centrado en la foto; medición con **dos diámetros E–O y N–S** o **ajuste de ≥ 5 puntos**, con control de calidad (diferencia ≤ 1 %, centro ≤ 5 % del diámetro);
+   - o baldosas o un rectángulo de tamaño conocido en el suelo, con una o dos fotos a dos alturas («Calibrar con baldosas o un rectángulo conocido…»);
    - o detección automática del círculo de un ojo de pez.
 
    Se muestra el radio del hemisferio *R*. La calibración guardada registra en qué foto se midió el círculo.
@@ -49,6 +53,16 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 - **Nivel de corte:** recomendado (log-normal) en cada foto, partiendo de 128 (convención de CobDosel), con comprobación del método; las fotos que no la pasan quedan «a revisar».
 - **Revisión visual («Revisar cortes…»):** como la pantalla de corte de GLAMA (cielo en naranja, zoom, histograma, control deslizante, CaCo en vivo); aceptar, ajustar o excluir cada foto. Decisiones guardadas en `CobDosel_revision_cortes.json` y registradas en el CSV y el informe.
 - **Resultado:** media por parcela (fotos válidas disponibles) y media del sitio (Índice CaCo); parcelas de reemplazo registradas; fotos de otra cámara/lente excluidas; CSV, informe HTML y capa de parcelas unida por ID.
+
+## Cobertura del suelo (foto hacia abajo)
+
+Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta general: no supone un diseño de muestreo.
+
+- **Foto:** cámara principal 1x, hacia abajo y nivelada, a altura fija (1–1,5 m), con luz difusa; la ayuda lista las buenas prácticas y las fotos que conviene evitar.
+- **Área:** un **cuadro** físico (4 esquinas, cursor en cruz y líneas guía; se endereza a un cuadrado) o un **área fija** desde la altura de la cámara y la calibración «Rectilínea» (la ventana indica qué cuadrado cabe a cada altura; una foto de otra proporción que la calibración se rechaza).
+- **Vegetación verde (píxeles):** regla de Canopeo (Patrignani y Ochsner 2015: R/G < 0,95, B/G < 0,95, 2G − R − B > 20), comprobada con ExG − ExR (Meyer y Neto 2008). Si difieren más de 5 puntos, «a revisar», que no indica un error: la tecla C muestra dónde difieren (cian y naranja).
+- **Intercepción de puntos:** cuadrícula regular con desfase aleatorio y semilla registrada; los puntos verdes según Canopeo se marcan solos y el analista clasifica los demás («Siguiente» asigna la clase marcada; teclas 1–9; clases propias, hasta 9). Regla para puntos dudosos: solo el píxel bajo el centro de la cruz (Booth et al. 2006). Cobertura de cada clase con IC 95 % (Wilson).
+- **Salidas:** CSV por foto y por punto, e informe HTML con la imagen del área y la de las diferencias entre las reglas.
 
 ## Requisitos
 
@@ -72,6 +86,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## Historial
 
+- **0.15.11 (2026-11-02):** descripción del complemento con «Cobertura del suelo» y sin funciones retiradas; README de la raíz actualizado.
 - **0.15.10 (2026-11-02):** cobertura del suelo: regla para puntos dudosos en la ayuda y el manual.
 - **0.15.9 (2026-11-02):** área fija: qué cuadrado cabe a cada altura (ventana, ayuda y manual); foto de distinta proporción que la calibración, rechazada.
 - **0.15.8 (2026-11-02):** cursor en cruz y líneas guía al marcar esquinas; ayuda con buenas prácticas y fotos que conviene evitar.
@@ -181,4 +196,4 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 
 ## English summary
 
-CobDosel is a QGIS plugin that estimates **canopy cover** from smartphone or fisheye canopy photographs with the method of Tichý (2016). The Canopy Cover (CaCo) Index is reported as the canopy-cover value (vertical projection). The plugin also reports the Modified CaCo Index, canopy openness and closure, gap fraction, per-azimuth-sector gap fraction and normalized Miller effective LAI. Calibration uses a known circle (two diameters or circle fit, with quality control and traceability) or the GLAMA app hemisphere radius. Outputs: results panel, CSV, GPS point layer, zenith-ring view and a self-contained HTML report. Known differences from the GLAMA app (square crop and 4:3 scale on its analysis screen, black band counted as canopy) are documented, and an optional GLAMA screen-geometry mode supports paired transition studies. License: GPL-2.0.
+CobDosel is a QGIS plugin with two tools. **Canopy cover:** estimates canopy cover from smartphone or fisheye canopy photographs with the method of Tichý (2016). The Canopy Cover (CaCo) Index is reported as the canopy-cover value (vertical projection); the plugin also reports canopy openness and closure, gap fraction, per-azimuth-sector gap fraction and Miller effective LAI (180° fisheye only). Calibration uses a known circle (two diameters or circle fit, with quality control and traceability), floor tiles or another known rectangle (one or two heights), or fisheye auto-detection. Site (batch) processing with a photo form gives plot and site means. **Ground cover:** downward photos of a rectified quadrat or a fixed area; automatic green vegetation with the Canopeo rule, checked against ExG − ExR, and dry vegetation, litter, bare soil and user-defined classes by point intercept with Wilson 95 % confidence intervals. Outputs: results panel, CSV, GNSS point layer, zenith-ring view and self-contained HTML reports. License: GPL-2.0.

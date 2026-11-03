@@ -29,7 +29,7 @@ chk("4 misma regla y conteo de dudosos; «Borde» como control", "misma regla en
 chk("referencias: Herrick et al. 2005 y Booth et al. 2006", "Herrick et al. 2005" in t and "Booth et al. 2006" in t)
 ver = re.search(r'VERSION = "([^"]+)"', open(os.path.join(sys.argv[1], "cobdosel", "_version.py")).read()).group(1)
 meta = open(os.path.join(sys.argv[1], "cobdosel", "metadata.txt"), encoding="utf-8").read()
-chk("versión coherente (_version.py, metadata.txt)", ver == "0.15.10" and "version=0.15.10\n" in meta
-    and "changelog=0.15.10 (" in meta, ver)
+chk("versión coherente (_version.py, metadata.txt)", "version={}\n".format(ver) in meta
+    and "changelog={} (".format(ver) in meta, ver)
 print("\nTodo OK" if ok else "\nHAY FALLAS")
 sys.exit(0 if ok else 1)

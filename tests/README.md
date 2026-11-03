@@ -48,6 +48,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01470.py` | Sin CaCo modificado; «Sí»/«No»; «Sin cielo suficiente»; nota de cielo fragmentado |
 | `test_suelo_v01500.py` | Cobertura del suelo: Canopeo y ExG − ExR, cuadro enderezado, área fija, cuadrícula de puntos, IC de Wilson, diálogo, CSV, informe y menú |
 | `test_suelo_v01501.py` | Cobertura del suelo: verde sombreado opcional (V), anillos con cruz, siguiente sin clasificar, semilla, aviso antes de descartar, modo y esquinas |
+| `test_meta_v01511.py` | metadata.txt: descripción y about con las dos herramientas, sin funciones retiradas, etiquetas de suelo; README de la raíz igual al del complemento y con la versión actual |
 | `test_suelo_v01510.py` | Ayuda de cobertura del suelo: «Regla para puntos dudosos» con sus pasos y referencias; versión 0.15.10 coherente |
 | `test_suelo_v01509.py` | Área fija: fixed_area_fit y fit_table (Pixel 10, independencia de la resolución), tablas de la ayuda, texto de la ventana (cabe, sin margen, no cabe, calibración no rectilínea), foto 16:9 con calibración 4:3 rechazada |
 | `test_suelo_v01508.py` | Cursor en cruz y líneas guía (solo al marcar esquinas, en las dos ventanas; no en área fija; cruz tras arrastrar); ayuda con buenas prácticas y fotos a evitar |
