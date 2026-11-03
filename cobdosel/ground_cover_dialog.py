@@ -302,6 +302,7 @@ class GroundCoverDialog(QDialog):
         self.only_x = self.only_c = None    # v0.15.7: verde solo para ExG − ExR / solo para Canopeo
         self.custom_classes = gc.load_custom_classes()
         self.classes = gc.class_list(self.custom_classes)
+        self.groups = gc.groups_for(gc.load_groups(), self.classes)     # v0.15.13
         self._build()
         self._on_mode()
         disable_enter_buttons(self)
@@ -406,6 +407,11 @@ class GroundCoverDialog(QDialog):
                                       "quitar si algún punto de esta foto la tiene.")
         self.del_class_btn.clicked.connect(self._on_del_class)
         rowc.addWidget(self.new_class_btn); rowc.addWidget(self.del_class_btn)
+        self.groups_btn = QPushButton("Grupos de clases…")
+        self.groups_btn.setToolTip("Suma de varias clases, por ejemplo «Vegetación total» = verde + no verde + seca, con "
+                                   "su intervalo de Wilson; se guardan para las próximas fotos.")
+        self.groups_btn.clicked.connect(self._on_groups)
+        rowc.addWidget(self.groups_btn)
         v3.addLayout(rowc)
         row4 = QHBoxLayout()
         self.show_green = QCheckBox("Sombrear vegetación verde en magenta (V)")
@@ -595,9 +601,31 @@ class GroundCoverDialog(QDialog):
         if hasattr(self, "g3"):
             self.g3.setTitle("3. Clasificar los puntos (teclas 1–{})".format(len(self.classes)))
 
+    def set_groups(self, groups):
+        """Guarda los grupos de clases y actualiza el resultado (v0.15.13)."""
+        self.groups = gc.groups_for(groups, self.classes)
+        try:
+            gc.save_groups(self.groups)
+        except OSError as e:
+            self._log("No se pudieron guardar los grupos de clases: {}".format(e))
+        if self.points:
+            self._refresh()
+
+    def _on_groups(self):
+        from .ground_groups_dialog import GroupsDialog
+        dlg = GroupsDialog(self.classes, self.groups, self)
+        run = getattr(dlg, "exec", None) or dlg.exec_
+        run()
+        self.set_groups(dlg.groups)
+
     def _set_classes(self, custom):
         self.custom_classes = custom
         self.classes = gc.class_list(custom)
+        self.groups = gc.groups_for(getattr(self, "groups", []), self.classes)
+        try:
+            gc.save_groups(self.groups)
+        except OSError:
+            pass
         try:
             gc.save_custom_classes(custom)
         except OSError as e:
@@ -1053,7 +1081,7 @@ class GroundCoverDialog(QDialog):
         self.canvas.marks = [(x, y, colors.get(lab, (255, 255, 255)))
                              for (x, y), lab in zip(self.points, self.labels)]
         self.canvas.update()
-        self.res = gc.summarize(self.area, self.labels, classes=self.classes)
+        self.res = gc.summarize(self.area, self.labels, classes=self.classes, groups=self.groups)
         r = self.res
         lines = ["Vegetación verde (Canopeo): {:.2f} %   ExG − ExR: {:.2f} %   diferencia {:+.2f}".format(
             r["verde_canopeo_pct"], r["verde_exgexr_pct"], r["diferencia_pct"])]
@@ -1064,6 +1092,12 @@ class GroundCoverDialog(QDialog):
             d = r["clases"][key]
             lines.append("  {:<18} {:>4}  {:6.1f} %  (IC 95 %: {:.1f}–{:.1f} %)".format(
                 lbl, d["puntos"], d["pct"], d["ic_inf"], d["ic_sup"]))
+        if r.get("lista_grupos"):
+            lines.append("Grupos de clases:")
+            for g in r["lista_grupos"]:
+                d = r["grupos"][g["nombre"]]
+                lines.append("  {:<18} {:>4}  {:6.1f} %  (IC 95 %: {:.1f}–{:.1f} %)  [{}]".format(
+                    g["nombre"], d["puntos"], d["pct"], d["ic_inf"], d["ic_sup"], d["definicion"].split(" = ", 1)[1]))
         self.out.setPlainText("\n".join(lines))
         for bb in (self.csv_btn, self.html_btn):
             bb.setEnabled(True)

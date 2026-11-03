@@ -413,6 +413,12 @@ clase nueva como «Vegetación amarillenta»).</p>
   color y la tecla siguiente (6, 7…; hasta 9 clases). Quedan guardadas para las próximas fotos. «Quitar clase
   nueva…» quita una agregada si ningún punto de la foto la tiene; las 5 fijas no se quitan. El CSV y el informe
   incluyen todas las clases de la lista, y el CSV las nombra en «clases_nuevas».</li>
+  <li><b>Grupos de clases</b> («Grupos de clases…»): un grupo suma los puntos de varias clases. Para medir <b>toda la
+  vegetación</b> y no solo la verde (por ejemplo, con hojas moradas, plateadas o glaucas, que Canopeo no cuenta), cree
+  «Vegetación total» = vegetación verde + una clase propia «Vegetación no verde» + vegetación seca (si la definición
+  incluye las plantas secas en pie). CobDosel informa la cobertura del grupo con el intervalo de Wilson de la suma de sus
+  puntos, no la suma de los intervalos, en la ventana, el CSV (columnas grupo_…) y el informe. Los grupos se guardan para
+  las próximas fotos; si se quita una clase, sale de los grupos.</li>
   <li><b>Zoom:</b> rueda del ratón (alrededor del cursor), <b>+</b> / <b>−</b> o los botones «Acercar» y «Alejar».
   <b>Arrastre</b> con el botón izquierdo o las <b>flechas</b> del teclado para mover la vista (10 % del área visible por pulsación; con Mayús, 50 %). <b>F</b> («Ajustar vista») vuelve al área completa.</li>
 </ul>

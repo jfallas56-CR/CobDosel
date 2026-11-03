@@ -40,6 +40,8 @@ CUSTOM_CLASSES_FILE = os.path.join(os.path.expanduser("~"), ".cobdosel", "clases
 CUSTOM_PALETTE = ((200, 220, 0), (255, 105, 180), (0, 150, 136), (128, 0, 128), (255, 69, 0), (70, 130, 180),
                   (154, 205, 50), (210, 105, 30))
 MAX_CLASSES = 9                # teclas 1–9
+# v0.15.13: grupos de clases (p. ej. «Vegetación total» = verde + no verde + seca), guardados como las clases
+GROUPS_FILE = os.path.join(os.path.expanduser("~"), ".cobdosel", "grupos_suelo.json")
 # v0.15.7: diferencias entre las reglas en la vista y el informe
 ONLY_EXGEXR_COLOR = (0, 230, 255)       # cian: verde solo para ExG − ExR
 ONLY_CANOPEO_COLOR = (255, 140, 0)      # naranja: verde solo para Canopeo
@@ -152,6 +154,70 @@ def new_custom_class(name, custom, color=None):
         color = next((c for c in CUSTOM_PALETTE if c not in used), CUSTOM_PALETTE[len(custom) % len(CUSTOM_PALETTE)])
     return list(custom) + [{"clave": class_key_for(name, [k for k, _l, _c in cl]), "nombre": name,
                             "color": tuple(color)}]
+
+
+# ---------------------------------------------------------------- grupos de clases (v0.15.13)
+def load_groups(path=None):
+    """Grupos guardados: [{"nombre", "clases": [claves]}]. Lista vacía si no hay archivo o no se lee."""
+    try:
+        with open(path or GROUPS_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        return [{"nombre": str(g["nombre"]), "clases": [str(k) for k in g["clases"]]}
+                for g in data if g.get("nombre") and g.get("clases")]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
+def save_groups(groups, path=None):
+    path = path or GROUPS_FILE
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump([{"nombre": g["nombre"], "clases": list(g["clases"])} for g in groups], f, ensure_ascii=False,
+                  indent=2)
+    return path
+
+
+def set_group(groups, name, keys, classes, old_name=None):
+    """Crea o reemplaza un grupo (devuelve la lista nueva). Errores claros: sin nombre, menos de una clase, clase
+    desconocida, nombre repetido o igual al de una clase."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("Escriba el nombre del grupo.")
+    valid = [k for k, _l, _c in classes]
+    keys = [k for k in valid if k in set(keys)]          # orden de la lista de clases
+    if not keys:
+        raise ValueError("Marque al menos una clase para el grupo «{}».".format(name))
+    if any(l.lower() == name.lower() for _k, l, _c in classes):
+        raise ValueError("«{}» ya es el nombre de una clase: use otro nombre para el grupo.".format(name))
+    others = [g for g in groups if g["nombre"] != (old_name or name)]
+    if any(g["nombre"].lower() == name.lower() for g in others):
+        raise ValueError("Ya existe el grupo «{}».".format(name))
+    new = {"nombre": name, "clases": keys}
+    out, done = [], False
+    for g in groups:
+        if g["nombre"] == (old_name or name):
+            out.append(new); done = True
+        else:
+            out.append(g)
+    if not done:
+        out.append(new)
+    return out
+
+
+def groups_for(groups, classes):
+    """Grupos válidos para una lista de clases: quita las clases que ya no existen y los grupos que quedan vacíos."""
+    valid = {k for k, _l, _c in classes}
+    out = []
+    for g in groups or []:
+        ks = [k for k in g["clases"] if k in valid]
+        if ks:
+            out.append({"nombre": g["nombre"], "clases": ks})
+    return out
+
+
+def group_definition(group, classes):
+    names = dict((k, l) for k, l, _c in classes)
+    return "{} = {}".format(group["nombre"], " + ".join(names.get(k, k) for k in group["clases"]))
 
 
 # ---------------------------------------------------------------- área de muestreo
@@ -296,10 +362,12 @@ def wilson_ci(k, n, z=1.96):
 
 
 # ---------------------------------------------------------------- resultado
-def summarize(area_rgb, labels, params=(CANOPEO_DEFAULT), classes=None):
+def summarize(area_rgb, labels, params=(CANOPEO_DEFAULT), classes=None, groups=None):
     """Resultado de una foto: verde por píxeles (Canopeo y ExG − ExR) y % de puntos por clase con IC 95 %.
-    classes: [(clave, nombre, color)] (v0.15.7; por defecto las 5 fijas)."""
+    classes: [(clave, nombre, color)] (v0.15.7; por defecto las 5 fijas). groups: grupos de clases (v0.15.13): su
+    cobertura es la suma de los puntos de sus clases, con el IC de Wilson de esa suma (no la suma de los IC)."""
     classes = list(classes) if classes else class_list()
+    groups = groups_for(groups, classes)
     cano = canopeo_mask(area_rgb, *params)
     exr = exg_exr_mask(area_rgb)
     green_c = 100.0 * float(cano.mean())
@@ -310,9 +378,16 @@ def summarize(area_rgb, labels, params=(CANOPEO_DEFAULT), classes=None):
         k = sum(1 for lab in labels if lab == key)
         lo, hi = wilson_ci(k, n)
         counts[key] = {"puntos": k, "pct": 100.0 * k / n if n else None, "ic_inf": lo, "ic_sup": hi}
+    gres = {}
+    for g in groups:
+        k = sum(1 for lab in labels if lab in set(g["clases"]))
+        lo, hi = wilson_ci(k, n)
+        gres[g["nombre"]] = {"puntos": k, "pct": 100.0 * k / n if n else None, "ic_inf": lo, "ic_sup": hi,
+                             "clases": list(g["clases"]), "definicion": group_definition(g, classes)}
     pending = sum(1 for lab in labels if lab is None)
     diff = green_c - green_x
     return {
+        "grupos": gres, "lista_grupos": groups,
         "verde_canopeo_pct": green_c, "verde_exgexr_pct": green_x, "diferencia_pct": diff,
         "solo_exgexr_pct": 100.0 * float((exr & ~cano).mean()), "solo_canopeo_pct": 100.0 * float((cano & ~exr).mean()),
         "revisar": abs(diff) > AGREEMENT_LIMIT, "n_puntos": n, "sin_clasificar": pending,
@@ -329,12 +404,17 @@ _BASE_COLUMNS = (
 )
 
 
-def csv_columns(classes=None):
-    """Columnas del CSV por foto: las fijas y 4 por clase (puntos, %, IC 95 %), en el orden de las clases."""
+def group_column_key(name):
+    return "grupo_" + class_key_for(name)
+
+
+def csv_columns(classes=None, groups=None):
+    """Columnas del CSV por foto: las fijas, 4 por clase (puntos, %, IC 95 %) y 4 por grupo de clases."""
     classes = classes or class_list()
     return _BASE_COLUMNS + tuple("{}_{}".format(c[0], s) for c in classes
-                                 for s in ("puntos", "pct", "ic95_inf", "ic95_sup")) + (
-        "clases_nuevas", "plugin", "plugin_version")
+                                 for s in ("puntos", "pct", "ic95_inf", "ic95_sup")) + tuple(
+        "{}_{}".format(group_column_key(g["nombre"]), s) for g in (groups or [])
+        for s in ("puntos", "pct", "ic95_inf", "ic95_sup")) + ("clases_nuevas", "grupos", "plugin", "plugin_version")
 
 
 CSV_COLUMNS = csv_columns()
@@ -356,7 +436,13 @@ def result_row(res, meta):
         row["{}_pct".format(c)] = d["pct"]
         row["{}_ic95_inf".format(c)] = d["ic_inf"]
         row["{}_ic95_sup".format(c)] = d["ic_sup"]
-    return [row.get(k) for k in csv_columns(classes)]
+    groups = res.get("lista_grupos") or []
+    for g in groups:
+        d, gk = res["grupos"][g["nombre"]], group_column_key(g["nombre"])
+        row[gk + "_puntos"], row[gk + "_pct"] = d["puntos"], d["pct"]
+        row[gk + "_ic95_inf"], row[gk + "_ic95_sup"] = d["ic_inf"], d["ic_sup"]
+    row["grupos"] = "; ".join(res["grupos"][g["nombre"]]["definicion"] for g in groups) or None
+    return [row.get(k) for k in csv_columns(classes, groups)]
 
 
 def corners_text(corners):
@@ -395,7 +481,7 @@ def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimite
     p1 = out_prefix + ".csv"
     with open(p1, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=delimiter)
-        w.writerow(csv_columns(res.get("lista_clases")))
+        w.writerow(csv_columns(res.get("lista_clases"), res.get("lista_grupos")))
         w.writerow(csv_row(result_row(res, meta), decimal))
     names = {k: l for k, l, _c in (res.get("lista_clases") or class_list())}
     p2 = out_prefix + "_puntos.csv"
@@ -450,6 +536,19 @@ def write_html(res, meta, area_rgb, points, labels, path, version=""):
             tuple(col), _h.escape(lbl), res["clases"][c]["puntos"], f(res["clases"][c]["pct"], 1),
             f(res["clases"][c]["ic_inf"], 1), f(res["clases"][c]["ic_sup"], 1))
         for c, lbl, col in classes)
+    groups_html = ""
+    if res.get("lista_grupos"):
+        grows = "".join("<tr><td>{}</td><td>{}</td><td class='n'>{}</td><td class='n'>{} %</td><td class='n'>{} – {} %"
+                        "</td></tr>".format(_h.escape(g["nombre"]), _h.escape(res["grupos"][g["nombre"]]["definicion"]
+                                                                             .split(" = ", 1)[1]),
+                                           res["grupos"][g["nombre"]]["puntos"], f(res["grupos"][g["nombre"]]["pct"], 1),
+                                           f(res["grupos"][g["nombre"]]["ic_inf"], 1),
+                                           f(res["grupos"][g["nombre"]]["ic_sup"], 1))
+                        for g in res["lista_grupos"])
+        groups_html = ("<section><h2>Grupos de clases</h2><table><tr><th>Grupo</th><th>Clases</th><th class='n'>Puntos"
+                       "</th><th class='n'>Cobertura</th><th class='n'>IC 95 % (Wilson)</th></tr>{}</table><p class='note'>"
+                       "Cobertura del grupo = puntos de sus clases / {} puntos; el intervalo es el de Wilson para esa "
+                       "suma (no la suma de los intervalos de las clases).</p></section>").format(grows, res["n_puntos"])
     warn = []
     if res["revisar"]:
         warn.append(agreement_note(res))
@@ -493,7 +592,7 @@ img{{max-width:100%;border-radius:6px}} .note{{font-size:.84rem;color:#52606d}}
 <tr><th>Clase</th><th class='n'>Puntos</th><th class='n'>Cobertura</th><th class='n'>IC 95 % (Wilson)</th></tr>{rows}</table>
 <p class="note">Cobertura de cada clase = puntos de la clase / {n} puntos. Los puntos verdes según Canopeo se marcan
 solos; el analista clasifica los demás y puede corregir cualquiera. La vegetación verde por píxeles usa toda el área;
-por puntos, solo los {n} puntos.</p></section>
+por puntos, solo los {n} puntos.</p></section>{groups}
 <section><h2>Área analizada</h2><img alt="Área analizada" src="data:image/png;base64,{img}">
 <p class="note">Magenta: vegetación verde según Canopeo. Círculos: puntos de la cuadrícula, con el color de su clase
 (blanco: sin clasificar).</p></section>
@@ -508,7 +607,7 @@ Meyer y Neto (2008).<br/><strong>CobDosel v{version}</strong> para QGIS · Autor
 <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></footer></div></body></html>""".format(
         version=version, head=head, green=f(res["verde_canopeo_pct"]), gx=f(res["verde_exgexr_pct"]),
         diff=f(res["diferencia_pct"]), warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm, img2=img2,
-        ox=f(res.get("solo_exgexr_pct"), 2), oc=f(res.get("solo_canopeo_pct"), 2))
+        ox=f(res.get("solo_exgexr_pct"), 2), oc=f(res.get("solo_canopeo_pct"), 2), groups=groups_html)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)
     return path
