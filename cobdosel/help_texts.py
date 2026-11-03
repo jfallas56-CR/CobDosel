@@ -378,7 +378,9 @@ verde y el amarillo o la sombra: Canopeo exige R/G &lt; 0,95 (deja fuera hojas a
 iguala al verde) y 2G − R − B &gt; 20 en brillo absoluto (deja fuera verde oscuro en sombra); ExG − ExR usa
 proporciones de color y cuenta parte de esos píxeles. Por eso <b>«a revisar» no indica un error de la foto ni de la
 clasificación</b>: indica que hay bastante vegetación amarillenta, sombra, luz directa o suelo de color parecido, y
-que conviene mirar dónde difieren. Los puntos que caen en zonas cian los clasifica el analista (verde, seca o una
+que conviene mirar dónde difieren. <b>El valor que se informa es el de Canopeo</b>: no porque sea «el correcto», sino
+porque es la regla publicada y fija que usa CobDosel; la diferencia con ExG − ExR indica cuánto del verde es dudoso
+(con ExG − ExR el verde sería mayor). Los puntos que caen en zonas cian los clasifica el analista (verde, seca o una
 clase nueva como «Vegetación amarillenta»).</p>
 
 <h3>4. Clasificar los puntos</h3>

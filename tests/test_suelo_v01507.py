@@ -142,8 +142,8 @@ res0 = gc.summarize(img, [None] * 4)
 chk("1 resumen: solo_exgexr_pct 20, solo_canopeo_pct 0, «a revisar»", abs(res0["solo_exgexr_pct"] - 20) < 1e-9
     and res0["solo_canopeo_pct"] == 0 and res0["revisar"])
 note = gc.agreement_note(res0)
-chk("2 aviso: no es un error, explica el límite verde/amarillo y nombra la vegetación amarillenta",
-    "difieren 20.0 puntos (más de 5)" in note and "No indica un error de la foto ni de la clasificación" in note
+chk("2 aviso: no es un error, explica la parte dudosa y nombra la vegetación amarillenta (texto de v0.15.15)",
+    "difieren 20.0 puntos" in note and "No es un error de la foto ni de la clasificación" in note
     and "vegetación amarillenta" in note and "cian" in note, note)
 chk("2 sin «a revisar», sin aviso", gc.agreement_note(dict(res0, revisar=False)) == "")
 
@@ -174,7 +174,7 @@ d.load_photo(png)
 for p in ((5, 5), (595, 5), (595, 595), (5, 595)):
     d._on_canvas_click(*p)
 d.seed_spin.setValue(3); d.points_spin.setValue(36); d.prepare_area()
-chk("4 ventana: resumen con el aviso nuevo", "No indica un error de la foto ni de la clasificación" in d.out.toPlainText())
+chk("4 ventana: resumen con el aviso nuevo", "No es un error de la foto ni de la clasificación" in d.out.toPlainText())
 QtTest.QTest.keyClick(d.canvas, Qt.Key.Key_C); app.processEvents()
 img_view = d.canvas.pix.toImage()
 xc = int(0.6 * img_view.width()); yc = int(0.5 * img_view.height())     # franja amarillenta: 300–420 px de 600 en la foto
@@ -231,7 +231,7 @@ b64 = ht.split("data:image/png;base64,")[2].split('"')[0]
 im2 = np.asarray(Image.open(_io.BytesIO(base64.b64decode(b64))).convert("RGB"))
 cyan = (im2 == np.array(gc.ONLY_EXGEXR_COLOR)).all(axis=-1).mean()
 chk("8 informe: la imagen de diferencias tiene cian en ≈ 20 % de su área", 0.17 < cyan < 0.23, cyan)
-chk("8 informe: aviso nuevo y fila de la clase nueva", "No indica un error de la foto ni de la clasificación" in ht
+chk("8 informe: aviso nuevo y fila de la clase nueva", "No es un error de la foto ni de la clasificación" in ht
     and "Vegetación amarillenta</td>" in ht)
 d.labels = [None if lab == "vegetacion_amarillenta" else lab for lab in d.labels]
 d.remove_class("vegetacion_amarillenta")

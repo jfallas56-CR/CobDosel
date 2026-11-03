@@ -48,6 +48,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01470.py` | Sin CaCo modificado; «Sí»/«No»; «Sin cielo suficiente»; nota de cielo fragmentado |
 | `test_suelo_v01500.py` | Cobertura del suelo: Canopeo y ExG − ExR, cuadro enderezado, área fija, cuadrícula de puntos, IC de Wilson, diálogo, CSV, informe y menú |
 | `test_suelo_v01501.py` | Cobertura del suelo: verde sombreado opcional (V), anillos con cruz, siguiente sin clasificar, semilla, aviso antes de descartar, modo y esquinas |
+| `test_suelo_v01515.py` | Aviso «a revisar»: dos valores, parte dudosa, por qué se informa Canopeo, texto según qué regla da más verde, ventana (tecla C) e informe (imagen) |
 | `test_suelo_v01514.py` | «Cargar clasificación de un CSV…»: área del CSV de foto, clases propias creadas, clasificación completa y a medias, grupos, errores (otra foto, sin área, clase automática distinta, modo reglamentario) |
 | `test_suelo_v01513.py` | Grupos de clases: suma e IC de Wilson de la suma, errores, clases quitadas, CSV, informe, ventana «Grupos de clases», guardado y resumen |
 | `test_suelo_v01512.py` | Modo reglamentario (rechazos, excepción a «No identificable», activar con violaciones, registro), «Cargar área y cuadrícula de un CSV…», «Comparar clasificaciones» (kappa del ejemplo del protocolo, errores, área distinta, ventana, ir al punto, informe) |

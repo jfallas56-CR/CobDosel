@@ -89,15 +89,28 @@ def shade(rgb, green=None, only_x=None, only_c=None):
     return a
 
 
-def agreement_note(res):
-    """Texto del aviso cuando Canopeo y ExG − ExR difieren más de AGREEMENT_LIMIT puntos (v0.15.7), o ''."""
+def agreement_note(res, where="ventana"):
+    """Texto del aviso cuando Canopeo y ExG − ExR difieren más de AGREEMENT_LIMIT puntos, o ''.
+
+    v0.15.15: texto para el usuario final: qué pasa, qué valor se informa y por qué (Canopeo es la regla publicada
+    que CobDosel usa por convención, no «la correcta»), qué significa la diferencia y dónde verla. where: «ventana»
+    (tecla C) o «informe» (sección de las diferencias)."""
     if not res.get("revisar"):
         return ""
-    return ("Canopeo y ExG − ExR difieren {:.1f} puntos (más de {:.0f}). No indica un error de la foto ni de la "
-            "clasificación: las dos reglas ponen en distinto lugar el límite entre el verde y el amarillo o la sombra. "
-            "Revise dónde difieren (cian: verde solo para ExG − ExR; naranja: verde solo para Canopeo): vegetación "
-            "amarillenta, sombras, luz directa o colores del suelo.".format(abs(res["diferencia_pct"]),
-                                                                          AGREEMENT_LIMIT))
+    see = ("pulse C en la ventana" if where == "ventana"
+           else "vea la imagen «Dónde difieren Canopeo y ExG − ExR» más abajo")
+    x_more = res["verde_exgexr_pct"] > res["verde_canopeo_pct"]
+    cause = ("casi siempre vegetación amarillenta u hojas en sombra" if x_more
+             else "por ejemplo, suelo, piedras o algas de color verdoso, o reflejos")
+    counts = ("que no cuenta esa parte dudosa; con ExG − ExR, que sí la cuenta" if x_more
+              else "que sí cuenta esa parte dudosa; con ExG − ExR, que no la cuenta")
+    return ("Las dos reglas del verde difieren {d:.1f} puntos (Canopeo {c:.1f} %; ExG − ExR {x:.1f} %; el aviso aparece "
+            "con más de {lim:.0f}). Una parte del área es verde para una regla y no para la otra: {cause}. No es un "
+            "error de la foto ni de la clasificación. El valor que se informa es el de Canopeo, la regla publicada que "
+            "usa CobDosel, {counts}, el verde sería {x:.1f} %. Para ver dónde está, {see} (cian: verde solo para "
+            "ExG − ExR; naranja: verde solo para Canopeo).").format(
+        d=abs(res["diferencia_pct"]), c=res["verde_canopeo_pct"], x=res["verde_exgexr_pct"], lim=AGREEMENT_LIMIT,
+        see=see, cause=cause, counts=counts)
 
 
 # ---------------------------------------------------------------- clases
@@ -551,7 +564,7 @@ def write_html(res, meta, area_rgb, points, labels, path, version=""):
                        "suma (no la suma de los intervalos de las clases).</p></section>").format(grows, res["n_puntos"])
     warn = []
     if res["revisar"]:
-        warn.append(agreement_note(res))
+        warn.append(agreement_note(res, where="informe"))
     if res["sin_clasificar"]:
         warn.append("Resultado provisional: {} de {} puntos sin clasificar.".format(res["sin_clasificar"],
                                                                                    res["n_puntos"]))

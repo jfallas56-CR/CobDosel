@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.15.14-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.15-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 
@@ -87,6 +87,7 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 
 ## Historial
 
+- **0.15.15 (2026-11-03):** cobertura del suelo: aviso «a revisar» más claro (dos valores, parte dudosa, por qué se informa Canopeo).
 - **0.15.14 (2026-11-03):** cobertura del suelo: «Cargar clasificación de un CSV…» (continuar, revisar o agregar grupos sin clasificar otra vez).
 - **0.15.13 (2026-11-03):** cobertura del suelo: grupos de clases (por ejemplo, «Vegetación total») con el IC de Wilson de la suma.
 - **0.15.12 (2026-11-03):** cobertura del suelo: modo reglamentario, «Cargar área y cuadrícula de un CSV…» y «Comparar clasificaciones» (kappa de Cohen); protocolo con varios analistas en el manual.
