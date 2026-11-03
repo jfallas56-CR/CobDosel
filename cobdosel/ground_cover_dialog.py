@@ -372,12 +372,26 @@ class GroundCoverDialog(QDialog):
         self.new_grid_btn.setToolTip("Otra semilla: otra cuadrícula (descarta las clases asignadas).")
         row2.addWidget(self.new_grid_btn)
         f2.addRow(row2)
+        # v0.15.12: doble clasificación: el segundo analista usa la misma área y la misma cuadrícula que el primero
+        self.load_area_btn = QPushButton("Cargar área y cuadrícula de un CSV…")
+        self.load_area_btn.setToolTip("Lee el CSV de foto (CobDosel_suelo_<foto>.csv) de otro analista y repite su área "
+                                      "(esquinas o área fija), su semilla y su número de puntos, para la doble "
+                                      "clasificación del protocolo.")
+        self.load_area_btn.clicked.connect(self._on_load_area)
+        f2.addRow(self.load_area_btn)
         lv.addWidget(g2)
         self.g3 = g3 = QGroupBox("3. Clasificar los puntos (teclas 1–{})".format(len(self.classes)))
         v3 = QVBoxLayout(g3)
         self.progress_lbl = QLabel("Prepare el área para ver los puntos.")
         self.progress_lbl.setWordWrap(True)
         v3.addWidget(self.progress_lbl)
+        # v0.15.12: modo reglamentario (protocolo): el verde lo decide la regla de Canopeo, no el analista
+        self.reg_check = QCheckBox("Modo reglamentario: el verde lo decide la regla de Canopeo")
+        self.reg_check.setToolTip("Los puntos verdes automáticos no se cambian (salvo a «No identificable», si caen "
+                                  "sobre algo que no es vegetación) y ningún punto pasa a verde a mano. Así dos "
+                                  "analistas obtienen los mismos puntos verdes con la misma semilla.")
+        self.reg_check.toggled.connect(self._on_reg_toggled)
+        v3.addWidget(self.reg_check)
         self.class_group = QButtonGroup(self)
         self.class_box = QVBoxLayout()
         v3.addLayout(self.class_box)
@@ -436,6 +450,11 @@ class GroundCoverDialog(QDialog):
         self.html_btn = QPushButton("Exportar informe HTML…"); self.html_btn.clicked.connect(self._on_html)
         for bb in (self.csv_btn, self.html_btn):
             bb.setEnabled(False); row3.addWidget(bb)
+        self.compare_btn = QPushButton("Comparar clasificaciones…")
+        self.compare_btn.setToolTip("Compara dos CSV de puntos de la misma foto y cuadrícula: acuerdo, kappa de Cohen y "
+                                    "puntos en desacuerdo (doble clasificación del protocolo).")
+        self.compare_btn.clicked.connect(self._on_compare)
+        row3.addWidget(self.compare_btn)
         lv.addLayout(row3)
         self.out = QTextEdit(); self.out.setReadOnly(True); lv.addWidget(self.out, 1)
         help_lbl = QLabel(HELP); help_lbl.setWordWrap(True); lv.addWidget(help_lbl)
@@ -771,7 +790,8 @@ class GroundCoverDialog(QDialog):
             if len(self.corners) != 4:
                 raise ValueError("Marque las 4 esquinas del cuadro en la foto ({} de 4).".format(len(self.corners)))
             area = gc.rectify_quadrat(self.rgb, self.corners)
-            meta.update(modo_area="Cuadro", altura_camara_m=None, calibracion=None)
+            meta.update(modo_area="Cuadro", altura_camara_m=None, calibracion=None,
+                        esquinas_px=gc.corners_text(self.corners))
         else:
             name = self.cal_combo.currentData()
             if not name:
@@ -847,11 +867,124 @@ class GroundCoverDialog(QDialog):
 
     def advance(self):
         """«Siguiente» (N): asigna la clase marcada al punto actual, si aún no tiene clase, y pasa al siguiente sin
-        clasificar. Sin punto actual (primera vez), solo muestra el primer punto sin clasificar."""
+        clasificar. Sin punto actual (primera vez), solo muestra el primer punto sin clasificar. Si el modo
+        reglamentario no admite la clase, el punto queda sin clasificar y la vista no avanza."""
         i = self.current_idx
         if i is not None and self.points and self.labels[i] is None:
-            self.label_point(i, self.current_class)
+            if not self.label_point(i, self.current_class):
+                return i
         return self.next_unclassified()
+
+    # ------------------------------------------------------------ modo reglamentario (v0.15.12)
+    def regulatory(self):
+        return self.reg_check.isChecked()
+
+    def rule_violation(self, i, key):
+        """Texto del motivo si el modo reglamentario no admite la clase key en el punto i, o ''."""
+        if not self.regulatory() or not self.auto:
+            return ""
+        if self.auto[i] == "verde" and key not in ("verde", "no_id"):
+            return ("Modo reglamentario: el punto {} es verde según la regla de Canopeo; solo puede pasar a «No "
+                    "identificable» si cae sobre algo que no es vegetación.".format(i + 1))
+        if self.auto[i] != "verde" and key == "verde":
+            return ("Modo reglamentario: el punto {} no es verde según la regla de Canopeo; no se pasa a verde a mano "
+                    "(use otra clase, por ejemplo «Vegetación seca» o una clase propia).".format(i + 1))
+        return ""
+
+    def violations(self):
+        return [i for i, lab in enumerate(self.labels) if lab is not None and self.rule_violation(i, lab)]
+
+    def _on_reg_toggled(self, on):
+        if not on or not self.labels:
+            self._update_progress()
+            return
+        bad = self.violations()
+        if not bad:
+            self._log("Modo reglamentario activado: el verde lo decide la regla de Canopeo.")
+            self._update_progress()
+            return
+        ans = QMessageBox.question(
+            self, "Modo reglamentario",
+            "{} puntos ya clasificados no cumplen la regla del modo reglamentario (verde cambiado o pasado a verde a "
+            "mano). ¿Devolverles la clase automática (verde, o sin clasificar) y activar el modo?".format(len(bad)),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if ans == QMessageBox.StandardButton.Yes:
+            for i in bad:
+                self.labels[i] = self.auto[i]
+            self._log("Modo reglamentario activado; {} puntos volvieron a su clase automática.".format(len(bad)))
+            self._refresh()
+        else:
+            self.reg_check.blockSignals(True)
+            self.reg_check.setChecked(False)
+            self.reg_check.blockSignals(False)
+
+    def export_meta(self):
+        """Metadatos del CSV y el informe con el estado del modo reglamentario."""
+        return dict(self.meta, modo_reglamentario="Sí" if self.regulatory() and not self.violations() else "No")
+
+    def goto_point(self, i):
+        """Hace actual el punto i y centra la vista en él (desde «Comparar clasificaciones»)."""
+        self.current_idx = i
+        x, y = self.points[i]
+        self.canvas.current = (x, y)
+        self.canvas.center_on(x, y, zoom=max(self.canvas.zoom, 6.0))
+        self.canvas.setFocus()
+        self._update_progress()
+
+    # ------------------------------------------------------------ doble clasificación (v0.15.12)
+    def load_area_from_csv(self, path, confirm=True):
+        """Repite el área, la semilla y el número de puntos del CSV de foto de otro analista y prepara el área."""
+        if self.rgb is None:
+            raise ValueError("Cargue primero la foto.")
+        r = gc.read_photo_csv(path)
+        name = os.path.basename(self.photo_path or "")
+        if (r.get("archivo") or "").strip() != name:
+            raise ValueError("El CSV es de la foto «{}» y la foto abierta es «{}».".format(r.get("archivo"), name))
+        num = lambda k: float(str(r.get(k)).strip().replace(",", "."))
+        self.side_spin.setValue(num("lado_m"))
+        self.points_spin.setValue(int(round(num("n_puntos"))))
+        self.seed_spin.setValue(int(round(num("semilla"))))
+        if (r.get("modo_area") or "").strip() == "Área fija":
+            cal = (r.get("calibracion") or "").strip()
+            i = self.cal_combo.findData(cal)
+            if i < 0:
+                raise ValueError("La calibración «{}» del CSV no está guardada en esta computadora: copie su archivo "
+                                 "a ~/.cobdosel/calibrations.".format(cal))
+            self.mode_fixed.setChecked(True)
+            self.cal_combo.setCurrentIndex(i)
+            self.height_spin.setValue(num("altura_camara_m"))
+        else:
+            corners = gc.parse_corners(r.get("esquinas_px"))
+            if not corners:
+                raise ValueError("El CSV no tiene las esquinas del cuadro (columna esquinas_px): fue exportado con una "
+                                 "versión anterior a 0.15.12 o con área fija.")
+            self.mode_quad.setChecked(True)
+            self.corners = list(corners)
+            self.canvas.polygon = list(self.corners)
+            self._update_corner_label()
+        self._log("Área y cuadrícula de «{}»: modo {}, lado {:g} m, semilla {}, {} puntos.".format(
+            os.path.basename(path), r.get("modo_area"), self.side_spin.value(), self.seed_spin.value(),
+            self.points_spin.value()))
+        return self.prepare_area(confirm=confirm)
+
+    def _on_load_area(self):
+        if self.rgb is None:
+            QMessageBox.information(self, "Cargar área", "Cargue primero la foto.")
+            return
+        p, _ = QFileDialog.getOpenFileName(self, "CSV de foto de otro analista", os.path.dirname(self.photo_path or ""),
+                                           "CSV de foto (*.csv)")
+        if not p:
+            return
+        try:
+            self.load_area_from_csv(p)
+        except Exception as e:
+            QMessageBox.warning(self, "Cargar área y cuadrícula", str(e))
+
+    def _on_compare(self):
+        from .ground_compare_dialog import GroundCompareDialog
+        dlg = GroundCompareDialog(self, ground_dialog=self)
+        dlg.show()
+        self._compare_dlg = dlg
 
     def _update_progress(self):
         if not self.labels:
@@ -901,13 +1034,19 @@ class GroundCoverDialog(QDialog):
         self.class_group.button(k).setChecked(True)
         key = self.classes[k - 1][0]
         if self.current_idx is not None and self.points:
-            self.label_point(self.current_idx, key)
-            if self.auto_next.isChecked():
+            if self.label_point(self.current_idx, key) and self.auto_next.isChecked():
                 self.next_unclassified()
 
     def label_point(self, i, key):
+        """Asigna la clase; devuelve False (sin cambiar nada) si el modo reglamentario no la admite."""
+        why = self.rule_violation(i, key)
+        if why:
+            self._log(why)
+            self.progress_lbl.setText("<b>{}</b>".format(why))
+            return False
         self.labels[i] = key
         self._refresh()
+        return True
 
     def _refresh(self):
         colors = {k: c for k, _l, c in self.classes}
@@ -940,7 +1079,7 @@ class GroundCoverDialog(QDialog):
             return
         p = p[:-4] if p.lower().endswith(".csv") else p
         sep, dec = csv_style()
-        paths = gc.write_csvs(self.res, self.meta, self.points, self.labels, self.auto, p, VERSION, sep, dec)
+        paths = gc.write_csvs(self.res, self.export_meta(), self.points, self.labels, self.auto, p, VERSION, sep, dec)
         self._log("CSV guardados: " + "; ".join(paths))
         QMessageBox.information(self, "CSV guardados", "\n".join(paths))
 
@@ -951,7 +1090,7 @@ class GroundCoverDialog(QDialog):
             return
         if not p.lower().endswith((".html", ".htm")):
             p += ".html"
-        gc.write_html(self.res, self.meta, self.area, self.points, self.labels, p, VERSION)
+        gc.write_html(self.res, self.export_meta(), self.area, self.points, self.labels, p, VERSION)
         self._log("Informe guardado: " + p)
         ans = QMessageBox.question(self, "Informe guardado", "{}\n\n¿Abrir el informe ahora?".format(p),
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)

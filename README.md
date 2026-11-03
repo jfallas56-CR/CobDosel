@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.15.11-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.15.12-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 
@@ -62,6 +62,7 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 - **Área:** un **cuadro** físico (4 esquinas, cursor en cruz y líneas guía; se endereza a un cuadrado) o un **área fija** desde la altura de la cámara y la calibración «Rectilínea» (la ventana indica qué cuadrado cabe a cada altura; una foto de otra proporción que la calibración se rechaza).
 - **Vegetación verde (píxeles):** regla de Canopeo (Patrignani y Ochsner 2015: R/G < 0,95, B/G < 0,95, 2G − R − B > 20), comprobada con ExG − ExR (Meyer y Neto 2008). Si difieren más de 5 puntos, «a revisar», que no indica un error: la tecla C muestra dónde difieren (cian y naranja).
 - **Intercepción de puntos:** cuadrícula regular con desfase aleatorio y semilla registrada; los puntos verdes según Canopeo se marcan solos y el analista clasifica los demás («Siguiente» asigna la clase marcada; teclas 1–9; clases propias, hasta 9). Regla para puntos dudosos: solo el píxel bajo el centro de la cruz (Booth et al. 2006). Cobertura de cada clase con IC 95 % (Wilson).
+- **Varios analistas:** «Modo reglamentario» (el verde lo decide la regla de Canopeo), «Cargar área y cuadrícula de un CSV…» (doble clasificación sobre los mismos puntos) y «Comparar clasificaciones…» (acuerdo, kappa de Cohen, tabla de confusión y puntos en desacuerdo).
 - **Salidas:** CSV por foto y por punto, e informe HTML con la imagen del área y la de las diferencias entre las reglas.
 
 ## Requisitos
@@ -86,6 +87,7 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 
 ## Historial
 
+- **0.15.12 (2026-11-03):** cobertura del suelo: modo reglamentario, «Cargar área y cuadrícula de un CSV…» y «Comparar clasificaciones» (kappa de Cohen); protocolo con varios analistas en el manual.
 - **0.15.11 (2026-11-02):** descripción del complemento con «Cobertura del suelo» y sin funciones retiradas; README de la raíz actualizado.
 - **0.15.10 (2026-11-02):** cobertura del suelo: regla para puntos dudosos en la ayuda y el manual.
 - **0.15.9 (2026-11-02):** área fija: qué cuadrado cabe a cada altura (ventana, ayuda y manual); foto de distinta proporción que la calibración, rechazada.

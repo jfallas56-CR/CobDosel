@@ -400,6 +400,11 @@ clase nueva como «Vegetación amarillenta»).</p>
   píxel central es una mezcla (borde de hoja), decide su color dominante a zoom máximo; si no se puede decidir,
   «No identificable». Use la misma regla en todas las fotos y anote cuántos puntos fueron dudosos (una clase como
   «Borde» sirve de control, pero conviértala con esta regla antes de informar).</li>
+  <li><b>Modo reglamentario</b> (casilla en «3. Clasificar los puntos»): el verde lo decide la regla de Canopeo, no
+  el analista. Los puntos verdes automáticos no se cambian (solo pueden pasar a «No identificable» si caen sobre algo que
+  no es vegetación) y ningún punto pasa a verde a mano; CobDosel lo rechaza y lo dice. Así dos analistas obtienen los
+  mismos puntos verdes con la misma semilla. Si se activa con puntos que no cumplen la regla, ofrece devolverles su clase
+  automática. El CSV y el informe registran «modo_reglamentario».</li>
   <li><b>Con el ratón:</b> elija la clase y haga clic en cualquier punto (también para corregir un punto verde, por
   ejemplo musgo o algas sobre suelo desnudo).</li>
   <li>Clases: 1 vegetación verde, 2 vegetación seca, 3 hojarasca, 4 suelo desnudo, 5 no identificable (sombra o zona
@@ -410,6 +415,21 @@ clase nueva como «Vegetación amarillenta»).</p>
   incluyen todas las clases de la lista, y el CSV las nombra en «clases_nuevas».</li>
   <li><b>Zoom:</b> rueda del ratón (alrededor del cursor), <b>+</b> / <b>−</b> o los botones «Acercar» y «Alejar».
   <b>Arrastre</b> con el botón izquierdo o las <b>flechas</b> del teclado para mover la vista (10 % del área visible por pulsación; con Mayús, 50 %). <b>F</b> («Ajustar vista») vuelve al área completa.</li>
+</ul>
+
+<h3>Doble clasificación y «Comparar clasificaciones»</h3>
+<ul>
+  <li>El segundo analista abre la misma foto y usa <b>«Cargar área y cuadrícula de un CSV…»</b> con el CSV de foto del
+  primero (<i>CobDosel_suelo_&lt;foto&gt;.csv</i>): CobDosel repite su área (las esquinas del cuadro, o el área fija con
+  la misma altura y calibración), su semilla y su número de puntos. Clasifica sin ver la primera clasificación y exporta
+  su CSV.</li>
+  <li><b>«Comparar clasificaciones…»</b> lee los dos <i>_puntos.csv</i>, comprueba que son la misma foto y los mismos
+  puntos, y calcula el acuerdo observado, el acuerdo esperado por azar y el <b>kappa de Cohen</b>
+  (κ = (p<sub>o</sub> − p<sub>e</sub>) / (1 − p<sub>e</sub>); Cohen 1960), con la escala de Landis y Koch (1977), la tabla
+  de confusión y la lista de puntos en desacuerdo. Por defecto compara solo los puntos que la regla de Canopeo dejó sin
+  clasificar. Indica si se cumple el mínimo del protocolo (sugerido: acuerdo ≥ 90 % y kappa ≥ 0,80).</li>
+  <li>Con la foto y la cuadrícula abiertas en «Cobertura del suelo», <b>doble clic</b> en un punto en desacuerdo lleva la
+  vista a ese punto para resolverlo por consenso. «Exportar informe HTML…» guarda el resultado.</li>
 </ul>
 
 <h3>5. Resultado</h3>

@@ -325,7 +325,7 @@ _BASE_COLUMNS = (
     "archivo", "fecha_exif", "latitud", "longitud", "sitio", "analista", "modo_area", "lado_m", "area_m2",
     "altura_camara_m", "calibracion", "regla_verde", "canopeo_p1", "canopeo_p2", "canopeo_p3",
     "verde_canopeo_pct", "verde_exgexr_pct", "diferencia_pct", "solo_exgexr_pct", "solo_canopeo_pct", "revisar",
-    "n_puntos", "semilla", "sin_clasificar", "completo",
+    "n_puntos", "semilla", "sin_clasificar", "completo", "modo_reglamentario", "esquinas_px",
 )
 
 
@@ -357,6 +357,32 @@ def result_row(res, meta):
         row["{}_ic95_inf".format(c)] = d["ic_inf"]
         row["{}_ic95_sup".format(c)] = d["ic_sup"]
     return [row.get(k) for k in csv_columns(classes)]
+
+
+def corners_text(corners):
+    """Esquinas del cuadro como texto para el CSV: «x y | x y | x y | x y» (px de la foto, punto decimal)."""
+    return " | ".join("{:.1f} {:.1f}".format(float(x), float(y)) for x, y in corners) if corners else None
+
+
+def parse_corners(text):
+    """Inverso de corners_text. Devuelve [(x, y)] o [] si el texto no tiene 4 esquinas."""
+    try:
+        pts = [tuple(float(v) for v in part.split()) for part in str(text or "").split("|") if part.strip()]
+    except ValueError:
+        return []
+    return pts if len(pts) == 4 and all(len(p) == 2 for p in pts) else []
+
+
+def read_photo_csv(path):
+    """Lee CobDosel_suelo_<foto>.csv («,» o «;», coma o punto decimal). Devuelve el dict de la primera fila."""
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        text = f.read()
+    first = text.splitlines()[0] if text else ""
+    delim = ";" if first.count(";") > first.count(",") else ","
+    rows = list(csv.DictReader(io.StringIO(text), delimiter=delim))
+    if not rows or "semilla" not in rows[0] or "modo_area" not in rows[0]:
+        raise ValueError("«{}» no es un CSV de foto de «Cobertura del suelo» de CobDosel.".format(os.path.basename(path)))
+    return rows[0]
 
 
 def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal="."):
@@ -443,6 +469,8 @@ def write_html(res, meta, area_rgb, points, labels, path, version=""):
          .format(f(res["canopeo_p1"]), f(res["canopeo_p2"]), f(res["canopeo_p3"], 0))),
         ("Cuadrícula de puntos", "{} puntos, desfase aleatorio con semilla {}".format(res["n_puntos"],
                                                                                     meta.get("semilla"))),
+        ("Modo reglamentario", "Sí: el verde lo decide la regla de Canopeo; el analista no lo cambia"
+         if meta.get("modo_reglamentario") == "Sí" else "No"),
     ]
     prm = "".join("<tr><td>{}</td><td>{}</td></tr>".format(_h.escape(k), _h.escape(str(v))) for k, v in params)
     head = " · ".join(x for x in ("Sitio: " + _h.escape(meta.get("sitio") or "—"),
