@@ -301,6 +301,8 @@ class GroundCoverDialog(QDialog):
         self.current_idx = None         # punto actual (anillo amarillo)
         self.only_x = self.only_c = None    # v0.15.7: verde solo para ExG − ExR / solo para Canopeo
         self.zones = []                     # v0.15.16: zona de cada punto («cian», «naranja» o None)
+        self.doubt, self.doubt_order, self.reviewed = [], [], set()     # v0.15.17: verdes dudosos
+        self.batch = None                   # v0.16.0: procesamiento por sitio
         self.custom_classes = gc.load_custom_classes()
         self.classes = gc.class_list(self.custom_classes)
         self.groups = gc.groups_for(gc.load_groups(), self.classes)     # v0.15.13
@@ -321,6 +323,23 @@ class GroundCoverDialog(QDialog):
         self.help_browser.setHtml(GROUND_HELP_HTML)
         tabs.addTab(self.help_browser, "Ayuda")
         self.tabs = tabs
+        # v0.16.0: barra del procesamiento por sitio (oculta fuera del lote)
+        self.batch_box = QGroupBox("Procesamiento por sitio"); bl = QVBoxLayout(self.batch_box)
+        self.batch_lbl = QLabel(""); self.batch_lbl.setWordWrap(True); bl.addWidget(self.batch_lbl)
+        rowb = QHBoxLayout()
+        self.batch_prev_btn = QPushButton("◀ Guardar y foto anterior"); self.batch_prev_btn.clicked.connect(self.batch_prev)
+        self.batch_next_btn = QPushButton("Guardar y foto siguiente ▶"); self.batch_next_btn.clicked.connect(self.batch_next)
+        rowb.addWidget(self.batch_prev_btn); rowb.addWidget(self.batch_next_btn)
+        bl.addLayout(rowb)
+        rowc = QHBoxLayout()
+        self.batch_save_btn = QPushButton("Guardar esta foto"); self.batch_save_btn.clicked.connect(self._on_batch_save)
+        self.batch_end_btn = QPushButton("Terminar el procesamiento por sitio")
+        self.batch_end_btn.setToolTip("Guarda la foto actual (si su área está preparada) y vuelve al uso foto por foto.")
+        self.batch_end_btn.clicked.connect(self._on_batch_end)
+        rowc.addWidget(self.batch_save_btn); rowc.addWidget(self.batch_end_btn)
+        bl.addLayout(rowc)
+        self.batch_box.setVisible(False)
+        lv.addWidget(self.batch_box)
         g1 = QGroupBox("1. Foto"); f1 = QFormLayout(g1)
         self.photo_edit = QLineEdit(); self.photo_edit.setReadOnly(True)
         b = QPushButton("Cargar foto…"); b.clicked.connect(self._on_load)
@@ -425,7 +444,7 @@ class GroundCoverDialog(QDialog):
         self.show_diff = QCheckBox("Diferencias entre las reglas: cian = verde solo para ExG − ExR, naranja = solo "
                                    "para Canopeo (C)")
         self.show_diff.setChecked(False)
-        self.show_diff.setToolTip("Muestra dónde difieren Canopeo y ExG − ExR (suele ser vegetación amarillenta u hojas "
+        self.show_diff.setToolTip("Muestra dónde difieren Canopeo y ExG − ExR (casi siempre píxeles mezcla en el borde entre hojas verdes y material seco; también tejido amarillento u hojas "
                                   "en sombra). Una diferencia no es un error de la foto ni de la clasificación.")
         self.show_diff.toggled.connect(self._redraw_area)
         v3.addWidget(self.show_diff)
@@ -442,10 +461,10 @@ class GroundCoverDialog(QDialog):
         row6.addWidget(self.next_btn); row6.addWidget(self.skip_btn)
         v3.addLayout(row6)
         # v0.15.16: puntos que caen donde las dos reglas del verde difieren
-        self.doubt_btn = QPushButton("Siguiente punto dudoso (D)")
-        self.doubt_btn.setToolTip("Lleva la vista al siguiente punto que cae donde Canopeo y ExG − ExR difieren (cian: "
-                                  "tejido amarillento u hoja en sombra; naranja: compruebe que sea vegetación). Son los "
-                                  "puntos que conviene revisar con más cuidado.")
+        self.doubt_btn = QPushButton("Siguiente verde dudoso (D)")
+        self.doubt_btn.setToolTip("Recorre solo los verdes automáticos dudosos, del más al menos dudoso: zona naranja "
+                                  "(verde solo para Canopeo), color cerca de los umbrales de Canopeo o borde de hoja. Los "
+                                  "demás verdes automáticos son claros y no hace falta revisarlos.")
         self.doubt_btn.clicked.connect(self.next_doubtful)
         v3.addWidget(self.doubt_btn)
         row5 = QHBoxLayout()
@@ -469,6 +488,11 @@ class GroundCoverDialog(QDialog):
                                     "puntos en desacuerdo (doble clasificación del protocolo).")
         self.compare_btn.clicked.connect(self._on_compare)
         row3.addWidget(self.compare_btn)
+        self.site_btn = QPushButton("Procesamiento por sitio…")
+        self.site_btn.setToolTip("Clasifica las fotos de un sitio una tras otra con los mismos parámetros, guarda cada "
+                                 "foto sola y calcula el resultado del sitio (media e intervalo de 95 %).")
+        self.site_btn.clicked.connect(self._on_site)
+        row3.addWidget(self.site_btn)
         lv.addLayout(row3)
         # v0.15.14: retomar o revisar una clasificación exportada
         self.load_cls_btn = QPushButton("Cargar clasificación de un CSV…")
@@ -737,6 +761,7 @@ class GroundCoverDialog(QDialog):
         self.area = None
         self.points, self.labels, self.auto, self.res = [], [], [], None
         self.zones = []
+        self.doubt, self.doubt_order, self.reviewed = [], [], set()
         self._update_progress()
         self.photo_edit.setText(path)
         self.canvas.polygon = []
@@ -766,6 +791,7 @@ class GroundCoverDialog(QDialog):
         self.area = None
         self.points, self.labels, self.auto, self.res = [], [], [], None
         self.zones = []
+        self.doubt, self.doubt_order, self.reviewed = [], [], set()
         self._update_progress()
         self.canvas.marks = []
         self.canvas.set_image(self.rgb)
@@ -834,6 +860,8 @@ class GroundCoverDialog(QDialog):
         meta = {"archivo": os.path.basename(self.photo_path), "fecha_exif": self.exif.get("capture_datetime"),
                 "latitud": self.exif.get("latitude"), "longitud": self.exif.get("longitude"),
                 "sitio": self.site_edit.text().strip(), "analista": self.analyst_edit.text().strip(),
+                "numero_foto": self._batch_photo().get("numero"), "parcela": self._batch_photo().get("parcela"),
+                "punto": self._batch_photo().get("punto"),
                 "lado_m": side, "area_m2": side * side}
         if self.mode_quad.isChecked():
             if len(self.corners) != 4:
@@ -863,6 +891,7 @@ class GroundCoverDialog(QDialog):
                                                seed=int(self.seed_spin.value()))
         self.auto = gc.auto_labels(self.points, self.green)
         self.zones = gc.point_zones(self.points, self.only_x, self.only_c)      # v0.15.16
+        self._set_doubt()
         self.labels = list(self.auto)
         self.current_idx = None
         self.canvas.current = None
@@ -884,6 +913,10 @@ class GroundCoverDialog(QDialog):
         """Otra semilla y otra cuadrícula sobre la misma área."""
         if self.area is None:
             return False
+        if self.batch:
+            self._log("Procesamiento por sitio: la semilla de cada foto está fijada (base + número); no se cambia la "
+                      "cuadrícula.")
+            return False
         if confirm and not self._confirm_discard():
             return False
         seed = int(np.random.default_rng().integers(0, 1000000))
@@ -893,6 +926,7 @@ class GroundCoverDialog(QDialog):
         self.points, self.seed = gc.point_grid(self.area.shape, int(self.points_spin.value()), seed=seed)
         self.auto = gc.auto_labels(self.points, self.green)
         self.zones = gc.point_zones(self.points, self.only_x, self.only_c)      # v0.15.16
+        self._set_doubt()
         self.labels = list(self.auto)
         self.current_idx = None
         self.canvas.current = None
@@ -1119,6 +1153,113 @@ class GroundCoverDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(self, "Cargar clasificación de un CSV", str(e))
 
+    # ------------------------------------------------------------ procesamiento por sitio (v0.16.0)
+    def _batch_photo(self):
+        b = getattr(self, "batch", None)
+        return b["photos"][b["idx"]] if b and b["photos"] else {}
+
+    def start_batch(self, photos, out_dir, base_seed, site="", analyst=""):
+        """Empieza o continúa la clasificación de las fotos del sitio en esta ventana."""
+        if not photos:
+            raise ValueError("No hay fotos para procesar.")
+        self.batch = {"photos": list(photos), "out_dir": out_dir, "base_seed": int(base_seed), "idx": 0}
+        self.site_edit.setText(site or self.site_edit.text())
+        self.analyst_edit.setText(analyst or self.analyst_edit.text())
+        self.seed_spin.setEnabled(False)       # la semilla de cada foto es la base + su número
+        self.batch_box.setVisible(True)
+        from . import ground_batch as gb
+        first = next((i for i, p in enumerate(photos) if gb.photo_status(out_dir, p["nombre"]) != "completa"), 0)
+        return self.batch_open(first)
+
+    def end_batch(self):
+        self.batch = None
+        self.batch_box.setVisible(False)
+        self.seed_spin.setEnabled(True)
+
+    def batch_open(self, i):
+        """Abre la foto i del sitio: si ya tiene CSV, carga su clasificación; si no, con área fija prepara el área con
+        la semilla de la foto; con cuadro, espera las 4 esquinas."""
+        from . import ground_batch as gb
+        b = self.batch
+        b["idx"] = max(0, min(int(i), len(b["photos"]) - 1))
+        ph = b["photos"][b["idx"]]
+        self.load_photo(ph["ruta"])
+        self.seed_spin.setValue(gb.photo_seed(b["base_seed"], ph["numero"]))
+        prefix = gb.output_prefix(b["out_dir"], ph["nombre"])
+        if os.path.isfile(prefix + "_puntos.csv") and os.path.isfile(prefix + ".csv"):
+            self.load_classification_from_csv(prefix + "_puntos.csv", confirm=False)
+        elif self.mode_fixed.isChecked():
+            try:
+                self.prepare_area(confirm=False)
+            except ValueError as e:
+                self._log("Foto {}: {}".format(ph["numero"], e))
+        else:
+            self._log("Foto {} de {}: marque las 4 esquinas del cuadro y pulse «Preparar área».".format(
+                ph["numero"], len(b["photos"])))
+        self._update_batch_label()
+        return b["idx"]
+
+    def _update_batch_label(self):
+        from . import ground_batch as gb
+        b = getattr(self, "batch", None)
+        if not b:
+            return
+        ph = b["photos"][b["idx"]]
+        st = [gb.photo_status(b["out_dir"], p["nombre"]) for p in b["photos"]]
+        where = " · parcela {} {}".format(ph["parcela"], ph["punto"] or "") if ph.get("parcela") else ""
+        self.batch_lbl.setText("<b>Foto {} de {}</b>: {}{} · semilla {} · completas {} de {}".format(
+            ph["numero"], len(b["photos"]), ph["nombre"], where, gb.photo_seed(b["base_seed"], ph["numero"]),
+            st.count("completa"), len(st)))
+        self.batch_prev_btn.setEnabled(b["idx"] > 0)
+        self.batch_next_btn.setEnabled(b["idx"] < len(b["photos"]) - 1)
+
+    def batch_save(self):
+        """Guarda los CSV y el informe de la foto actual en la carpeta de salida. Devuelve las rutas o [] si el área no
+        está preparada."""
+        from . import ground_batch as gb
+        b = self.batch
+        if not b or self.area is None or not self.points:
+            return []
+        prefix = gb.output_prefix(b["out_dir"], b["photos"][b["idx"]]["nombre"])
+        sep, dec = csv_style()
+        paths = gc.write_csvs(self.res, self.export_meta(), self.points, self.labels, self.auto, prefix, VERSION, sep, dec,
+                              zones=self.zones, doubt=self.doubt)
+        paths.append(gc.write_html(self.res, self.export_meta(), self.area, self.points, self.labels,
+                                   prefix + "_informe.html", VERSION))
+        self._log("Foto guardada: {}".format(os.path.basename(prefix)))
+        self._update_batch_label()
+        return paths
+
+    def batch_next(self):
+        self.batch_save()
+        if self.batch["idx"] < len(self.batch["photos"]) - 1:
+            return self.batch_open(self.batch["idx"] + 1)
+        self._log("Última foto del sitio.")
+        return self.batch["idx"]
+
+    def batch_prev(self):
+        self.batch_save()
+        if self.batch["idx"] > 0:
+            return self.batch_open(self.batch["idx"] - 1)
+        return self.batch["idx"]
+
+    def _on_batch_end(self):
+        if self.batch:
+            self.batch_save()
+        self.end_batch()
+        self._log("Procesamiento por sitio terminado. Las fotos completas quedan en la carpeta de resultados; "
+                  "«Resumen del sitio» las reúne.")
+
+    def _on_batch_save(self):
+        if not self.batch_save():
+            QMessageBox.information(self, "Procesamiento por sitio", "Prepare el área de esta foto antes de guardarla.")
+
+    def _on_site(self):
+        from .ground_batch_dialog import GroundBatchDialog
+        dlg = GroundBatchDialog(self, ground_dialog=self)
+        dlg.show()
+        self._site_dlg = dlg
+
     def _on_compare(self):
         from .ground_compare_dialog import GroundCompareDialog
         dlg = GroundCompareDialog(self, ground_dialog=self)
@@ -1136,26 +1277,41 @@ class GroundCoverDialog(QDialog):
             lab = self.labels[self.current_idx]
             txt += " · punto actual: n.º {} ({})".format(
                 self.current_idx + 1, dict((k, l) for k, l, _c in self.classes).get(lab, lab) if lab else "sin clasificar")
-            z = self.zones[self.current_idx] if self.current_idx < len(self.zones) else None
-            if z:
-                txt += "<br><b>Punto dudoso, zona {}</b>: {}.".format(z, gc.ZONE_HELP[z])
+            i = self.current_idx
+            dd = self.doubt[i] if i < len(self.doubt) else None
+            z = self.zones[i] if i < len(self.zones) else None
+            if dd and i in self.doubt_order:
+                txt += "<br><b>Verde dudoso {} de {}</b> (puntaje {:.2f}): {}. Compruebe que el píxel del centro es " \
+                       "vegetación verde.".format(self.doubt_order.index(i) + 1, len(self.doubt_order), dd[0],
+                                                  "; ".join(gc.DOUBT_REASONS[r] for r in dd[1]))
+            elif z == "cian":
+                txt += "<br><b>Zona cian</b>: {}.".format(gc.ZONE_HELP[z])
         elif pend:
             txt += " · pulse «Siguiente» (N) para ir al primero"
         else:
             txt += " · todos clasificados"
         self.progress_lbl.setText(txt)
 
+    def _set_doubt(self):
+        """Verdes automáticos dudosos (v0.15.17), en orden de duda."""
+        self.doubt = gc.green_doubt(self.area, self.points)
+        self.doubt_order = gc.doubtful_order(self.doubt)
+        self.reviewed = set()
+
     def next_doubtful(self):
-        """Centra la vista en el siguiente punto en zona cian o naranja (clasificado o no), a partir del actual."""
-        n = len(self.zones)
-        if not n:
+        """«Siguiente verde dudoso» (D): recorre solo los verdes automáticos dudosos, del más al menos dudoso (cíclico),
+        y los marca como revisados. Los verdes claros no se visitan."""
+        order = self.doubt_order
+        if not order:
+            self._log("No hay verdes automáticos dudosos: todos los verdes son claros.")
             return None
-        start = -1 if self.current_idx is None else self.current_idx
-        nxt = next((i for i in ((start + k) % n for k in range(1, n + 1)) if self.zones[i]), None)
-        if nxt is None:
-            self._log("Ningún punto cae donde las dos reglas del verde difieren.")
-            return None
+        pos = order.index(self.current_idx) if self.current_idx in order else -1
+        nxt = order[(pos + 1) % len(order)]
+        self.reviewed.add(nxt)
         self.goto_point(nxt)
+        if len(self.reviewed) == len(order):
+            self._log("Revisados los {} verdes automáticos dudosos.".format(len(order)))
+        self._refresh()
         return nxt
 
     def next_unclassified(self):
@@ -1214,10 +1370,16 @@ class GroundCoverDialog(QDialog):
         lines = ["Vegetación verde (Canopeo): {:.2f} %".format(r["verde_canopeo_pct"])]
         if r["revisar"]:
             lines.append("A revisar: " + gc.agreement_note(r))
-        nzx, nzc = self.zones.count("cian"), self.zones.count("naranja")
-        if nzx or nzc:
-            lines.append("Puntos dudosos (donde las dos reglas del verde difieren): {} en zona cian y {} en zona naranja; "
-                         "revíselos con «Siguiente punto dudoso» (D).".format(nzx, nzc))
+        n_auto = sum(1 for d in self.doubt if d is not None)
+        if n_auto:
+            lines.append("Verdes automáticos dudosos: {} de {} (revisados {}). Revise solo estos, del más al menos dudoso, "
+                         "con «Siguiente verde dudoso» (D); los demás verdes son claros.".format(
+                             len(self.doubt_order), n_auto, len(self.reviewed & set(self.doubt_order))))
+        ncy = sum(1 for z, lab in zip(self.zones, self.labels) if z == "cian" and lab is None)
+        if ncy:
+            lines.append("Puntos sin clasificar en zona cian (borde entre hoja verde y material seco, tejido amarillento u "
+                         "hoja en sombra): {}; se clasifican con "
+                         "«Siguiente» y la etiqueta lo indica.".format(ncy))
         lines.append("Puntos ({}; sin clasificar: {}; semilla {}):".format(r["n_puntos"], r["sin_clasificar"], self.seed))
         for key, lbl, _col in self.classes:
             d = r["clases"][key]
@@ -1245,7 +1407,7 @@ class GroundCoverDialog(QDialog):
         p = p[:-4] if p.lower().endswith(".csv") else p
         sep, dec = csv_style()
         paths = gc.write_csvs(self.res, self.export_meta(), self.points, self.labels, self.auto, p, VERSION, sep, dec,
-                              zones=self.zones)
+                              zones=self.zones, doubt=self.doubt)
         self._log("CSV guardados: " + "; ".join(paths))
         QMessageBox.information(self, "CSV guardados", "\n".join(paths))
 

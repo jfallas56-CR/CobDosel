@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.15.16-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.16.0-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 
@@ -63,6 +63,7 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 - **Vegetación verde (píxeles):** regla de Canopeo (Patrignani y Ochsner 2015: R/G < 0,95, B/G < 0,95, 2G − R − B > 20), comprobada con ExG − ExR (Meyer y Neto 2008). Si difieren más de 5 puntos, «a revisar», que no indica un error: la tecla C muestra dónde difieren (cian y naranja).
 - **Intercepción de puntos:** cuadrícula regular con desfase aleatorio y semilla registrada; los puntos verdes según Canopeo se marcan solos y el analista clasifica los demás («Siguiente» asigna la clase marcada; teclas 1–9; clases propias, hasta 9; grupos de clases como «Vegetación total» para medir toda la vegetación). Regla para puntos dudosos: solo el píxel bajo el centro de la cruz (Booth et al. 2006). Cobertura de cada clase con IC 95 % (Wilson).
 - **Varios analistas:** «Modo reglamentario» (el verde lo decide la regla de Canopeo), «Cargar área y cuadrícula de un CSV…» (doble clasificación sobre los mismos puntos) y «Comparar clasificaciones…» (acuerdo, kappa de Cohen, tabla de confusión y puntos en desacuerdo).
+- **Varias fotos de un sitio:** «Procesamiento por sitio…» las clasifica una tras otra con los mismos parámetros (con formulario de fotos, en su orden y con parcela y punto); semilla de cada foto = semilla base + número; se puede continuar donde quedó. «Resumen del sitio»: media e IC 95 % con t de Student, por fotos o por parcelas.
 - **Salidas:** CSV por foto y por punto, e informe HTML con la imagen del área y la de las diferencias entre las reglas.
 
 ## Requisitos
@@ -87,6 +88,8 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 
 ## Historial
 
+- **0.16.0 (2026-11-03):** cobertura del suelo: procesamiento por sitio (fotos en orden, con o sin formulario; semilla base + número; continuar donde quedó; resumen del sitio con IC 95 % de t de Student por fotos o parcelas).
+- **0.15.17 (2026-11-03):** cobertura del suelo: «Siguiente verde dudoso» (D) recorre solo los verdes automáticos dudosos, del más al menos dudoso.
 - **0.15.16 (2026-11-03):** cobertura del suelo: se muestra solo Canopeo (ExG − ExR como comprobación interna); puntos dudosos y «Siguiente punto dudoso» (D).
 - **0.15.15 (2026-11-03):** cobertura del suelo: aviso «a revisar» más claro (dos valores, parte dudosa, por qué se informa Canopeo).
 - **0.15.14 (2026-11-03):** cobertura del suelo: «Cargar clasificación de un CSV…» (continuar, revisar o agregar grupos sin clasificar otra vez).

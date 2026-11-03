@@ -20,7 +20,7 @@ def chk(name, cond, extra=""):
 res = {"revisar": True, "diferencia_pct": -5.32, "verde_canopeo_pct": 71.24, "verde_exgexr_pct": 76.56}
 w = gc.agreement_note(res)
 chk("1 los dos valores y la diferencia", "difieren 5.3 puntos (Canopeo 71.2 %; ExG − ExR 76.6 %" in w, w)
-chk("1 qué es la parte dudosa y que no es un error", "vegetación amarillenta u hojas en sombra" in w
+chk("1 qué es la parte dudosa y que no es un error", "píxeles mezcla en el borde entre hojas verdes y material seco" in w
     and "No es un error de la foto ni de la clasificación" in w)
 chk("1 por qué se informa Canopeo (regla publicada) y cuánto sería con ExG − ExR",
     "El valor que se informa es el de Canopeo, la regla publicada que usa CobDosel" in w

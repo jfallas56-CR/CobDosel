@@ -139,15 +139,12 @@ txt = d.out.toPlainText()
 chk("2 ventana: primera línea solo Canopeo", txt.splitlines()[0].startswith("Vegetación verde (Canopeo):")
     and "ExG − ExR:" not in txt.splitlines()[0], txt.splitlines()[0])
 chk("2 con «a revisar», el aviso da ExG − ExR", d.res["revisar"] and "A revisar: Las dos reglas del verde" in txt)
-chk("2 conteo de puntos dudosos y cómo revisarlos", "Puntos dudosos (donde las dos reglas del verde difieren): {} en zona cian y 0 "
-    "en zona naranja".format(z.count("cian")) in txt)
-d.current_idx = None
+chk("2 conteo de puntos sin clasificar en zona cian", "Puntos sin clasificar en zona cian (borde entre hoja verde y material "
+    "seco, tejido amarillento u hoja en sombra): {}".format(z.count("cian")) in txt)
 first_c = z.index("cian")
-i = d.next_doubtful()
-chk("3 «Siguiente punto dudoso»: va al primer punto cian", i == first_c and d.current_idx == first_c)
-chk("3 la etiqueta explica la zona", "Punto dudoso, zona cian" in d.progress_lbl.text() and "tejido amarillento" in d.progress_lbl.text())
-QtTest.QTest.keyClick(d.canvas, Qt.Key.Key_D); app.processEvents()
-chk("3 tecla D: el siguiente cian", d.current_idx == [k for k, zz in enumerate(z) if zz == "cian"][1])
+d.goto_point(first_c)
+chk("3 punto sin clasificar en zona cian: la etiqueta lo explica (v0.15.17: D recorre solo los verdes dudosos)",
+    "Zona cian" in d.progress_lbl.text() and "borde entre una hoja verde y material seco" in d.progress_lbl.text())
 for k in range(len(d.labels)):
     if d.labels[k] is None:
         d.labels[k] = "seca"
@@ -177,7 +174,7 @@ chk("5 informe sin «a revisar»: solo una nota de que la comprobación coincide
     not r2["revisar"] and "las dos reglas coinciden dentro de 5 puntos" in ht2 and "Dónde difieren" not in ht2
     and ht2.count("data:image/png;base64,") == 1)
 from cobdosel.help_texts import GROUND_HELP_HTML
-chk("6 ayuda: qué puntos revisar", "Siguiente punto dudoso" in GROUND_HELP_HTML and "zona_reglas" in GROUND_HELP_HTML)
+chk("6 ayuda: qué puntos revisar", "Siguiente verde dudoso" in GROUND_HELP_HTML and "zona_reglas" in GROUND_HELP_HTML)
 
 print("\nTodo OK" if ok_all else "\nHAY FALLAS")
 sys.exit(0 if ok_all else 1)

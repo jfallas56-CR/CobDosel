@@ -377,7 +377,9 @@ Canopeo lo ve; el informe HTML incluye la misma imagen. Las dos reglas ponen en 
 verde y el amarillo o la sombra: Canopeo exige R/G &lt; 0,95 (deja fuera hojas amarillentas, en las que el rojo casi
 iguala al verde) y 2G − R − B &gt; 20 en brillo absoluto (deja fuera verde oscuro en sombra); ExG − ExR usa
 proporciones de color y cuenta parte de esos píxeles. Por eso <b>«a revisar» no indica un error de la foto ni de la
-clasificación</b>: indica que hay bastante vegetación amarillenta, sombra, luz directa o suelo de color parecido, y
+clasificación</b>: indica que hay muchos píxeles en el límite, casi siempre <b>píxeles mezcla en el borde entre hojas
+verdes y material seco</b> (la cámara mezcla los dos colores en los 1–3 píxeles del borde), y también tejido
+amarillento, sombra, luz directa o suelo de color parecido, y
 que conviene mirar dónde difieren. <b>El valor que se informa es el de Canopeo</b>: no porque sea «el correcto», sino
 porque es la regla publicada y fija que usa CobDosel; la diferencia con ExG − ExR indica cuánto del verde es dudoso
 (con ExG − ExR el verde sería mayor). La ventana y el informe muestran solo el valor de Canopeo; ExG − ExR es una
@@ -397,14 +399,17 @@ clase nueva como «Vegetación amarillenta»).</p>
   <li><b>1–9</b> (número de la clase) marca esa clase, la asigna al punto actual y, si está marcado «pasar al siguiente», pasa al
   siguiente. <b>«Saltar sin clasificar» (S)</b> pasa al siguiente sin clasificar el actual; se vuelve a él al final
   de la vuelta.</li>
-  <li><b>Qué puntos revisar:</b> los que caen donde las dos reglas del verde difieren. La ventana los cuenta («Puntos
-  dudosos: … en zona cian y … en zona naranja») y <b>«Siguiente punto dudoso» (D)</b> lleva la vista a cada uno; la
-  etiqueta del punto dice qué revisar. <b>Cian</b>: verde solo para ExG − ExR (tejido amarillento u hoja en sombra);
-  Canopeo no lo cuenta, de modo que el punto queda para el analista: vegetación seca, una clase propia como
-  «Vegetación amarillenta», o «No identificable» si está en sombra profunda. <b>Naranja</b>: verde solo para Canopeo;
-  el punto queda verde automático: compruebe que es vegetación y no suelo, piedra o alga verdosa (si no lo es, pase a
-  «No identificable», la única excepción del modo reglamentario). El CSV de puntos registra la zona de cada punto
-  (columna zona_reglas) y el informe da cuántos puntos cayeron en cada zona.</li>
+  <li><b>Qué puntos revisar:</b> no hace falta revisar todos los verdes automáticos. CobDosel da a cada verde automático
+  un <b>puntaje de duda</b> (0–1), el mayor de: zona <b>naranja</b> (verde solo para Canopeo), cercanía del color del
+  píxel a los umbrales de Canopeo, y <b>borde de hoja</b> (fracción de píxeles no verdes en 7 × 7 px alrededor). Los
+  verdes con puntaje ≥ 0,5 son los <b>verdes dudosos</b>: el resumen los cuenta («Verdes automáticos dudosos: 24 de
+  147») y <b>«Siguiente verde dudoso» (D)</b> recorre solo esos, del más al menos dudoso; la etiqueta dice por qué es
+  dudoso. Compruebe que el píxel del centro es vegetación verde; si no lo es (suelo, piedra o alga verdosa), páselo a
+  «No identificable». En una foto de césped con 196 puntos, 147 fueron verdes y solo 24 dudosos. Los puntos sin
+  clasificar en zona <b>cian</b> (verde solo para ExG − ExR: casi siempre el borde entre una hoja verde y material seco;
+  también tejido amarillento u hoja en sombra) se clasifican con
+  «Siguiente», y la etiqueta lo indica. El CSV de puntos registra la zona (zona_reglas) y el puntaje (duda_verde) de
+  cada punto, y el informe da cuántos verdes fueron dudosos.</li>
   <li><b>Regla para puntos dudosos:</b> se clasifica <b>solo el píxel bajo el centro de la cruz</b>, como la aguja de
   la intercepción de puntos en el campo, que registra solo lo que intercepta (Herrick et al. 2005), y como SamplePoint, donde
   «el punto de muestreo es siempre un solo píxel» (Booth et al. 2006). Una hoja al lado del centro no cuenta. Si el
@@ -457,6 +462,29 @@ clase nueva como «Vegetación amarillenta»).</p>
   Comprueba que la foto, los puntos y la clase automática coinciden; las clases propias que falten se crean. Sirve para
   continuar una clasificación que quedó a medias, revisarla, agregar grupos de clases o exportar de nuevo sin
   clasificar otra vez. En modo reglamentario no carga una clasificación que no cumpla sus reglas.</li>
+</ul>
+
+<h3>Procesamiento por sitio (varias fotos)</h3>
+<ul>
+  <li><b>«Procesamiento por sitio…»</b> (o el menú «CobDosel: Cobertura del suelo — procesamiento por sitio») clasifica
+  todas las fotos de un sitio, una tras otra, con los mismos parámetros. Prepare antes en esta ventana lo que es común:
+  modo de área (con área fija: lado, altura y calibración), número de puntos, clases, grupos y modo reglamentario.</li>
+  <li>Elija la carpeta de fotos, la carpeta de resultados (por omisión, la misma), el sitio, el analista y la
+  <b>semilla base</b>. Con un <b>formulario de fotos</b> (el mismo del dosel: parcela, punto, id_foto o hora, calidad)
+  las fotos siguen el orden del formulario, llevan su parcela y su punto, y las de calidad «descartar» se omiten.</li>
+  <li>La semilla de cada foto es <i>semilla base + número de la foto</i> (1, 2, 3…): queda fijada antes de ver las
+  fotos y cualquiera puede repetir la misma cuadrícula. Durante el lote, «Nueva cuadrícula» está bloqueada.</li>
+  <li>Con <b>cuadro</b>, marque las 4 esquinas y pulse «Preparar área» en cada foto; con <b>área fija</b>, el área y la
+  cuadrícula se preparan solas. Clasifique y pulse <b>«Guardar y foto siguiente»</b>: guarda el CSV de foto, el
+  <i>_puntos.csv</i> y el informe con el nombre <i>CobDosel_suelo_&lt;foto&gt;</i>.</li>
+  <li>Cada foto queda <i>pendiente</i> (sin CSV), <i>incompleta</i> (puntos sin clasificar) o <i>completa</i>. Puede
+  cerrar en cualquier momento: «Empezar o continuar» abre la primera foto sin terminar y recupera lo ya clasificado.</li>
+  <li><b>«Resumen del sitio»</b> usa solo las fotos completas. Para cada variable (vegetación verde por píxeles, cada
+  clase y cada grupo) da la media, la desviación estándar y el <b>IC 95 % con la t de Student</b>
+  (media ± t<sub>0,975; n−1</sub> · DE / √n), recortado a 0–100 %. La unidad es la <b>foto</b> o, con formulario, la
+  <b>parcela</b> (la media de sus fotos): las fotos de una misma parcela no son independientes, así que con parcelas la
+  unidad correcta es la parcela. Guarda <i>CobDosel_suelo_sitio_&lt;sitio&gt;.csv</i> (resumen), <i>_fotos.csv</i>,
+  <i>_parcelas.csv</i> (con parcelas) y el informe HTML.</li>
 </ul>
 
 <h3>5. Resultado</h3>

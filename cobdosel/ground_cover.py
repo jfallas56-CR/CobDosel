@@ -100,7 +100,8 @@ def agreement_note(res, where="ventana"):
     see = ("pulse C en la ventana" if where == "ventana"
            else "vea la imagen «Dónde difieren Canopeo y ExG − ExR» más abajo")
     x_more = res["verde_exgexr_pct"] > res["verde_canopeo_pct"]
-    cause = ("casi siempre vegetación amarillenta u hojas en sombra" if x_more
+    cause = ("casi siempre píxeles mezcla en el borde entre hojas verdes y material seco (también tejido amarillento u "
+             "hojas en sombra)" if x_more
              else "por ejemplo, suelo, piedras o algas de color verdoso, o reflejos")
     counts = ("que no cuenta esa parte dudosa; con ExG − ExR, que sí la cuenta" if x_more
               else "que sí cuenta esa parte dudosa; con ExG − ExR, que no la cuenta")
@@ -374,7 +375,50 @@ def point_zones(points, only_x, only_c):
     return out
 
 
-ZONE_HELP = {"cian": "verde solo para ExG − ExR: tejido amarillento u hoja en sombra; Canopeo no lo cuenta como verde",
+DOUBT_MIN = 0.5               # v0.15.17: puntaje desde el que un verde automático se revisa
+DOUBT_WINDOW = 3              # semiancho (px) de la ventana del borde: 7 × 7 px alrededor del punto
+DOUBT_REASONS = {"naranja": "verde solo para Canopeo (ExG − ExR no lo ve verde)",
+                 "umbral": "su color está cerca de los umbrales de Canopeo",
+                 "borde": "está en el borde de una hoja: buena parte de los píxeles vecinos no son verdes"}
+
+
+def green_doubt(rgb, points, params=CANOPEO_DEFAULT, window=DOUBT_WINDOW):
+    """Duda de cada punto verde automático (v0.15.17): None si el punto no es verde según Canopeo; si no, (puntaje 0–1,
+    motivos). El puntaje es el mayor de: 1 si ExG − ExR no lo ve verde (zona naranja); cercanía del píxel a los umbrales
+    de Canopeo (1 en el umbral, 0 a 0,08 de R/G o B/G o a 15 de 2G − R − B); fracción de píxeles no verdes en una ventana
+    de 7 × 7 px (borde de hoja). Un verde con puntaje ≥ DOUBT_MIN conviene revisarlo; los demás son verdes claros."""
+    a = np.asarray(rgb, dtype=np.float32)
+    green = canopeo_mask(rgb, *params)
+    exr = exg_exr_mask(rgb)
+    h, w = green.shape
+    p1, p2, p3 = params
+    out = []
+    for x, y in points:
+        yi, xi = int(round(y)), int(round(x))
+        if not green[yi, xi]:
+            out.append(None)
+            continue
+        r, g, b = (float(v) for v in a[yi, xi])
+        gs = max(g, 1.0)
+        near = max(1.0 - (p1 - r / gs) / 0.08, 1.0 - (p2 - b / gs) / 0.08, 1.0 - ((2 * g - r - b) - p3) / 15.0)
+        near = min(1.0, max(0.0, near))
+        win = green[max(0, yi - window):min(h, yi + window + 1), max(0, xi - window):min(w, xi + window + 1)]
+        edge = 1.0 - float(win.mean())
+        orange = 0.0 if exr[yi, xi] else 1.0
+        score = max(orange, near, edge)
+        reasons = [k for k, v in (("naranja", orange), ("umbral", near), ("borde", edge)) if v >= DOUBT_MIN]
+        out.append((score, reasons))
+    return out
+
+
+def doubtful_order(doubt, min_score=DOUBT_MIN):
+    """Índices de los verdes dudosos, del más al menos dudoso."""
+    idx = [i for i, d in enumerate(doubt) if d is not None and d[0] >= min_score]
+    return sorted(idx, key=lambda i: (-doubt[i][0], i))
+
+
+ZONE_HELP = {"cian": "verde solo para ExG − ExR: casi siempre un píxel mezcla en el borde entre una hoja verde y material "
+                     "seco (también tejido amarillento u hoja en sombra); Canopeo no lo cuenta como verde",
              "naranja": "verde solo para Canopeo: compruebe que sea vegetación (no suelo, piedra o alga verdosa)"}
 
 
@@ -425,7 +469,8 @@ def summarize(area_rgb, labels, params=(CANOPEO_DEFAULT), classes=None, groups=N
 
 
 _BASE_COLUMNS = (
-    "archivo", "fecha_exif", "latitud", "longitud", "sitio", "analista", "modo_area", "lado_m", "area_m2",
+    "archivo", "fecha_exif", "latitud", "longitud", "sitio", "analista", "numero_foto", "parcela", "punto",
+    "modo_area", "lado_m", "area_m2",
     "altura_camara_m", "calibracion", "regla_verde", "canopeo_p1", "canopeo_p2", "canopeo_p3",
     "verde_canopeo_pct", "verde_exgexr_pct", "diferencia_pct", "solo_exgexr_pct", "solo_canopeo_pct", "revisar",
     "n_puntos", "semilla", "sin_clasificar", "completo", "modo_reglamentario", "esquinas_px",
@@ -499,7 +544,8 @@ def read_photo_csv(path):
     return rows[0]
 
 
-def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal=".", zones=None):
+def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal=".", zones=None,
+               doubt=None):
     """<prefijo>.csv (una fila por foto) y <prefijo>_puntos.csv (un punto por fila). Devuelve las rutas."""
     from .csv_format import csv_row, NO_DATA
     meta = dict(meta, plugin="CobDosel", plugin_version=version)
@@ -515,12 +561,15 @@ def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimite
     p2 = out_prefix + "_puntos.csv"
     with open(p2, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=delimiter)
-        w.writerow(("archivo", "punto", "x_px", "y_px", "clase", "clase_automatica", "corregido", "zona_reglas"))
+        w.writerow(("archivo", "punto", "x_px", "y_px", "clase", "clase_automatica", "corregido", "zona_reglas",
+                    "duda_verde"))
         zones = list(zones) if zones else [None] * len(points)
-        for i, ((x, y), lab, a, z) in enumerate(zip(points, labels, auto, zones), 1):
+        doubt = list(doubt) if doubt else [None] * len(points)
+        for i, ((x, y), lab, a, z, dd) in enumerate(zip(points, labels, auto, zones, doubt), 1):
             w.writerow(csv_row([meta.get("archivo"), i, round(x, 1), round(y, 1),
                                 names.get(lab, lab) if lab else "Sin clasificar",
-                                names.get(a, a) if a else None, lab != a, z], decimal))
+                                names.get(a, a) if a else None, lab != a, z,
+                                round(dd[0], 2) if dd else None], decimal))
     return [p1, p2]
 
 
@@ -581,6 +630,11 @@ def write_html(res, meta, area_rgb, points, labels, path, version=""):
             tuple(col), _h.escape(lbl), res["clases"][c]["puntos"], f(res["clases"][c]["pct"], 1),
             f(res["clases"][c]["ic_inf"], 1), f(res["clases"][c]["ic_sup"], 1))
         for c, lbl, col in classes)
+    dd = green_doubt(area_rgb, points, prm3) if points else []
+    n_auto = sum(1 for x in dd if x is not None)
+    dudosos = ("Verdes automáticos dudosos (revisados por el analista): {} de {} (puntaje ≥ {:g}: zona naranja, color cerca "
+               "de los umbrales de Canopeo o borde de hoja).".format(len(doubtful_order(dd)), n_auto, DOUBT_MIN)
+               if n_auto else "")
     groups_html = ""
     if res.get("lista_grupos"):
         grows = "".join("<tr><td>{}</td><td>{}</td><td class='n'>{}</td><td class='n'>{} %</td><td class='n'>{} – {} %"
@@ -636,7 +690,7 @@ img{{max-width:100%;border-radius:6px}} .note{{font-size:.84rem;color:#52606d}}
 <section><h2>Cobertura por clase (intercepción de puntos)</h2><table>
 <tr><th>Clase</th><th class='n'>Puntos</th><th class='n'>Cobertura</th><th class='n'>IC 95 % (Wilson)</th></tr>{rows}</table>
 <p class="note">Cobertura de cada clase = puntos de la clase / {n} puntos. Los puntos verdes según Canopeo se marcan
-solos; el analista clasifica los demás y puede corregir cualquiera. La vegetación verde por píxeles usa toda el área;
+solos; el analista clasifica los demás y puede corregir cualquiera. {dudosos} La vegetación verde por píxeles usa toda el área;
 por puntos, solo los {n} puntos.</p></section>{groups}
 <section><h2>Área analizada</h2><img alt="Área analizada" src="data:image/png;base64,{img}">
 <p class="note">Magenta: vegetación verde según Canopeo. Círculos: puntos de la cuadrícula, con el color de su clase
@@ -645,7 +699,7 @@ por puntos, solo los {n} puntos.</p></section>{groups}
 <footer style="text-align:center;color:#52606d;margin-top:16px">Vegetación verde: Patrignani y Ochsner (2015); comprobación:
 Meyer y Neto (2008).<br/><strong>CobDosel v{version}</strong> para QGIS · Autor: Jorge Fallas · Contacto:
 <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></footer></div></body></html>""".format(
-        version=version, head=head, green=f(res["verde_canopeo_pct"]), check=check, diffsec=diffsec, warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm, groups=groups_html)
+        version=version, head=head, green=f(res["verde_canopeo_pct"]), check=check, diffsec=diffsec, warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm, groups=groups_html, dudosos=_h.escape(dudosos))
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)
     return path

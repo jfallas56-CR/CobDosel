@@ -51,6 +51,7 @@ class CobDosel:
         self.batch_dialog = None
         self.ground_action = None
         self.ground_dialog = None
+        self.ground_batch_action = None
 
     def _icon(self):
         path = os.path.join(self.plugin_dir, "cobdosel.svg")
@@ -77,6 +78,10 @@ class CobDosel:
             self._icon(), "CobDosel: Cobertura del suelo (foto hacia abajo)", self.iface.mainWindow())
         self.ground_action.triggered.connect(self.run_ground)
         self.iface.addPluginToMenu(MENU_NAME, self.ground_action)
+        self.ground_batch_action = QAction(
+            self._icon(), "CobDosel: Cobertura del suelo — procesamiento por sitio", self.iface.mainWindow())
+        self.ground_batch_action.triggered.connect(self.run_ground_batch)
+        self.iface.addPluginToMenu(MENU_NAME, self.ground_batch_action)
 
     def unload(self):
         if self.dialog is not None:
@@ -99,6 +104,8 @@ class CobDosel:
                 _LOG.debug("[unload lote] %s", e)
         if self.ground_action:
             self.iface.removePluginMenu(MENU_NAME, self.ground_action)
+        if self.ground_batch_action:
+            self.iface.removePluginMenu(MENU_NAME, self.ground_batch_action)
         if self.ground_dialog is not None:
             try:
                 self.ground_dialog.close()
@@ -108,6 +115,7 @@ class CobDosel:
         self.action = None
         self.batch_action = None
         self.ground_action = None
+        self.ground_batch_action = None
         self.dialog = None
         self.batch_dialog = None
         self.ground_dialog = None
@@ -157,3 +165,9 @@ class CobDosel:
         self.ground_dialog.show()
         self.ground_dialog.raise_()
         self.ground_dialog.activateWindow()
+
+    def run_ground_batch(self):
+        """v0.16.0: procesamiento por sitio de la cobertura del suelo (abre también «Cobertura del suelo»)."""
+        self.run_ground()
+        if self.ground_dialog is not None:
+            self.ground_dialog._on_site()

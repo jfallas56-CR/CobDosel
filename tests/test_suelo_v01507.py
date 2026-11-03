@@ -142,9 +142,9 @@ res0 = gc.summarize(img, [None] * 4)
 chk("1 resumen: solo_exgexr_pct 20, solo_canopeo_pct 0, «a revisar»", abs(res0["solo_exgexr_pct"] - 20) < 1e-9
     and res0["solo_canopeo_pct"] == 0 and res0["revisar"])
 note = gc.agreement_note(res0)
-chk("2 aviso: no es un error, explica la parte dudosa y nombra la vegetación amarillenta (texto de v0.15.15)",
+chk("2 aviso: no es un error, explica la parte dudosa (bordes de hoja, tejido amarillento; texto de v0.15.17)",
     "difieren 20.0 puntos" in note and "No es un error de la foto ni de la clasificación" in note
-    and "vegetación amarillenta" in note and "cian" in note, note)
+    and "borde entre hojas verdes y material seco" in note and "tejido amarillento" in note and "cian" in note, note)
 chk("2 sin «a revisar», sin aviso", gc.agreement_note(dict(res0, revisar=False)) == "")
 
 # clases nuevas (núcleo)
