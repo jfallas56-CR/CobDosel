@@ -438,6 +438,16 @@ clase nueva como «Vegetación amarillenta»).</p>
   vista a ese punto para resolverlo por consenso. «Exportar informe HTML…» guarda el resultado.</li>
 </ul>
 
+<h3>Retomar o revisar una clasificación</h3>
+<ul>
+  <li><b>«Cargar clasificación de un CSV…»</b> vuelve a cargar la clase de cada punto desde un
+  <i>CobDosel_suelo_&lt;foto&gt;_puntos.csv</i> de la foto abierta. Si el área no está preparada (o es otra
+  cuadrícula), CobDosel la toma del CSV de foto con el mismo nombre que está al lado (<i>CobDosel_suelo_&lt;foto&gt;.csv</i>).
+  Comprueba que la foto, los puntos y la clase automática coinciden; las clases propias que falten se crean. Sirve para
+  continuar una clasificación que quedó a medias, revisarla, agregar grupos de clases o exportar de nuevo sin
+  clasificar otra vez. En modo reglamentario no carga una clasificación que no cumpla sus reglas.</li>
+</ul>
+
 <h3>5. Resultado</h3>
 <ul>
   <li>Vegetación verde por píxeles (Canopeo): la medida de referencia de lo verde, sobre toda el área.</li>

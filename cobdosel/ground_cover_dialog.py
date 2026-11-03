@@ -462,6 +462,14 @@ class GroundCoverDialog(QDialog):
         self.compare_btn.clicked.connect(self._on_compare)
         row3.addWidget(self.compare_btn)
         lv.addLayout(row3)
+        # v0.15.14: retomar o revisar una clasificación exportada
+        self.load_cls_btn = QPushButton("Cargar clasificación de un CSV…")
+        self.load_cls_btn.setToolTip("Vuelve a cargar la clase de cada punto desde un CobDosel_suelo_<foto>_puntos.csv de "
+                                     "la misma foto. Si el área no está preparada, la toma del CSV de foto que está al "
+                                     "lado. Sirve para continuar una clasificación, revisarla, agregar grupos o "
+                                     "exportar de nuevo sin clasificar otra vez.")
+        self.load_cls_btn.clicked.connect(self._on_load_classification)
+        lv.addWidget(self.load_cls_btn)
         self.out = QTextEdit(); self.out.setReadOnly(True); lv.addWidget(self.out, 1)
         help_lbl = QLabel(HELP); help_lbl.setWordWrap(True); lv.addWidget(help_lbl)
         split.addWidget(tabs)
@@ -1007,6 +1015,94 @@ class GroundCoverDialog(QDialog):
             self.load_area_from_csv(p)
         except Exception as e:
             QMessageBox.warning(self, "Cargar área y cuadrícula", str(e))
+
+    # ------------------------------------------------------------ cargar una clasificación (v0.15.14)
+    def load_classification_from_csv(self, path, confirm=True):
+        """Carga la clase de cada punto de un _puntos.csv de la misma foto, área y cuadrícula. Si el área no está
+        preparada (o es otra cuadrícula), la prepara antes con el CSV de foto del mismo prefijo. Las clases propias que
+        falten se crean (si caben). Devuelve el número de puntos clasificados."""
+        from . import ground_compare as gcmp
+        if self.rgb is None:
+            raise ValueError("Cargue primero la foto.")
+        pts = gcmp.read_points_csv(path)
+        name = os.path.basename(self.photo_path or "")
+        files = {p["archivo"] for p in pts}
+        if files != {name}:
+            raise ValueError("El CSV de puntos es de la foto «{}» y la foto abierta es «{}».".format(
+                ", ".join(sorted(files)), name))
+        pts = sorted(pts, key=lambda p: p["punto"])
+
+        def same_grid():
+            return (len(self.points) == len(pts) and all(
+                abs(x - p["x"]) <= gcmp.POINT_TOL_PX and abs(y - p["y"]) <= gcmp.POINT_TOL_PX
+                for (x, y), p in zip(self.points, pts)))
+        if not same_grid():
+            photo_csv = path[:-len("_puntos.csv")] + ".csv" if path.endswith("_puntos.csv") else ""
+            if not photo_csv or not os.path.isfile(photo_csv):
+                raise ValueError("Los puntos del CSV no coinciden con la cuadrícula abierta y no se encontró el CSV de "
+                                 "foto «{}» para preparar la misma área: prepare el área y la semilla de esa "
+                                 "clasificación.".format(os.path.basename(photo_csv or path)))
+            if self.load_area_from_csv(photo_csv, confirm=confirm) is False:
+                return 0
+            if not same_grid():
+                raise ValueError("Con el área del CSV de foto, los puntos siguen sin coincidir: revise que los dos CSV "
+                                 "sean de la misma clasificación.")
+        elif confirm and self._manual_labels() and not self._confirm_discard():
+            return 0
+        # nombres de clase → claves; las clases propias que falten se crean
+        names = {l: k for k, l, _c in self.classes}
+        norm = {gc.class_key_for(l): k for k, l, _c in self.classes}
+        missing = []
+        for p in pts:
+            for lab in (p["clase"],):
+                if lab and lab != "Sin clasificar" and lab not in names and gc.class_key_for(lab) not in norm \
+                        and lab not in missing:
+                    missing.append(lab)
+        prev = self.current_class
+        for lab in missing:
+            self.add_class(lab)                       # error claro si no caben (hasta 9)
+        if missing:
+            self.current_class = prev                 # la clase marcada no cambia al cargar
+            self._build_class_radios()
+        names = {l: k for k, l, _c in self.classes}
+        norm = {gc.class_key_for(l): k for k, l, _c in self.classes}
+        labels = []
+        for p in pts:
+            lab = p["clase"]
+            labels.append(None if not lab or lab == "Sin clasificar" else names.get(lab, norm.get(gc.class_key_for(lab))))
+        auto_csv = [names.get(p["automatica"], norm.get(gc.class_key_for(p["automatica"]))) if p["automatica"] else None
+                    for p in pts]
+        if auto_csv != list(self.auto):
+            n = sum(1 for a, b in zip(auto_csv, self.auto) if a != b)
+            raise ValueError("La clase automática de {} puntos no coincide con el área abierta (otra área o una versión "
+                             "distinta de la regla): no se carga.".format(n))
+        if self.regulatory():
+            bad = [i for i, lab in enumerate(labels) if lab is not None and self.rule_violation(i, lab)]
+            if bad:
+                raise ValueError("La clasificación tiene {} puntos que no cumplen el modo reglamentario (por ejemplo, el "
+                                 "{}): desactive el modo para cargarla y revisarla.".format(len(bad), bad[0] + 1))
+        self.labels = labels
+        self.current_idx = None
+        self.canvas.current = None
+        self._refresh()
+        done = sum(1 for lab in labels if lab is not None)
+        self._log("Clasificación cargada de «{}»: {} de {} puntos con clase{}.".format(
+            os.path.basename(path), done, len(labels),
+            "; clases creadas: " + ", ".join(missing) if missing else ""))
+        return done
+
+    def _on_load_classification(self):
+        if self.rgb is None:
+            QMessageBox.information(self, "Cargar clasificación", "Cargue primero la foto.")
+            return
+        p, _ = QFileDialog.getOpenFileName(self, "CSV de puntos", os.path.dirname(self.photo_path or ""),
+                                           "CSV de puntos (*_puntos.csv);;CSV (*.csv)")
+        if not p:
+            return
+        try:
+            self.load_classification_from_csv(p)
+        except Exception as e:
+            QMessageBox.warning(self, "Cargar clasificación de un CSV", str(e))
 
     def _on_compare(self):
         from .ground_compare_dialog import GroundCompareDialog
