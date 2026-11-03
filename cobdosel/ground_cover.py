@@ -363,6 +363,21 @@ def auto_labels(points, green_mask):
     return out
 
 
+def point_zones(points, only_x, only_c):
+    """Zona de cada punto según las diferencias entre las reglas (v0.15.16): «cian» si su píxel es verde solo para
+    ExG − ExR, «naranja» si es verde solo para Canopeo, None si las dos reglas coinciden. Son los puntos que conviene
+    revisar con más cuidado."""
+    out = []
+    for x, y in points:
+        yi, xi = int(round(y)), int(round(x))
+        out.append("cian" if only_x[yi, xi] else ("naranja" if only_c[yi, xi] else None))
+    return out
+
+
+ZONE_HELP = {"cian": "verde solo para ExG − ExR: tejido amarillento u hoja en sombra; Canopeo no lo cuenta como verde",
+             "naranja": "verde solo para Canopeo: compruebe que sea vegetación (no suelo, piedra o alga verdosa)"}
+
+
 def wilson_ci(k, n, z=1.96):
     """Intervalo de confianza de Wilson (%) para una proporción k/n."""
     if n <= 0:
@@ -484,7 +499,7 @@ def read_photo_csv(path):
     return rows[0]
 
 
-def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal="."):
+def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal=".", zones=None):
     """<prefijo>.csv (una fila por foto) y <prefijo>_puntos.csv (un punto por fila). Devuelve las rutas."""
     from .csv_format import csv_row, NO_DATA
     meta = dict(meta, plugin="CobDosel", plugin_version=version)
@@ -500,11 +515,12 @@ def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimite
     p2 = out_prefix + "_puntos.csv"
     with open(p2, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=delimiter)
-        w.writerow(("archivo", "punto", "x_px", "y_px", "clase", "clase_automatica", "corregido"))
-        for i, ((x, y), lab, a) in enumerate(zip(points, labels, auto), 1):
+        w.writerow(("archivo", "punto", "x_px", "y_px", "clase", "clase_automatica", "corregido", "zona_reglas"))
+        zones = list(zones) if zones else [None] * len(points)
+        for i, ((x, y), lab, a, z) in enumerate(zip(points, labels, auto, zones), 1):
             w.writerow(csv_row([meta.get("archivo"), i, round(x, 1), round(y, 1),
                                 names.get(lab, lab) if lab else "Sin clasificar",
-                                names.get(a, a) if a else None, lab != a], decimal))
+                                names.get(a, a) if a else None, lab != a, z], decimal))
     return [p1, p2]
 
 
@@ -536,12 +552,28 @@ def write_html(res, meta, area_rgb, points, labels, path, version=""):
     im = overlay_image(area_rgb, labels, points, green=canopeo_mask(area_rgb, *prm3), colors=colors)
     buf = io.BytesIO(); im.save(buf, format="PNG")
     img64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    # v0.15.7: dónde difieren las dos reglas (magenta: verde para las dos; cian: solo ExG − ExR; naranja: solo Canopeo)
-    ox, oc = disagreement_masks(area_rgb, prm3)
-    both = canopeo_mask(area_rgb, *prm3) & ~oc
-    im2 = overlay_image(area_rgb, [], [], green=both, only_x=ox, only_c=oc)
-    buf2 = io.BytesIO(); im2.save(buf2, format="PNG")
-    img2 = base64.b64encode(buf2.getvalue()).decode("ascii")
+    # v0.15.16 (opción A): ExG − ExR es una comprobación interna; el informe lo muestra solo cuando hay «a revisar»,
+    # con la imagen de dónde difieren las reglas y los puntos que caen allí
+    f0 = lambda v, d=2: "—" if v is None else fmt_num(v, d)
+    diffsec = ""
+    if res["revisar"]:
+        ox, oc = disagreement_masks(area_rgb, prm3)
+        both = canopeo_mask(area_rgb, *prm3) & ~oc
+        im2 = overlay_image(area_rgb, [], [], green=both, only_x=ox, only_c=oc)
+        buf2 = io.BytesIO(); im2.save(buf2, format="PNG")
+        img2 = base64.b64encode(buf2.getvalue()).decode("ascii")
+        zs = point_zones(points, ox, oc) if points else []
+        nz_x, nz_c = zs.count("cian"), zs.count("naranja")
+        diffsec = ("<section><h2>Dónde difieren Canopeo y ExG − ExR</h2><img alt=\"Diferencias entre las reglas\" "
+                   "src=\"data:image/png;base64,{img}\"><p class=\"note\">Magenta: verde para las dos reglas. <b>Cian</b>: "
+                   "verde solo para ExG − ExR ({ox} % del área). <b>Naranja</b>: verde solo para Canopeo ({oc} % del área). "
+                   "Puntos de la cuadrícula en esas zonas: {nx} en cian y {nc} en naranja (columna zona_reglas del CSV de "
+                   "puntos); son los que conviene revisar.</p></section>").format(
+            img=img2, ox=f0(res.get("solo_exgexr_pct")), oc=f0(res.get("solo_canopeo_pct")), nx=nz_x, nc=nz_c)
+        check = ""
+    else:
+        check = ("<p class=\"note\">Comprobación con ExG − ExR (Meyer y Neto 2008): las dos reglas coinciden dentro de "
+                 "{:.0f} puntos.</p>".format(AGREEMENT_LIMIT))
     f = lambda v, d=2: "—" if v is None else fmt_num(v, d)
     rows = "".join(
         "<tr><td><span class='sw' style='background:rgb{}'></span> {}</td><td class='n'>{}</td><td class='n'>{} %</td>"
@@ -599,8 +631,8 @@ td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}} .warn{{color:#9a
 img{{max-width:100%;border-radius:6px}} .note{{font-size:.84rem;color:#52606d}}
 </style></head><body><div class="c">
 <header><h1>CobDosel v{version} — Cobertura del suelo</h1><div>{head}</div></header>
-<section><div>Vegetación verde (píxeles, regla de Canopeo)</div><div class="big">{green} %</div>
-<p>ExG − ExR (comprobación): {gx} % · diferencia {diff} puntos</p>{warn}</section>
+<section><div>Vegetación verde (píxeles, regla de Canopeo; Patrignani y Ochsner 2015)</div><div class="big">{green} %</div>
+{check}{warn}</section>
 <section><h2>Cobertura por clase (intercepción de puntos)</h2><table>
 <tr><th>Clase</th><th class='n'>Puntos</th><th class='n'>Cobertura</th><th class='n'>IC 95 % (Wilson)</th></tr>{rows}</table>
 <p class="note">Cobertura de cada clase = puntos de la clase / {n} puntos. Los puntos verdes según Canopeo se marcan
@@ -609,18 +641,11 @@ por puntos, solo los {n} puntos.</p></section>{groups}
 <section><h2>Área analizada</h2><img alt="Área analizada" src="data:image/png;base64,{img}">
 <p class="note">Magenta: vegetación verde según Canopeo. Círculos: puntos de la cuadrícula, con el color de su clase
 (blanco: sin clasificar).</p></section>
-<section><h2>Dónde difieren Canopeo y ExG − ExR</h2><img alt="Diferencias entre las reglas" src="data:image/png;base64,{img2}">
-<p class="note">Magenta: verde para las dos reglas. <b>Cian</b>: verde solo para ExG − ExR ({ox} % del área).
-<b>Naranja</b>: verde solo para Canopeo ({oc} % del área). Una diferencia entre las reglas no es un error de la foto ni de la
-clasificación: las dos ponen en distinto lugar el límite entre el verde y el amarillo o la sombra. El cian suele marcar
-vegetación amarillenta u hojas en sombra; la clase de los puntos que caen allí la decide el analista.</p></section>
-<section><h2>Parámetros</h2><table>{prm}</table></section>
+{diffsec}<section><h2>Parámetros</h2><table>{prm}</table></section>
 <footer style="text-align:center;color:#52606d;margin-top:16px">Vegetación verde: Patrignani y Ochsner (2015); comprobación:
 Meyer y Neto (2008).<br/><strong>CobDosel v{version}</strong> para QGIS · Autor: Jorge Fallas · Contacto:
 <a href="mailto:jfallas56@gmail.com">jfallas56@gmail.com</a></footer></div></body></html>""".format(
-        version=version, head=head, green=f(res["verde_canopeo_pct"]), gx=f(res["verde_exgexr_pct"]),
-        diff=f(res["diferencia_pct"]), warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm, img2=img2,
-        ox=f(res.get("solo_exgexr_pct"), 2), oc=f(res.get("solo_canopeo_pct"), 2), groups=groups_html)
+        version=version, head=head, green=f(res["verde_canopeo_pct"]), check=check, diffsec=diffsec, warn=warn_html, rows=rows, n=res["n_puntos"], img=img64, prm=prm, groups=groups_html)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)
     return path

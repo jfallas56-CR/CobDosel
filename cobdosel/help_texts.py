@@ -380,7 +380,8 @@ proporciones de color y cuenta parte de esos píxeles. Por eso <b>«a revisar» 
 clasificación</b>: indica que hay bastante vegetación amarillenta, sombra, luz directa o suelo de color parecido, y
 que conviene mirar dónde difieren. <b>El valor que se informa es el de Canopeo</b>: no porque sea «el correcto», sino
 porque es la regla publicada y fija que usa CobDosel; la diferencia con ExG − ExR indica cuánto del verde es dudoso
-(con ExG − ExR el verde sería mayor). Los puntos que caen en zonas cian los clasifica el analista (verde, seca o una
+(con ExG − ExR el verde sería mayor). La ventana y el informe muestran solo el valor de Canopeo; ExG − ExR es una
+comprobación interna que aparece en el aviso «a revisar» (y queda en el CSV). Los puntos que caen en zonas cian los clasifica el analista (verde, seca o una
 clase nueva como «Vegetación amarillenta»).</p>
 
 <h3>4. Clasificar los puntos</h3>
@@ -396,6 +397,14 @@ clase nueva como «Vegetación amarillenta»).</p>
   <li><b>1–9</b> (número de la clase) marca esa clase, la asigna al punto actual y, si está marcado «pasar al siguiente», pasa al
   siguiente. <b>«Saltar sin clasificar» (S)</b> pasa al siguiente sin clasificar el actual; se vuelve a él al final
   de la vuelta.</li>
+  <li><b>Qué puntos revisar:</b> los que caen donde las dos reglas del verde difieren. La ventana los cuenta («Puntos
+  dudosos: … en zona cian y … en zona naranja») y <b>«Siguiente punto dudoso» (D)</b> lleva la vista a cada uno; la
+  etiqueta del punto dice qué revisar. <b>Cian</b>: verde solo para ExG − ExR (tejido amarillento u hoja en sombra);
+  Canopeo no lo cuenta, de modo que el punto queda para el analista: vegetación seca, una clase propia como
+  «Vegetación amarillenta», o «No identificable» si está en sombra profunda. <b>Naranja</b>: verde solo para Canopeo;
+  el punto queda verde automático: compruebe que es vegetación y no suelo, piedra o alga verdosa (si no lo es, pase a
+  «No identificable», la única excepción del modo reglamentario). El CSV de puntos registra la zona de cada punto
+  (columna zona_reglas) y el informe da cuántos puntos cayeron en cada zona.</li>
   <li><b>Regla para puntos dudosos:</b> se clasifica <b>solo el píxel bajo el centro de la cruz</b>, como la aguja de
   la intercepción de puntos en el campo, que registra solo lo que intercepta (Herrick et al. 2005), y como SamplePoint, donde
   «el punto de muestreo es siempre un solo píxel» (Booth et al. 2006). Una hoja al lado del centro no cuenta. Si el

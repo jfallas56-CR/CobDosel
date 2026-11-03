@@ -198,7 +198,7 @@ QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "s
 d._on_html()
 ht = open(os.path.join(OUT, "suelo_informe.html"), encoding="utf-8").read()
 chk("5 informe: verde, tabla de clases, imagen, pie con autor y contacto",
-    "Vegetación verde (píxeles, regla de Canopeo)" in ht and "Suelo desnudo" in ht and "data:image/png;base64," in ht
+    "Vegetación verde (píxeles, regla de Canopeo" in ht and "Suelo desnudo" in ht and "data:image/png;base64," in ht
     and "para QGIS · Autor: Jorge Fallas · Contacto:" in ht and "Patrignani y Ochsner (2015)" in ht)
 # área fija con calibración rectilínea
 calr = calibrate_regular_lens(20.6, 40.0, 1512.68, 4000, 3000, projection="rectilinear")

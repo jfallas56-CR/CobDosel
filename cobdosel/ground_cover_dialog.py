@@ -300,6 +300,7 @@ class GroundCoverDialog(QDialog):
         self.current_class = "seca"
         self.current_idx = None         # punto actual (anillo amarillo)
         self.only_x = self.only_c = None    # v0.15.7: verde solo para ExG − ExR / solo para Canopeo
+        self.zones = []                     # v0.15.16: zona de cada punto («cian», «naranja» o None)
         self.custom_classes = gc.load_custom_classes()
         self.classes = gc.class_list(self.custom_classes)
         self.groups = gc.groups_for(gc.load_groups(), self.classes)     # v0.15.13
@@ -440,6 +441,13 @@ class GroundCoverDialog(QDialog):
         self.skip_btn.clicked.connect(self.next_unclassified)
         row6.addWidget(self.next_btn); row6.addWidget(self.skip_btn)
         v3.addLayout(row6)
+        # v0.15.16: puntos que caen donde las dos reglas del verde difieren
+        self.doubt_btn = QPushButton("Siguiente punto dudoso (D)")
+        self.doubt_btn.setToolTip("Lleva la vista al siguiente punto que cae donde Canopeo y ExG − ExR difieren (cian: "
+                                  "tejido amarillento u hoja en sombra; naranja: compruebe que sea vegetación). Son los "
+                                  "puntos que conviene revisar con más cuidado.")
+        self.doubt_btn.clicked.connect(self.next_doubtful)
+        v3.addWidget(self.doubt_btn)
         row5 = QHBoxLayout()
         self.zoom_in_btn = QPushButton("Acercar (+)"); self.zoom_in_btn.clicked.connect(lambda: self.canvas.zoom_by(1.5))
         self.zoom_out_btn = QPushButton("Alejar (−)"); self.zoom_out_btn.clicked.connect(lambda: self.canvas.zoom_by(1 / 1.5))
@@ -516,7 +524,7 @@ class GroundCoverDialog(QDialog):
         return path
 
     def _grid_buttons(self, on):
-        for w in (self.new_grid_btn, self.next_btn, self.skip_btn):
+        for w in (self.new_grid_btn, self.next_btn, self.skip_btn, self.doubt_btn):
             w.setEnabled(on)
 
     def _update_fit(self, *_a):
@@ -708,6 +716,9 @@ class GroundCoverDialog(QDialog):
         if k == Qt.Key.Key_C:
             self.show_diff.setChecked(not self.show_diff.isChecked())
             return
+        if k == Qt.Key.Key_D:
+            self.next_doubtful()
+            return
         if k == Qt.Key.Key_F:
             self.canvas.fit()
             return
@@ -725,6 +736,7 @@ class GroundCoverDialog(QDialog):
         self.corners = []
         self.area = None
         self.points, self.labels, self.auto, self.res = [], [], [], None
+        self.zones = []
         self._update_progress()
         self.photo_edit.setText(path)
         self.canvas.polygon = []
@@ -753,6 +765,7 @@ class GroundCoverDialog(QDialog):
         """Vuelve a la foto completa para marcar o corregir el cuadro."""
         self.area = None
         self.points, self.labels, self.auto, self.res = [], [], [], None
+        self.zones = []
         self._update_progress()
         self.canvas.marks = []
         self.canvas.set_image(self.rgb)
@@ -849,6 +862,7 @@ class GroundCoverDialog(QDialog):
         self.points, self.seed = gc.point_grid(self.area.shape, int(self.points_spin.value()),
                                                seed=int(self.seed_spin.value()))
         self.auto = gc.auto_labels(self.points, self.green)
+        self.zones = gc.point_zones(self.points, self.only_x, self.only_c)      # v0.15.16
         self.labels = list(self.auto)
         self.current_idx = None
         self.canvas.current = None
@@ -878,6 +892,7 @@ class GroundCoverDialog(QDialog):
         self.seed_spin.setValue(seed)
         self.points, self.seed = gc.point_grid(self.area.shape, int(self.points_spin.value()), seed=seed)
         self.auto = gc.auto_labels(self.points, self.green)
+        self.zones = gc.point_zones(self.points, self.only_x, self.only_c)      # v0.15.16
         self.labels = list(self.auto)
         self.current_idx = None
         self.canvas.current = None
@@ -1121,11 +1136,27 @@ class GroundCoverDialog(QDialog):
             lab = self.labels[self.current_idx]
             txt += " · punto actual: n.º {} ({})".format(
                 self.current_idx + 1, dict((k, l) for k, l, _c in self.classes).get(lab, lab) if lab else "sin clasificar")
+            z = self.zones[self.current_idx] if self.current_idx < len(self.zones) else None
+            if z:
+                txt += "<br><b>Punto dudoso, zona {}</b>: {}.".format(z, gc.ZONE_HELP[z])
         elif pend:
             txt += " · pulse «Siguiente» (N) para ir al primero"
         else:
             txt += " · todos clasificados"
         self.progress_lbl.setText(txt)
+
+    def next_doubtful(self):
+        """Centra la vista en el siguiente punto en zona cian o naranja (clasificado o no), a partir del actual."""
+        n = len(self.zones)
+        if not n:
+            return None
+        start = -1 if self.current_idx is None else self.current_idx
+        nxt = next((i for i in ((start + k) % n for k in range(1, n + 1)) if self.zones[i]), None)
+        if nxt is None:
+            self._log("Ningún punto cae donde las dos reglas del verde difieren.")
+            return None
+        self.goto_point(nxt)
+        return nxt
 
     def next_unclassified(self):
         """Centra la vista (con zoom) en el siguiente punto sin clasificar, a partir del punto actual (orden de la
@@ -1179,10 +1210,14 @@ class GroundCoverDialog(QDialog):
         self.canvas.update()
         self.res = gc.summarize(self.area, self.labels, classes=self.classes, groups=self.groups)
         r = self.res
-        lines = ["Vegetación verde (Canopeo): {:.2f} %   ExG − ExR: {:.2f} %   diferencia {:+.2f}".format(
-            r["verde_canopeo_pct"], r["verde_exgexr_pct"], r["diferencia_pct"])]
+        # v0.15.16 (opción A): se muestra Canopeo; ExG − ExR solo aparece en el aviso «a revisar»
+        lines = ["Vegetación verde (Canopeo): {:.2f} %".format(r["verde_canopeo_pct"])]
         if r["revisar"]:
             lines.append("A revisar: " + gc.agreement_note(r))
+        nzx, nzc = self.zones.count("cian"), self.zones.count("naranja")
+        if nzx or nzc:
+            lines.append("Puntos dudosos (donde las dos reglas del verde difieren): {} en zona cian y {} en zona naranja; "
+                         "revíselos con «Siguiente punto dudoso» (D).".format(nzx, nzc))
         lines.append("Puntos ({}; sin clasificar: {}; semilla {}):".format(r["n_puntos"], r["sin_clasificar"], self.seed))
         for key, lbl, _col in self.classes:
             d = r["clases"][key]
@@ -1209,7 +1244,8 @@ class GroundCoverDialog(QDialog):
             return
         p = p[:-4] if p.lower().endswith(".csv") else p
         sep, dec = csv_style()
-        paths = gc.write_csvs(self.res, self.export_meta(), self.points, self.labels, self.auto, p, VERSION, sep, dec)
+        paths = gc.write_csvs(self.res, self.export_meta(), self.points, self.labels, self.auto, p, VERSION, sep, dec,
+                              zones=self.zones)
         self._log("CSV guardados: " + "; ".join(paths))
         QMessageBox.information(self, "CSV guardados", "\n".join(paths))
 
