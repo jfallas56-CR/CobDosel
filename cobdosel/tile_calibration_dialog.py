@@ -58,8 +58,8 @@ class TileCalibrationDialog(QDialog):
         if start_path:
             try:
                 self.load_photo(0, start_path)
-            except Exception:
-                pass
+            except Exception as e:      # la foto inicial es opcional: la ventana abre vacía y lo registra
+                self.out.setPlainText("No se pudo abrir la foto inicial: {}".format(e))
 
     # ------------------------------------------------------------ interfaz
     def _build(self):
@@ -297,7 +297,7 @@ def measurement_record(res):
             "files": [os.path.basename(x) for x in res.get("files") or []],
             "image_size": [res["width_px"], res["height_px"]],
             "mode": "baldosas", "diameter_native_px": d, "diff_pct": None, "centre_offset_pct": None,
-            "fit_rms_px": None, "arc_deg": None, "warnings": [l for l in res["lines"] if l.startswith("Aviso")],
+            "fit_rms_px": None, "arc_deg": None, "warnings": [ln for ln in res["lines"] if ln.startswith("Aviso")],
             "notes": [], "verdict": None, "camera": res.get("camera"), "summary": "; ".join(parts),
             "tiles": {"side1_cm": res["side1_cm"], "side2_cm": res["side2_cm"], "focal_px": res["focal_px"],
                       "offset_cm": res["offset_cm"], "lens_height_cm": res["lens_height_cm"],

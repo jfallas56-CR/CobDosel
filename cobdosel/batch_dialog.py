@@ -20,7 +20,7 @@ from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton, QLineEdit, QComboBox,
     QSpinBox, QDoubleSpinBox, QGroupBox, QFileDialog, QMessageBox, QProgressBar, QTextEdit,
-    QApplication, QRadioButton, QInputDialog, QScrollArea, QSplitter, QWidget,
+    QApplication, QInputDialog, QScrollArea, QSplitter, QWidget,
 )
 from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsField
 
@@ -540,7 +540,8 @@ class CobDoselBatchDialog(QDialog):
                 continue
             try:
                 saved.append((n, load_calibration(n)))
-            except Exception:
+            except Exception as e:      # una calibración ilegible no impide comprobar con las demás
+                self._log("Calibración «{}» no se pudo leer para la comprobación de cámara: {}".format(n, e), "WARN")
                 continue
         chk = bc.calibration_camera_check(folder, cal, saved)
         if not chk["checked"] or not chk["mismatch"]:
