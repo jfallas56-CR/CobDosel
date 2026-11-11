@@ -9,10 +9,7 @@ Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
 import os
-import webbrowser
 
-from qgis.PyQt.QtCore import QUrl
-from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton, QLineEdit, QComboBox, QSpinBox,
     QFileDialog, QMessageBox, QListWidget, QGroupBox,
@@ -22,6 +19,7 @@ from ._version import VERSION
 from .csv_format import csv_style
 from .ui_keys import disable_enter_buttons
 from . import ground_batch as gb
+from .open_files import open_file, ask_open_csv
 
 HELP = ("Prepare primero en «Cobertura del suelo» los parámetros comunes del sitio: modo de área (con área fija: lado, "
         "altura y calibración), número de puntos, clases, grupos y modo reglamentario. Aquí elija las fotos y pulse "
@@ -139,5 +137,5 @@ class GroundBatchDialog(QDialog):
         if QMessageBox.question(self, "Resumen del sitio", "{}\n\n¿Abrir el informe ahora?".format(html),
                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == \
                 QMessageBox.StandardButton.Yes:
-            if not QDesktopServices.openUrl(QUrl.fromLocalFile(html)):
-                webbrowser.open("file://" + os.path.abspath(html))
+            open_file(html, self)
+        ask_open_csv(self, [p for p in paths if p.endswith(".csv")], "CSV del sitio")   # v0.16.3

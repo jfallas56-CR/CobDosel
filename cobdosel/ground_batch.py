@@ -285,7 +285,13 @@ th{{background:#f0f4f8}} td.n,th.n{{text-align:right;font-variant-numeric:tabula
 <th class='n'>DE</th><th class='n'>IC 95 % (t de Student)</th></tr>{rows}</table>
 <p class="note">Unidades: {unidad}. Intervalo = media ± t(0,975; n − 1) · DE / √n, truncado en 0 y 100 %. La variación entre
 unidades ya incluye el error de los puntos de cada foto, de modo que no se suman los intervalos de las fotos. Fotos con
-«a revisar» (Canopeo y ExG − ExR difieren más de 5 puntos): {nrev}.</p></section>
+«a revisar» (Canopeo y ExG − ExR difieren más de 5 puntos): {nrev}.</p>
+<p class="note"><strong>Por qué dos intervalos distintos.</strong> En cada foto la cobertura de una clase es una proporción de puntos
+(k de n) y su intervalo es el de Wilson: el único error es la ubicación al azar de los puntos dentro de esa foto. En el sitio la
+pregunta cambia («¿cuál es la cobertura del sitio?») y la unidad de muestreo es la foto o la parcela: la dispersión entre
+unidades ya contiene el error de puntos de cada foto más la variación real del terreno, y el intervalo de la media es el de la
+t de Student. Juntar los puntos de todas las fotos en un solo intervalo de Wilson los trataría como independientes cuando los de
+una misma foto comparten el mismo pedazo de suelo.</p></section>
 <section><h2>Avisos</h2><ul>{warn}</ul></section>
 <footer style="text-align:center;color:#52606d;margin-top:16px">Vegetación verde: Patrignani y Ochsner (2015).<br/>
 <strong>CobDosel v{version}</strong> para QGIS · Autor: Jorge Fallas · Contacto:

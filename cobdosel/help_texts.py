@@ -210,6 +210,8 @@ FULL_HELP_HTML = """
   <li><b>Umbral automático y píxeles mixtos:</b> Bianchi et al. (2017) umbralizaron todas las fotos automáticamente; el método IsoData (Ridler y Calvard 1978) en el canal azul clasificó como cielo muchos elementos pequeños de vegetación, que un método con información de color (EnhanceHP, Díaz y Lencinas 2015) identificó correctamente. Los píxeles mixtos de ramillas y bordes de hojas son la principal fuente de diferencias entre criterios de corte.</li>
   <li><b>Validación pendiente:</b> el método no se ha validado en Costa Rica contra una referencia independiente (p. ej. tubo de observación vertical o LiDAR); se recomienda hacerlo antes de un uso oficial.</li>
   <li><b>Formato numérico:</b> punto decimal y espacio de miles en pantalla e informe; el CSV guarda números sin separador.</li>
+  <li><b>Abrir en Excel:</b> al guardar un CSV, CobDosel pregunta «¿Desea abrirlo ahora en Excel?» y lo abre con el programa
+  asociado a los archivos CSV (Excel, LibreOffice Calc u otro). Con varios archivos los abre todos.</li>
   <li><b>CSV de una foto</b> (<i>Resultados_CobDosel_&lt;foto&gt;.csv</i>): transpuesto, una fila por variable, con tres columnas:
   <i>variable</i> (clave estable, en inglés, la misma de las versiones anteriores), <i>descripcion</i> (en español, con la unidad) y
   <i>valor</i>. Se lee de arriba abajo en Excel sin desplazarse por 60 columnas. Los CSV del procesamiento por sitio siguen con una
@@ -409,7 +411,8 @@ clase nueva como «Vegetación amarillenta»).</p>
   verdes con puntaje ≥ 0,5 son los <b>verdes dudosos</b>: el resumen los cuenta («Verdes automáticos dudosos: 24 de
   147») y <b>«Siguiente verde dudoso» (D)</b> recorre solo esos, del más al menos dudoso; la etiqueta dice por qué es
   dudoso. Compruebe que el píxel del centro es vegetación verde; si no lo es (suelo, piedra o alga verdosa), páselo a
-  «No identificable». En una foto de césped con 196 puntos, 147 fueron verdes y solo 24 dudosos. Los puntos sin
+  «No identificable». El botón y el resumen muestran el <b>total de puntos a verificar</b> y los <b>restantes</b>; cada
+  pulsación verifica uno. En una foto de césped con 196 puntos, 147 fueron verdes y solo 24 dudosos. Los puntos sin
   clasificar en zona <b>cian</b> (verde solo para ExG − ExR: casi siempre el borde entre una hoja verde y material seco;
   también tejido amarillento u hoja en sombra) se clasifican con
   «Siguiente», y la etiqueta lo indica. El CSV de puntos registra la zona (zona_reglas) y el puntaje (duda_verde) de
@@ -478,6 +481,9 @@ clase nueva como «Vegetación amarillenta»).</p>
   las fotos siguen el orden del formulario, llevan su parcela y su punto, y las de calidad «descartar» se omiten.</li>
   <li>La semilla de cada foto es <i>semilla base + número de la foto</i> (1, 2, 3…): queda fijada antes de ver las
   fotos y cualquiera puede repetir la misma cuadrícula. Durante el lote, «Nueva cuadrícula» está bloqueada.</li>
+  <li>El CSV de cada foto (<i>CobDosel_suelo_&lt;foto&gt;.csv</i>) va transpuesto, una fila por variable con su descripción en
+  español; el <i>_puntos.csv</i> y los CSV del sitio siguen con una fila por punto o por foto. Al guardar, CobDosel ofrece
+  abrirlos en Excel.</li>
   <li>Con <b>cuadro</b>, marque las 4 esquinas y pulse «Preparar área» en cada foto; con <b>área fija</b>, el área y la
   cuadrícula se preparan solas. Clasifique y pulse <b>«Guardar y foto siguiente»</b>: guarda el CSV de foto, el
   <i>_puntos.csv</i> y el informe con el nombre <i>CobDosel_suelo_&lt;foto&gt;</i>.</li>

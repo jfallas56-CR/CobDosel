@@ -172,7 +172,8 @@ meta_a = A.export_meta()
 chk("2 export_meta: modo_reglamentario «Sí»; esquinas registradas", meta_a["modo_reglamentario"] == "Sí"
     and gc.parse_corners(meta_a["esquinas_px"]) == [tuple(map(float, c)) for c in CORNERS], meta_a.get("esquinas_px"))
 pathsA = gc.write_csvs(A.res, meta_a, A.points, A.labels, A.auto, pA, VERSION, ";", ",")
-rowA = list(csv.reader(open(pathsA[0], encoding="utf-8-sig"), delimiter=";"))
+# v0.16.3: CSV de foto transpuesto; se lee como {columna: valor} y se simula el formato ancho
+_rA = gc.read_photo_csv(pathsA[0]); rowA = [list(_rA.keys()), list(_rA.values())]
 chk("2 CSV de foto: columnas modo_reglamentario y esquinas_px", rowA[1][rowA[0].index("modo_reglamentario")] == "Sí"
     and "|" in rowA[1][rowA[0].index("esquinas_px")])
 hA = os.path.join(OUT, "A.html"); gc.write_html(A.res, meta_a, A.area, A.points, A.labels, hA, VERSION)

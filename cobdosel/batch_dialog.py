@@ -50,12 +50,7 @@ def _exec(dlg):
     return runner()
 
 
-def saved_files_text(paths):
-    """v0.14.59: «Carpeta: …» una vez y los nombres de archivo debajo (antes la ruta completa se repetía)."""
-    folders = {os.path.dirname(p) for p in paths}
-    if len(folders) != 1:
-        return "\n".join(paths)
-    return "Carpeta: {}\n\n{}".format(folders.pop(), "\n".join("• " + os.path.basename(p) for p in paths))
+from .open_files import saved_files_text, ask_open_csv   # v0.16.3 (saved_files_text vivía aquí desde 0.14.59)
 
 
 class CobDoselBatchDialog(QDialog):
@@ -698,7 +693,7 @@ class CobDoselBatchDialog(QDialog):
         sep, dec = csv_style()          # v0.14.63: «;» y coma decimal si la configuración regional usa coma
         paths = bc.write_csvs(self.batch, base, VERSION, delimiter=sep, decimal=dec)
         self._log("CSV guardados: " + "; ".join(paths))
-        QMessageBox.information(self, "CSV guardados", saved_files_text(paths))
+        ask_open_csv(self, paths)                          # v0.16.3: ¿Desea abrir los archivos ahora en Excel?
 
     def _on_html(self):
         self._guarded(self.html_btn, self._export_html)

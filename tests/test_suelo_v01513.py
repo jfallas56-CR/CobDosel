@@ -150,7 +150,8 @@ chk("1 una clase quitada sale del grupo; grupo vacío desaparece",
 cols = gc.csv_columns(cl, g)
 chk("2 CSV: columnas del grupo y definición", "grupo_vegetacion_total_pct" in cols and "grupos" in cols)
 paths = gc.write_csvs(r, {"archivo": "f.png"}, [(1, 1)] * 100, labels, [None] * 100, os.path.join(OUT, "r"), "x")
-rows = list(csv.reader(open(paths[0], encoding="utf-8-sig")))
+# v0.16.3: CSV de foto transpuesto; se lee como {columna: valor} y se simula el formato ancho
+_r = gc.read_photo_csv(paths[0]); rows = [list(_r.keys()), list(_r.values())]
 h = rows[0]
 chk("2 CSV: 47 puntos, 47 % y la definición del grupo", rows[1][h.index("grupo_vegetacion_total_puntos")] == "47"
     and rows[1][h.index("grupos")] == "Vegetación total = Vegetación verde + Vegetación seca + Vegetación no verde")
@@ -161,7 +162,7 @@ chk("2 informe: sección «Grupos de clases» con el grupo", "<h2>Grupos de clas
     and "37,5 – 56,7 %" in ht.replace("37.5", "37,5").replace("56.7", "56,7"))
 r0 = gc.summarize(a, labels, classes=cl)
 p0 = gc.write_csvs(r0, {"archivo": "f.png"}, [(1, 1)] * 100, labels, [None] * 100, os.path.join(OUT, "r0"), "x")
-h0 = list(csv.reader(open(p0[0], encoding="utf-8-sig")))[0]
+h0 = list(gc.read_photo_csv(p0[0]).keys())
 chk("2 sin grupos: sin columnas de grupo", not any(c.startswith("grupo_") for c in h0))
 
 # ventana de grupos

@@ -49,6 +49,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01470.py` | Sin CaCo modificado; «Sí»/«No»; «Sin cielo suficiente»; nota de cielo fragmentado |
 | `test_suelo_v01500.py` | Cobertura del suelo: Canopeo y ExG − ExR, cuadro enderezado, área fija, cuadrícula de puntos, IC de Wilson, diálogo, CSV, informe y menú |
 | `test_suelo_v01501.py` | Cobertura del suelo: verde sombreado opcional (V), anillos con cruz, siguiente sin clasificar, semilla, aviso antes de descartar, modo y esquinas |
+| `test_suelo_v01603.py` | «¿Desea abrirlo ahora en Excel?» (uno, varios, «No»); CSV de foto del suelo transpuesto y lector de los dos formatos; «Cargar clasificación» desde el transpuesto; contador de puntos a verificar; nota Wilson/t y CSV del sitio |
 | `test_suelo_v01600.py` | Procesamiento por sitio: t de Student exacta, media e IC, fotos con y sin formulario, semilla base + número, guardar y siguiente, estados, continuar, resumen por fotos y por parcelas, CSV e informe del sitio, menú |
 | `test_suelo_v01517.py` | Verdes dudosos: puntaje (naranja, umbral, borde), orden, «Siguiente verde dudoso» (D) solo por los dudosos, revisados, columna duda_verde, informe, nueva cuadrícula |
 | `test_suelo_v01516.py` | Opción A (solo Canopeo en ventana e informe; ExG − ExR en el aviso y el CSV), zonas de los puntos, «Siguiente punto dudoso» (D), columna zona_reglas, conteo en el informe |

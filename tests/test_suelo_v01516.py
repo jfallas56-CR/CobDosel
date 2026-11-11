@@ -156,7 +156,8 @@ chk("4 CSV de puntos: columna zona_reglas", [r[iz] for r in rows[1:]].count("cia
     and [r[iz] for r in rows[1:]].count("No aplica") == len(z) - z.count("cian"))
 from cobdosel import ground_compare as gcmp
 chk("4 «Comparar» y «Cargar clasificación» siguen leyendo el CSV", len(gcmp.read_points_csv(pth[1])) == len(z))
-rows1 = list(csv.reader(open(pth[0], encoding="utf-8-sig")))
+# v0.16.3: CSV de foto transpuesto; se lee como {columna: valor} y se simula el formato ancho
+rows1 = [list(gc.read_photo_csv(pth[0]).keys())]
 chk("4 CSV de foto: ExG − ExR y la diferencia siguen (auditoría)", "verde_exgexr_pct" in rows1[0] and "diferencia_pct" in rows1[0])
 hp = os.path.join(OUT, "r.html")
 gc.write_html(d.res, d.export_meta(), d.area, d.points, d.labels, hp, VERSION)

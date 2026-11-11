@@ -70,7 +70,8 @@ app = QApplication([])
 msgs = []
 for name in ("information", "warning", "critical"):
     setattr(QMessageBox, name, staticmethod(lambda *a, _n=name, **k: msgs.append((_n, a[2] if len(a) > 2 else ""))))
-QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
+# v0.16.3: tras guardar los CSV se pregunta «¿Desea abrir los archivos ahora en Excel?» (question, no information)
+QMessageBox.question = staticmethod(lambda *a, **k: (msgs.append(("question", a[2] if len(a) > 2 else "")), QMessageBox.StandardButton.No)[1])
 
 import numpy as np
 from PIL import Image
@@ -141,9 +142,9 @@ QFileDialog.getSaveFileName = staticmethod(fake_save)
 msgs.clear()
 d.csv_btn.click(); app.processEvents()
 chk("1 un clic (con clics repetidos durante la exportación): un solo diálogo y un solo mensaje",
-    len(calls) == 1 and sum(1 for k, _ in msgs if k == "information") == 1, (len(calls), msgs))
+    len(calls) == 1 and sum(1 for k, _ in msgs if k == "question") == 1, (len(calls), msgs))
 chk("1 el botón vuelve a quedar activo después", d.csv_btn.isEnabled() and not d._exporting)
-txt = [m for k, m in msgs if k == "information"][0]
+txt = [m for k, m in msgs if k == "question"][0]
 chk("2 mensaje: la carpeta una vez y los tres nombres", txt.count(FOT) == 1 and txt.startswith("Carpeta: ")
     and all("• CobDosel_Prueba_{}.csv".format(x) in txt for x in ("fotos", "parcelas", "sitio")), txt)
 chk("2 con carpetas distintas, rutas completas", saved_files_text(["/a/x.csv", "/b/y.csv"]) == "/a/x.csv\n/b/y.csv")

@@ -518,6 +518,45 @@ def result_row(res, meta):
     return [row.get(k) for k in csv_columns(classes, groups)]
 
 
+# v0.16.3: descripciones en español de las variables del CSV de foto (que desde 0.16.3 se escribe transpuesto)
+GROUND_DESCRIPTIONS = {
+    "archivo": "Archivo de la foto", "fecha_exif": "Fecha y hora de captura (EXIF)",
+    "latitud": "Latitud del EXIF (grados, WGS84)", "longitud": "Longitud del EXIF (grados, WGS84)",
+    "sitio": "Sitio", "analista": "Analista", "numero_foto": "Número de la foto en el procesamiento por sitio",
+    "parcela": "Parcela (del formulario de fotos)", "punto": "Punto de la parcela (del formulario de fotos)",
+    "modo_area": "Modo del área analizada (cuadro, área fija o foto entera)", "lado_m": "Lado del área (m)",
+    "area_m2": "Área analizada (m²)", "altura_camara_m": "Altura de la cámara (m)", "calibracion": "Calibración de la cámara",
+    "regla_verde": "Regla de vegetación verde", "canopeo_p1": "Canopeo: umbral R/G", "canopeo_p2": "Canopeo: umbral B/G",
+    "canopeo_p3": "Canopeo: umbral 2G − R − B", "verde_canopeo_pct": "Vegetación verde por píxeles, Canopeo (%)",
+    "verde_exgexr_pct": "Vegetación verde por píxeles, ExG − ExR (%; comprobación interna)",
+    "diferencia_pct": "Diferencia entre las dos reglas (puntos porcentuales)",
+    "solo_exgexr_pct": "Píxeles verdes solo para ExG − ExR (%; zona cian: borde entre hoja verde y material seco)",
+    "solo_canopeo_pct": "Píxeles verdes solo para Canopeo (%; zona naranja)",
+    "revisar": "A revisar: las dos reglas difieren más de 5 puntos (Sí/No)", "n_puntos": "Número de puntos de la cuadrícula",
+    "semilla": "Semilla de la cuadrícula", "sin_clasificar": "Puntos sin clasificar",
+    "completo": "Clasificación completa (Sí/No)", "modo_reglamentario": "Modo reglamentario (Sí/No)",
+    "esquinas_px": "Esquinas del cuadro en la foto (px)", "clases_nuevas": "Clases añadidas por el analista",
+    "grupos": "Grupos de clases (definición)", "plugin": "Complemento", "plugin_version": "Versión del complemento",
+}
+_SUFFIX_ES = {"puntos": "puntos", "pct": "cobertura (%)", "ic95_inf": "IC 95 % de Wilson, límite inferior (%)",
+              "ic95_sup": "IC 95 % de Wilson, límite superior (%)"}
+
+
+def describe_column(key, classes=None, groups=None):
+    """Descripción en español de una columna del CSV de foto; para clases y grupos usa su nombre."""
+    if key in GROUND_DESCRIPTIONS:
+        return GROUND_DESCRIPTIONS[key]
+    names = {k: l for k, l, _c in (classes or class_list())}
+    for g in (groups or []):
+        names[group_column_key(g["nombre"])] = "grupo «{}»".format(g["nombre"])
+    for suf, text in _SUFFIX_ES.items():
+        if key.endswith("_" + suf):
+            base = key[:-len(suf) - 1]
+            if base in names:
+                return "{}: {}".format(names[base] if base.startswith("grupo_") else "Clase «{}»".format(names[base]), text)
+    return key
+
+
 def corners_text(corners):
     """Esquinas del cuadro como texto para el CSV: «x y | x y | x y | x y» (px de la foto, punto decimal)."""
     return " | ".join("{:.1f} {:.1f}".format(float(x), float(y)) for x, y in corners) if corners else None
@@ -532,16 +571,26 @@ def parse_corners(text):
     return pts if len(pts) == 4 and all(len(p) == 2 for p in pts) else []
 
 
+PHOTO_CSV_HEADER = ("variable", "descripcion", "valor")     # v0.16.3: CSV de foto transpuesto
+
+
 def read_photo_csv(path):
-    """Lee CobDosel_suelo_<foto>.csv («,» o «;», coma o punto decimal). Devuelve el dict de la primera fila."""
+    """Lee CobDosel_suelo_<foto>.csv («,» o «;», coma o punto decimal), en el formato transpuesto (desde 0.16.3: una fila
+    por variable) o en el ancho anterior (una fila por foto). Devuelve {columna: valor (texto)}."""
     with open(path, encoding="utf-8-sig", newline="") as f:
         text = f.read()
     first = text.splitlines()[0] if text else ""
     delim = ";" if first.count(";") > first.count(",") else ","
-    rows = list(csv.DictReader(io.StringIO(text), delimiter=delim))
-    if not rows or "semilla" not in rows[0] or "modo_area" not in rows[0]:
+    rows = [r for r in csv.reader(io.StringIO(text), delimiter=delim) if r]
+    if rows and [c.strip() for c in rows[0][:3]] == list(PHOTO_CSV_HEADER):
+        row = {r[0]: (r[2] if len(r) > 2 else "") for r in rows[1:]}
+    elif len(rows) >= 2:
+        row = dict(zip(rows[0], rows[1]))
+    else:
+        row = {}
+    if "semilla" not in row or "modo_area" not in row:
         raise ValueError("«{}» no es un CSV de foto de «Cobertura del suelo» de CobDosel.".format(os.path.basename(path)))
-    return rows[0]
+    return row
 
 
 def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimiter=",", decimal=".", zones=None,
@@ -553,10 +602,12 @@ def write_csvs(res, meta, points, labels, auto, out_prefix, version="", delimite
         if meta.get(k) in (None, ""):
             meta[k] = NO_DATA
     p1 = out_prefix + ".csv"
-    with open(p1, "w", newline="", encoding="utf-8-sig") as f:
+    classes, groups = res.get("lista_clases"), res.get("lista_grupos")
+    with open(p1, "w", newline="", encoding="utf-8-sig") as f:        # v0.16.3: transpuesto, una fila por variable
         w = csv.writer(f, delimiter=delimiter)
-        w.writerow(csv_columns(res.get("lista_clases"), res.get("lista_grupos")))
-        w.writerow(csv_row(result_row(res, meta), decimal))
+        w.writerow(PHOTO_CSV_HEADER)
+        for k, v in zip(csv_columns(classes, groups), csv_row(result_row(res, meta), decimal)):
+            w.writerow((k, describe_column(k, classes, groups), v))
     names = {k: l for k, l, _c in (res.get("lista_clases") or class_list())}
     p2 = out_prefix + "_puntos.csv"
     with open(p2, "w", newline="", encoding="utf-8-sig") as f:

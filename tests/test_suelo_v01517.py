@@ -151,13 +151,14 @@ order = d.doubt_order
 chk("2 todos verdes; solo las franjas dudosas entran (no la clara)", n_auto == 196 and 0 < len(order) < n_auto
     and all(d.points[i][0] > 300 for i in order), (len(order), n_auto))
 txt = d.out.toPlainText()
-chk("2 resumen: «Verdes automáticos dudosos: k de n (revisados 0)»",
-    "Verdes automáticos dudosos: {} de {} (revisados 0)".format(len(order), n_auto) in txt)
+chk("2 resumen: «Verdes automáticos dudosos: k de n verdes. Total de puntos a verificar: k …» (texto de 0.16.3)",
+    "Verdes automáticos dudosos: {} de {} verdes. Total de puntos a verificar: {} · verificados: 0 · restantes: {}".format(
+        len(order), n_auto, len(order), len(order)) in txt)
 d.current_idx = None
 seen = [d.next_doubtful() for _ in range(len(order))]
 chk("3 D recorre solo los dudosos, en orden de duda, sin repetir", seen == order)
 chk("3 la etiqueta explica por qué es dudoso", "Verde dudoso" in d.progress_lbl.text())
-chk("3 revisados = todos; el resumen lo dice", "(revisados {})".format(len(order)) in d.out.toPlainText())
+chk("3 revisados = todos; el resumen lo dice", "verificados: {} · restantes: 0".format(len(order)) in d.out.toPlainText())
 QtTest.QTest.keyClick(d.canvas, Qt.Key.Key_D); app.processEvents()
 chk("3 tecla D: vuelve al primero (cíclico)", d.current_idx == order[0])
 pth = gc.write_csvs(d.res, d.export_meta(), d.points, d.labels, d.auto, os.path.join(OUT, "r"), VERSION,

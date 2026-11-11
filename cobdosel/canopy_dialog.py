@@ -3185,6 +3185,8 @@ class CobDoselDialog(QDialog):
                 for k, desc, v in transpose_rows(header, csv_row(row, dec)):
                     w.writerow((k, desc, v))
             self._log("Resultados exportados a CSV (una fila por variable): " + str(path))
+            from .open_files import ask_open_csv          # v0.16.3: ¿Desea abrirlo ahora en Excel?
+            ask_open_csv(self, [path], "Resultados exportados")
             QMessageBox.information(
                 self, "CSV guardado",
                 "Resultados guardados en:\n" + str(path)

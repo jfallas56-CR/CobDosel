@@ -205,10 +205,10 @@ i2 = d.batch_next()
 chk("3 «Guardar y foto siguiente»: la 1 queda completa y se abre la 2 con su semilla",
     i2 == 1 and gb.photo_status(out, "F03.png") == "completa" and os.path.basename(d.photo_path) == "F01.png"
     and d.seed_spin.value() == 502)
-rows = list(csv.reader(open(gb.output_prefix(out, "F03.png") + ".csv", encoding="utf-8-sig"), delimiter=","))
-hdr = rows[0]
-chk("3 CSV de foto: columnas numero_foto, parcela y punto tras analista", hdr[hdr.index("analista") + 1:hdr.index("analista") + 4]
-    == ["numero_foto", "parcela", "punto"] and rows[1][hdr.index("parcela")] == "P1", hdr[:12])
+rr_ = gc.read_photo_csv(gb.output_prefix(out, "F03.png") + ".csv")      # v0.16.3: CSV de foto transpuesto
+hdr = list(rr_.keys())
+chk("3 CSV de foto: variables numero_foto, parcela y punto tras analista", hdr[hdr.index("analista") + 1:hdr.index("analista") + 4]
+    == ["numero_foto", "parcela", "punto"] and rr_["parcela"] == "P1", hdr[:12])
 chk("3 informe HTML de la foto guardado", os.path.isfile(gb.output_prefix(out, "F03.png") + "_informe.html"))
 corners_and_classify(d, leave=2)
 d.batch_save()

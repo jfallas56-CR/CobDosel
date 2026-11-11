@@ -1309,9 +1309,12 @@ class GroundCoverDialog(QDialog):
         nxt = order[(pos + 1) % len(order)]
         self.reviewed.add(nxt)
         self.goto_point(nxt)
-        if len(self.reviewed) == len(order):
-            self._log("Revisados los {} verdes automáticos dudosos.".format(len(order)))
-        self._refresh()
+        left = len(order) - len(self.reviewed & set(order))
+        self._refresh()                       # primero el resumen (reescribe la salida) y luego el mensaje
+        if left == 0:
+            self._log("Revisados los {} verdes automáticos dudosos: no quedan puntos por verificar.".format(len(order)))
+        else:
+            self._log("Punto {} verificado. Puntos a verificar restantes: {} de {}.".format(nxt + 1, left, len(order)))
         return nxt
 
     def next_unclassified(self):
@@ -1364,6 +1367,10 @@ class GroundCoverDialog(QDialog):
         self.canvas.marks = [(x, y, colors.get(lab, (255, 255, 255)))
                              for (x, y), lab in zip(self.points, self.labels)]
         self.canvas.update()
+        # v0.16.3: el botón muestra el total de puntos a verificar y los restantes
+        tot = len(self.doubt_order); left = tot - len(self.reviewed & set(self.doubt_order))
+        self.doubt_btn.setText("Siguiente verde dudoso (D) — a verificar {}, restantes {}".format(tot, left) if tot
+                               else "Siguiente verde dudoso (D)")
         self.res = gc.summarize(self.area, self.labels, classes=self.classes, groups=self.groups)
         r = self.res
         # v0.15.16 (opción A): se muestra Canopeo; ExG − ExR solo aparece en el aviso «a revisar»
@@ -1372,9 +1379,11 @@ class GroundCoverDialog(QDialog):
             lines.append("A revisar: " + gc.agreement_note(r))
         n_auto = sum(1 for d in self.doubt if d is not None)
         if n_auto:
-            lines.append("Verdes automáticos dudosos: {} de {} (revisados {}). Revise solo estos, del más al menos dudoso, "
-                         "con «Siguiente verde dudoso» (D); los demás verdes son claros.".format(
-                             len(self.doubt_order), n_auto, len(self.reviewed & set(self.doubt_order))))
+            nrev = len(self.reviewed & set(self.doubt_order))
+            lines.append("Verdes automáticos dudosos: {} de {} verdes. Total de puntos a verificar: {} · verificados: {} · "
+                         "restantes: {}. Revise solo estos, del más al menos dudoso, con «Siguiente verde dudoso» (D); los "
+                         "demás verdes son claros.".format(len(self.doubt_order), n_auto, len(self.doubt_order), nrev,
+                                                           len(self.doubt_order) - nrev))
         ncy = sum(1 for z, lab in zip(self.zones, self.labels) if z == "cian" and lab is None)
         if ncy:
             lines.append("Puntos sin clasificar en zona cian (borde entre hoja verde y material seco, tejido amarillento u "
@@ -1409,7 +1418,8 @@ class GroundCoverDialog(QDialog):
         paths = gc.write_csvs(self.res, self.export_meta(), self.points, self.labels, self.auto, p, VERSION, sep, dec,
                               zones=self.zones, doubt=self.doubt)
         self._log("CSV guardados: " + "; ".join(paths))
-        QMessageBox.information(self, "CSV guardados", "\n".join(paths))
+        from .open_files import ask_open_csv               # v0.16.3: ¿Desea abrir los archivos ahora en Excel?
+        ask_open_csv(self, paths)
 
     def _on_html(self):
         p, _ = QFileDialog.getSaveFileName(self, "Informe HTML", self._default_prefix() + "_informe.html",

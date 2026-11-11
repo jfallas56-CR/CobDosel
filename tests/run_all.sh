@@ -77,6 +77,7 @@ check suelo_v01515       python3 -I tests/test_suelo_v01515.py . "$OUT/suelo_v01
 check suelo_v01516       python3 tests/test_suelo_v01516.py . "$OUT/suelo_v01516" "$QT"
 check suelo_v01517       python3 tests/test_suelo_v01517.py . "$OUT/suelo_v01517" "$QT"
 check suelo_v01600       python3 tests/test_suelo_v01600.py . "$OUT/suelo_v01600" "$QT"
+check suelo_v01603       python3 tests/test_suelo_v01603.py . "$OUT/suelo_v01603" "$QT"
 check sin_variables      bash -c '! python3 tests/check_unbound.py cobdosel/*.py | grep .'
 # Pruebas con fotos reales (no incluidas en el repositorio): COBDOSEL_FOTOS=<carpeta>;
 # COBDOSEL_FOTOS_CIELO=<carpeta> con las 14 fotos de la prueba de uniformidad del cielo (v0.14.42)

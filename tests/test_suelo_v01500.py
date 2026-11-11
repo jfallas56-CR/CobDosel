@@ -184,7 +184,7 @@ chk("5 puntos clasificados: completo, suelo + hojarasca + verde = 100",
     + d.res["clases"]["verde"]["puntos"] == d.res["n_puntos"])
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "suelo_res.csv"), ""))
 d._on_csv()
-rows = list(csv.DictReader(open(os.path.join(OUT, "suelo_res.csv"), encoding="utf-8-sig")))
+rows = [gc.read_photo_csv(os.path.join(OUT, "suelo_res.csv"))]     # v0.16.3: CSV de foto transpuesto
 pr = list(csv.DictReader(open(os.path.join(OUT, "suelo_res_puntos.csv"), encoding="utf-8-sig")))
 chk("5 CSV: una fila, modo «Cuadro», altura «No aplica», «Sí»/«No», sin celdas vacías",
     len(rows) == 1 and rows[0]["modo_area"] == "Cuadro" and rows[0]["altura_camara_m"] == "No aplica"

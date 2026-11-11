@@ -209,7 +209,8 @@ for i in range(len(d.labels)):
         d.labels[i] = "suelo"
 d._refresh()
 paths = gc.write_csvs(d.res, dict(d.meta, archivo="f.png"), d.points, d.labels, d.auto, os.path.join(OUT, "r"), "x")
-rows = list(csv.reader(open(paths[0], encoding="utf-8-sig")))
+# v0.16.3: CSV de foto transpuesto; se lee como {columna: valor} y se simula el formato ancho
+_r = gc.read_photo_csv(paths[0]); rows = [list(_r.keys()), list(_r.values())]
 h = rows[0]
 chk("7 CSV: columnas de la clase nueva, clases_nuevas y diferencias por regla",
     "vegetacion_amarillenta_puntos" in h and rows[1][h.index("vegetacion_amarillenta_puntos")] == "1"
