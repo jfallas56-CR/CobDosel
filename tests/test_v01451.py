@@ -175,11 +175,11 @@ try:
     d._on_export_csv(); app.processEvents()
 finally:
     QFileDialog.getSaveFileName = _save
-rows = list(csv.reader(open(os.path.join(OUT, "foto.csv"), encoding="utf-8-sig")))
-h = rows[0]
+from cobdosel.result_columns import read_results_csv   # v0.16.2: CSV transpuesto
+rr = read_results_csv(os.path.join(OUT, "foto.csv"))
 chk("5 CSV de una foto: referencia, foto y área analizada en el hemisferio real; measurement_type «caco»",
-    all(k in h for k in ("glama_reference_zenith_deg", "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct"))
-    and rows[1][h.index("measurement_type")] == "caco")
+    all(k in rr for k in ("glama_reference_zenith_deg", "hemisphere_fraction_abs_pct", "analysed_fraction_abs_pct"))
+    and rr["measurement_type"] == "caco")
 # lote
 fold = os.path.join(OUT, "lote"); shutil.rmtree(fold, ignore_errors=True); os.makedirs(fold)
 Image.fromarray(im).save(os.path.join(fold, "A.jpg"), quality=95)

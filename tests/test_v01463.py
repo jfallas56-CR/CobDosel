@@ -92,7 +92,7 @@ chk("2 por defecto: «,» y punto (sin cambio para otros programas)",
     open(paths2[1], encoding="utf-8-sig").read().splitlines()[1].startswith("1,No aplica,5,5,73.77"),
     open(paths2[1], encoding="utf-8-sig").read().splitlines()[1])
 chk("2 ventana del lote y de una foto usan csv_style",
-    "delimiter=sep, decimal=dec" in src["batch_dialog.py"] and "w.writerow(csv_row(row, dec))" in dlg
+    "delimiter=sep, decimal=dec" in src["batch_dialog.py"] and "transpose_rows(header, csv_row(row, dec))" in dlg
     and "draft_form_from_photos(folder, dst, n, delimiter=csv_style()[0])" in src["batch_dialog.py"])
 from PIL import Image  # noqa: E402
 pf = os.path.join(OUT, "fotos"); os.makedirs(pf, exist_ok=True)

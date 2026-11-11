@@ -3177,11 +3177,14 @@ class CobDoselDialog(QDialog):
 
         try:
             sep, dec = csv_style()      # v0.14.63: «;» y coma decimal si la configuración regional usa coma
+            # v0.16.2: transpuesto, una fila por variable (variable, descripción en español, valor)
+            from .result_columns import RESULT_HEADER, transpose_rows
             with open(path, "w", newline="", encoding="utf-8-sig") as f:
                 w = csv.writer(f, delimiter=sep)
-                w.writerow(header)
-                w.writerow(csv_row(row, dec))
-            self._log("Resultados exportados a CSV: " + str(path))
+                w.writerow(RESULT_HEADER)
+                for k, desc, v in transpose_rows(header, csv_row(row, dec)):
+                    w.writerow((k, desc, v))
+            self._log("Resultados exportados a CSV (una fila por variable): " + str(path))
             QMessageBox.information(
                 self, "CSV guardado",
                 "Resultados guardados en:\n" + str(path)

@@ -261,8 +261,9 @@ check("análisis con calibración GLAMA (v0.14.67: sin bandera glama_engine)", "
 # Exportaciones
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "res.csv"), ""))
 d._on_export_csv()
-rows = list(csv.reader(open(os.path.join(OUT, "res.csv"), encoding="utf-8-sig")))
-hdr, row = rows[0], rows[1]
+from cobdosel.result_columns import read_results_csv   # v0.16.2: CSV transpuesto (una fila por variable)
+_rr = read_results_csv(os.path.join(OUT, "res.csv"))
+hdr, row = list(_rr.keys()), list(_rr.values())
 need = ["plugin", "plugin_version", "hemisphere_radius_px", "circle_visible_pct",
         "measurement_mode", "exif_orientation"]
 check("CSV con columnas nuevas, sin radio equivalente ni geometría de GLAMA", all(c in hdr for c in need)

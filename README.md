@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.16.1-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-0.16.2-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 
@@ -88,6 +88,7 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 
 ## Historial
 
+- **0.16.2 (2026-11-11):** CSV de una foto transpuesto: una fila por variable (variable, descripción en español, valor).
 - **0.16.1 (2026-11-11):** auditoría de publicación: `%` escapados en metadata.txt, descripción corta, icon.png para el repositorio, excepciones registradas; sin cambios en los cálculos.
 - **0.16.0 (2026-11-03):** cobertura del suelo: procesamiento por sitio (fotos en orden, con o sin formulario; semilla base + número; continuar donde quedó; resumen del sitio con IC 95 % de t de Student por fotos o parcelas).
 - **0.15.17 (2026-11-03):** cobertura del suelo: «Siguiente verde dudoso» (D) recorre solo los verdes automáticos dudosos, del más al menos dudoso.

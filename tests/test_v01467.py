@@ -148,8 +148,9 @@ chk("3 sin bandera glama_engine ni caco_linear en las métricas",
     "glama_engine" not in res["metrics"] and "caco_linear_pct" not in res["metrics"])
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "res.csv"), ""))
 d._on_export_csv()
-rows = list(csv.reader(open(os.path.join(OUT, "res.csv"), encoding="utf-8-sig")))
-hdr, row = rows[0], rows[1]
+from cobdosel.result_columns import read_results_csv   # v0.16.2: CSV transpuesto
+rr = read_results_csv(os.path.join(OUT, "res.csv"))
+hdr, row = list(rr.keys()), list(rr.values())
 chk("3 CSV sin glama_engine ni caco_linear_pct; con measurement_fit_rms_px",
     "glama_engine" not in hdr and "caco_linear_pct" not in hdr and "measurement_fit_rms_px" in hdr)
 chk("3 CSV: ninguna celda vacía", all(c.strip() for c in row), [hdr[i] for i, c in enumerate(row) if not c.strip()])

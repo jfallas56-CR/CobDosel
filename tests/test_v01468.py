@@ -133,12 +133,12 @@ d.calibration = scale_calibration_to_image(cal, W, H); d.center_xy = (W / 2.0, H
 d.zenith_max.setValue(27.0); d._on_glama_cut(); d._on_run(); app.processEvents()
 QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (os.path.join(OUT, "res.csv"), ""))
 d._on_export_csv()
-rows = list(csv.reader(open(os.path.join(OUT, "res.csv"), encoding="utf-8-sig")))
-hdr, row = rows[0], rows[1]
+from cobdosel.result_columns import read_results_csv   # v0.16.2: CSV transpuesto
+rr = read_results_csv(os.path.join(OUT, "res.csv"))
 chk("2 CSV: latitud, longitud y altitud sin dato → «Sin datos»",
-    all(row[hdr.index(k)] == "Sin datos" for k in ("latitude", "longitude", "elevation_m")),
-    [row[hdr.index(k)] for k in ("latitude", "longitude", "elevation_m")])
-chk("2 CSV: lo que no aplica sigue «No aplica»", row[hdr.index("horizon_angles")] == "No aplica")
+    all(rr[k] == "Sin datos" for k in ("latitude", "longitude", "elevation_m")),
+    [rr[k] for k in ("latitude", "longitude", "elevation_m")])
+chk("2 CSV: lo que no aplica sigue «No aplica»", rr["horizon_angles"] == "No aplica")
 out = generate_html_report(d.last_results, os.path.join(OUT, "foto.html"), include_images=False)
 raw = open(out, encoding="utf-8").read()
 chk("3 informe: «Coordenadas GNSS (WGS84)», sin «GPS» visible", "Coordenadas GNSS (WGS84):" in raw

@@ -210,6 +210,10 @@ FULL_HELP_HTML = """
   <li><b>Umbral automático y píxeles mixtos:</b> Bianchi et al. (2017) umbralizaron todas las fotos automáticamente; el método IsoData (Ridler y Calvard 1978) en el canal azul clasificó como cielo muchos elementos pequeños de vegetación, que un método con información de color (EnhanceHP, Díaz y Lencinas 2015) identificó correctamente. Los píxeles mixtos de ramillas y bordes de hojas son la principal fuente de diferencias entre criterios de corte.</li>
   <li><b>Validación pendiente:</b> el método no se ha validado en Costa Rica contra una referencia independiente (p. ej. tubo de observación vertical o LiDAR); se recomienda hacerlo antes de un uso oficial.</li>
   <li><b>Formato numérico:</b> punto decimal y espacio de miles en pantalla e informe; el CSV guarda números sin separador.</li>
+  <li><b>CSV de una foto</b> (<i>Resultados_CobDosel_&lt;foto&gt;.csv</i>): transpuesto, una fila por variable, con tres columnas:
+  <i>variable</i> (clave estable, en inglés, la misma de las versiones anteriores), <i>descripcion</i> (en español, con la unidad) y
+  <i>valor</i>. Se lee de arriba abajo en Excel sin desplazarse por 60 columnas. Los CSV del procesamiento por sitio siguen con una
+  fila por foto.</li>
 </ul>
 
 <hr/>

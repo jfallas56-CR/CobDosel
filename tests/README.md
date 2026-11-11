@@ -43,6 +43,7 @@ Requisitos: Python 3, numpy, scipy, Pillow, openpyxl y PyQt5 o PyQt6.
 | `test_v01465.py` | Informe de una foto con todo lo de «calibración y máscara» del panel: cámaras y comprobación de lente, n.º de anillos |
 | `test_v01466.py` | Ayuda «Anillos del informe»; pesos del CaCo por anillo; ejemplo de varios estratos (97,66 %) |
 | `test_v01467.py` | «No aplica» en celdas sin valor; LAI solo con ojo de pez de 180°; sin glama_engine ni CaCo lineal; calibración sin R rechazada; residuo del ajuste en el CSV |
+| `test_v01602.py` | CSV de una foto transpuesto: encabezado variable/descripcion/valor, una fila por variable, descripciones en español (anillos y sectores por patrón), lector de los dos formatos, ayuda |
 | `test_v01468.py` | Nota «se registra como copa o cielo»; GNSS; «Sin datos» en latitud, longitud y altitud; valores del informe a la derecha |
 | `test_v01469.py` | Avisos de consistencia por parcela (días, 20 min, rango > 30 puntos); pie del lote igual al de una foto; «Cámara:» y «Canal de color:» |
 | `test_v01470.py` | Sin CaCo modificado; «Sí»/«No»; «Sin cielo suficiente»; nota de cielo fragmentado |

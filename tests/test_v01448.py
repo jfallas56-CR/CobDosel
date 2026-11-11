@@ -211,10 +211,10 @@ try:
     d._on_export_csv(); app.processEvents()
 finally:
     QFileDialog.getSaveFileName = _save
-rows = list(csv.reader(open(os.path.join(OUT, "foto.csv"), encoding="utf-8-sig")))
-hrow = rows[0]
-chk("3 CSV de una foto: site_name y analyst", "site_name" in hrow and rows[1][hrow.index("analyst")] == "Ana Mora"
-    and rows[1][hrow.index("site_name")] == "Sitio Río Frío")
+from cobdosel.result_columns import read_results_csv   # v0.16.2: CSV transpuesto
+rr = read_results_csv(os.path.join(OUT, "foto.csv"))
+chk("3 CSV de una foto: site_name y analyst", "site_name" in rr and rr["analyst"] == "Ana Mora"
+    and rr["site_name"] == "Sitio Río Frío")
 
 # ---- 4) anillos cenitales: letra mayor y leyenda arriba
 seen = []
