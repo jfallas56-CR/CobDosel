@@ -109,6 +109,12 @@ FULL_HELP_HTML = """
 <hr/>
 """ + """
 <h3>3. Máscara de horizonte recomendada según parcela y altura del dosel (Tichý 2015)</h3>
+<p><b>Cuándo usarla:</b> en un inventario por parcelas cuadradas con la foto en el centro de cada una, cuando el CaCo debe
+representar la parcela (el círculo de análisis llega, a la altura del dosel, hasta sus esquinas: cenit máximo = atan(media
+diagonal / altura)), o para comparar con GLAMA. Use el mismo valor en todas las parcelas del mismo tamaño y clase de altura.
+<b>Cuándo no:</b> en transectos o puntos sin parcela (use 63°, la máscara estándar), cuando el protocolo fija la máscara por la
+huella del dosel, o cuando la combinación da menos de 60°: con lente regular el círculo se sale de la foto (10 × 10 m necesita
+dosel ≥ 15 m; 15 × 15, ≥ 20 m; 20 × 20, ≥ 30 m; 25 × 25, 40 m). La misma máscara en todos los sitios que se comparen.</p>
 <p>Cuando la fotografía se toma desde el centro de una parcela cuadrada, Tichý (2015) recomienda los siguientes ángulos de máscara sobre el horizonte (y entre paréntesis su ángulo cenital máximo equivalente <code>θ_máx = 90° − horizonte</code>):</p>
 <table border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; width: 100%; text-align: center;">
   <tr style="background-color: #e6f2f5;">

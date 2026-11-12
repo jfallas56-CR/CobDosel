@@ -2,6 +2,10 @@
 
 Historial de versiones del complemento QGIS CobDosel, desde la versión inicial hasta la 1.0.0. Se mantiene fuera del complemento (no va en el ZIP ni en metadata.txt) para la trazabilidad del proceso de desarrollo; a partir de 1.0.0 cada versión nueva se anota aquí y en el campo `changelog` de metadata.txt solo con su entrada.
 
+## 1.0.1 (2026-11-12)
+
+Ayuda del complemento y manual: cuándo usar (y cuándo no) la máscara recomendada según parcela y altura del dosel (regla geométrica, combinaciones que caben en la foto del teléfono). Sin cambios en los cálculos.
+
 ## 1.0.0 (2026-11-11)
 
 Primera versión estable. Reúne las dos herramientas (cobertura del dosel y cobertura del suelo) con el procesamiento por sitio de ambas, los CSV de una foto transpuestos con descripción en español, los informes HTML y la ayuda. Respecto a 0.16.3: la máscara recomendada según parcela y altura del dosel ya no se llama «Tabla 1 de GLAMA» (misma función; se cita Tichý 2015); «rectificado» en lugar de «enderezado» para el cuadro de la cobertura del suelo; el historial sale del README y de metadata.txt y queda en este archivo.
