@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-0.16.3-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.0.0-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 
@@ -39,7 +39,7 @@ Salidas: panel de resultados, CSV, capa de puntos GNSS (EXIF), vista «Anillos c
 
    Se muestra el radio del hemisferio *R*. La calibración guardada registra en qué foto se midió el círculo.
 3. **Nivel de corte (1–254):** recomendado (log-normal) o automático (Mínimo u Otsu) sobre el área analizada; un solo criterio para todas las fotos.
-4. **Máscara de horizonte:** Tichý (2016) recomienda > 45° sobre el horizonte, o la Tabla 1 de GLAMA. El análisis llega hasta la máscara; si el círculo sale de la foto se informa el % visible.
+4. **Máscara de horizonte:** Tichý (2016) recomienda > 45° sobre el horizonte, o la máscara recomendada según parcela y altura del dosel (Tichý 2015). El análisis llega hasta la máscara; si el círculo sale de la foto se informa el % visible.
 5. **Ejecutar** y exportar CSV / HTML.
 
 ## Procesamiento por sitio (lote)
@@ -59,7 +59,7 @@ Menú **CobDosel → Procesamiento por sitio (lote)**:
 Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta general: no supone un diseño de muestreo.
 
 - **Foto:** cámara principal 1x, hacia abajo y nivelada, a altura fija (1–1,5 m), con luz difusa; la ayuda lista las buenas prácticas y las fotos que conviene evitar.
-- **Área:** un **cuadro** físico (4 esquinas, cursor en cruz y líneas guía; se endereza a un cuadrado) o un **área fija** desde la altura de la cámara y la calibración «Rectilínea» (la ventana indica qué cuadrado cabe a cada altura; una foto de otra proporción que la calibración se rechaza).
+- **Área:** un **cuadro** físico (4 esquinas, cursor en cruz y líneas guía; se rectifica a un cuadrado) o un **área fija** desde la altura de la cámara y la calibración «Rectilínea» (la ventana indica qué cuadrado cabe a cada altura; una foto de otra proporción que la calibración se rechaza).
 - **Vegetación verde (píxeles):** regla de Canopeo (Patrignani y Ochsner 2015: R/G < 0,95, B/G < 0,95, 2G − R − B > 20), comprobada con ExG − ExR (Meyer y Neto 2008). Si difieren más de 5 puntos, «a revisar», que no indica un error: la tecla C muestra dónde difieren (cian y naranja).
 - **Intercepción de puntos:** cuadrícula regular con desfase aleatorio y semilla registrada; los puntos verdes según Canopeo se marcan solos y el analista clasifica los demás («Siguiente» asigna la clase marcada; teclas 1–9; clases propias, hasta 9; grupos de clases como «Vegetación total» para medir toda la vegetación). Regla para puntos dudosos: solo el píxel bajo el centro de la cruz (Booth et al. 2006). Cobertura de cada clase con IC 95 % (Wilson).
 - **Varios analistas:** «Modo reglamentario» (el verde lo decide la regla de Canopeo), «Cargar área y cuadrícula de un CSV…» (doble clasificación sobre los mismos puntos) y «Comparar clasificaciones…» (acuerdo, kappa de Cohen, tabla de confusión y puntos en desacuerdo).
@@ -86,123 +86,9 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 - **Validación pendiente:** ni GLAMA ni CobDosel se han validado en Costa Rica contra una referencia independiente (tubo de observación vertical o LiDAR).
 - **Formato numérico:** punto decimal y espacio como separador de miles en pantalla e informe; el CSV guarda números sin separador.
 
-## Historial
+## Registro de cambios
 
-- **0.16.3 (2026-11-11):** «¿Desea abrirlo ahora en Excel?» tras guardar CSV; CSV de foto del suelo transpuesto; contador de puntos a verificar; nota Wilson/t en el informe del sitio.
-- **0.16.2 (2026-11-11):** CSV de una foto transpuesto: una fila por variable (variable, descripción en español, valor).
-- **0.16.1 (2026-11-11):** auditoría de publicación: `%` escapados en metadata.txt, descripción corta, icon.png para el repositorio, excepciones registradas; sin cambios en los cálculos.
-- **0.16.0 (2026-11-03):** cobertura del suelo: procesamiento por sitio (fotos en orden, con o sin formulario; semilla base + número; continuar donde quedó; resumen del sitio con IC 95 % de t de Student por fotos o parcelas).
-- **0.15.17 (2026-11-03):** cobertura del suelo: «Siguiente verde dudoso» (D) recorre solo los verdes automáticos dudosos, del más al menos dudoso.
-- **0.15.16 (2026-11-03):** cobertura del suelo: se muestra solo Canopeo (ExG − ExR como comprobación interna); puntos dudosos y «Siguiente punto dudoso» (D).
-- **0.15.15 (2026-11-03):** cobertura del suelo: aviso «a revisar» más claro (dos valores, parte dudosa, por qué se informa Canopeo).
-- **0.15.14 (2026-11-03):** cobertura del suelo: «Cargar clasificación de un CSV…» (continuar, revisar o agregar grupos sin clasificar otra vez).
-- **0.15.13 (2026-11-03):** cobertura del suelo: grupos de clases (por ejemplo, «Vegetación total») con el IC de Wilson de la suma.
-- **0.15.12 (2026-11-03):** cobertura del suelo: modo reglamentario, «Cargar área y cuadrícula de un CSV…» y «Comparar clasificaciones» (kappa de Cohen); protocolo con varios analistas en el manual.
-- **0.15.11 (2026-11-02):** descripción del complemento con «Cobertura del suelo» y sin funciones retiradas; README de la raíz actualizado.
-- **0.15.10 (2026-11-02):** cobertura del suelo: regla para puntos dudosos en la ayuda y el manual.
-- **0.15.9 (2026-11-02):** área fija: qué cuadrado cabe a cada altura (ventana, ayuda y manual); foto de distinta proporción que la calibración, rechazada.
-- **0.15.8 (2026-11-02):** cursor en cruz y líneas guía al marcar esquinas; ayuda con buenas prácticas y fotos que conviene evitar.
-- **0.15.7 (2026-11-02):** cobertura del suelo: diferencias entre Canopeo y ExG − ExR en cian y naranja (vista e informe), clases nuevas del usuario, aviso «a revisar» explicado.
-- **0.15.6 (2026-11-02):** cobertura del suelo: «Siguiente» asigna la clase marcada y pasa al siguiente; «Saltar» (S); contador de puntos sin clasificar.
-- **0.15.5 (2026-11-01):** calibración con baldosas: se guarda en el mismo paso, con un nombre propuesto.
-- **0.15.4 (2026-10-31):** flechas del teclado para mover la vista en «Cobertura del suelo» y «Calibrar con baldosas» (Mayús: paso mayor).
-- **0.15.3 (2026-10-31):** calibración con baldosas o un rectángulo conocido (una o dos alturas): focal, altura real del lente e inclinación de la cámara; en la ventana principal y en «Cobertura del suelo».
-- **0.15.2 (2026-10-30):** cobertura del suelo: N avanza por la cuadrícula, 1–5 clasifican y pasan al siguiente, zoom con botones y arrastre, pestaña «Ayuda».
-- **0.15.1 (2026-10-30):** cobertura del suelo: verde sombreado opcional, puntos con cruz, zoom, siguiente sin clasificar, semilla visible, aviso antes de descartar.
-- **0.15.0 (2026-10-30):** nueva herramienta «Cobertura del suelo»: vegetación verde automática (Canopeo, comprobada con ExG − ExR), cuadro enderezado o área fija, intercepción de puntos para vegetación seca, hojarasca y suelo desnudo; CSV e informe.
-- **0.14.70 (2026-10-30):** sin CaCo modificado en las salidas; «Sí»/«No» en los CSV; «Sin cielo suficiente» y nota de cielo fragmentado.
-- **0.14.69 (2026-10-30):** avisos de consistencia por parcela (varios días, más de 20 min, rango > 30 puntos); mismo pie en los dos informes.
-- **0.14.68 (2026-10-30):** GNSS en lugar de GPS; «Sin datos» para coordenadas faltantes; valores del informe alineados a la derecha; nota del densiómetro.
-- **0.14.67 (2026-10-30):** «No aplica» en las celdas sin valor de los CSV; LAI solo con ojo de pez de 180°; sin índices lineales antiguos; residuo del ajuste de círculo en el CSV.
-- **0.14.66 (2026-10-30):** ayuda: cómo leer los anillos del informe.
-- **0.14.65 (2026-10-29):** informe de una foto con la cámara de la foto y de la calibración (comprobación de lente) y el número de anillos.
-- **0.14.64 (2026-10-29):** apertura, cierre y referencia de GLAMA solo en el CSV de una foto; nota del densiómetro con el porqué de muchos puntos; tiempo de procesamiento del lote.
-- **0.14.63 (2026-10-29):** se retiran la calibración con el radio de GLAMA, la geometría de pantalla de GLAMA y «Comparar con GLAMA (tabla)»; CSV con «;» y coma decimal donde la coma es decimal (Excel); informe del sitio sin avisos repetidos y con contacto; sin «⚠».
-- **0.14.62 (2026-10-29):** resultado del sitio = media de todas las fotos válidas, con el CaCo de cada foto y las medias con 2 decimales (redondeo a la mitad hacia arriba).
-- **0.14.61 (2026-10-27):** formulario desde las fotos con la nota solo en las parcelas dudosas; «1 decisión guardada».
-- **0.14.60 (2026-10-27):** aviso de cielo no uniforme con los cortes ya verificados; plantilla del formulario con instrucciones actuales.
-- **0.14.59 (2026-10-27):** una exportación por clic en el lote; mensaje «CSV guardados» con la carpeta una vez.
-- **0.14.58 (2026-10-27):** nombres de los CSV y del informe del sitio sin «sitio» repetido.
-- **0.14.57 (2026-10-27):** tabla de parcelas con «—» en Mín. y Máx. si hay una sola foto válida.
-- **0.14.56 (2026-10-27):** «Observaciones» sin el aviso de cielo repetido; motivo de revisión sin «protocolo de campo».
-- **0.14.55 (2026-10-27):** parámetros del informe del sitio con nombres legibles, «—» en vez de «None» y fechas legibles.
-- **0.14.54 (2026-10-26):** «Comparar con GLAMA»: las fotos sin corte de GLAMA se omiten con aviso; plantilla con «;» donde la coma es decimal.
-- **0.14.53 (2026-10-26):** radio de GLAMA solo por el lado menor; el resumen indica el cenit real analizado y la máscara equivalente; aviso para calibraciones guardadas con el lado mayor.
-- **0.14.52 (2026-10-26):** sin limpieza morfológica (subía el CaCo y no se aplicaba en el lote); sin scipy.
-- **0.14.51 (2026-10-26):** apertura y cierre con su referencia real (convención de GLAMA); fracciones del hemisferio sobre una misma base; una sola nota metodológica sin «proyección perpendicular medida directamente».
-- **0.14.50 (2026-10-26):** sin globo de ayuda sobre la foto en la vista previa del nivel de corte.
-- **0.14.49 (2026-10-25):** «Recomendado (log-normal)» en la vista previa del nivel de corte, calculado a resolución completa como el botón principal; el CaCo se presenta como estimación de la proyección vertical.
-- **0.14.48 (2026-10-24):** «Operador» pasa a «Analista»; informe de una foto con sitio y analista y créditos al final; anillos cenitales con letra mayor y leyenda arriba; ventana del lote sin máscara por altura del dosel; informe del sitio: cielo «Verificadas por…» y tabla de parcelas más clara.
-- **0.14.47 (2026-10-24):** informes sin autor; informe de una foto reorganizado en español; cielo no uniforme junto al resultado del sitio.
-- **0.14.46 (2026-10-24):** avisos comunes con su alcance («Todas las fotos…», «3 de 9 fotos…») y etiquetas breves por foto; cielo no uniforme → «a revisar» (verificar el corte).
-- **0.14.45 (2026-10-24):** informe del lote con observaciones en segunda fila y parámetros legibles; decisiones guardadas con fecha y operador; «Borrar revisión guardada…».
-- **0.14.44 (2026-10-24):** comprobación de la cámara antes de procesar el sitio, con propuesta de la calibración que coincide.
-- **0.14.43 (2026-10-24):** campo «Operador» en el procesamiento por sitio; puntos «Foto N» sin avisos falsos.
-- **0.14.42 (2026-10-24):** aviso «cielo no uniforme», motivo «separa dos brillos del cielo», formulario y número de parcelas opcionales, ventana del lote redimensionable; «Revisar cortes» pregunta por cortes sin aceptar, guarda cada decisión y tiene control de opacidad.
-- **0.14.41 (2026-10-23):** comparación GLAMA ↔ CobDosel: orden guardado de los píxeles y casillas de giro de GLAMA en la reproducción; ventana «Comparar con GLAMA (tabla)…» que separa residuo, efecto del corte y efecto de la geometría.
-- **0.14.40 (2026-10-23):** ayuda de «Tipo de lente» para teléfonos Android y iPhone (iOS).
-- **0.14.39 (2026-10-23):** Intro ya no pulsa botones; flechas para mover la imagen; quitar puntos en la medición del círculo; fotos HEIC del iPhone en el lote.
-- **0.14.38 (2026-10-22):** correcciones de una revisión independiente (sincronía del modelo, centro en «Revisar cortes…», medición en otra foto, filtro de calidad, corte de Otsu y más); pruebas nuevas de escenarios, respuesta a las entradas y hechos verificados.
-- **0.14.37 (2026-10-22):** descripción emergente de «Modelo de proyección» corregida.
-- **0.14.36 (2026-10-22):** documentación: GLAMA usa la fórmula exacta atan(D/2H), como CobDosel.
-- **0.14.35 (2026-10-22):** la ventana de nivel de corte muestra solo el área analizada (fuera, en verde azulado), como GLAMA.
-- **0.14.34 (2026-10-22):** cambiar el modelo de proyección recalcula la calibración activa (antes la lista y la calibración podían no coincidir); ayuda actualizada.
-- **0.14.33 (2026-10-22):** «Rectilínea» como modelo predeterminado para lente regular; comprobación de la distancia focal al calibrar; zoom por rectángulo en «Revisar cortes…»; modelo y focal en la línea de calibración del lote.
-- **0.14.32 (2026-10-21):** «Añadir imagen original» añade la foto con la orientación EXIF aplicada, igual que los anillos y la superposición.
-- **0.14.31 (2026-10-21):** zoom por rectángulo (clic derecho y arrastrar) y valor de zoom escrito en la medición del círculo y en la ventana de umbral; zoom alto sin copia gigante de la foto.
-- **0.14.30 (2026-10-21):** la medición del círculo pide D y H; corrección de la sobrescritura de la medición por la calibración recordada.
-- **0.14.29 (2026-10-21):** máscara estándar de 63° (cenit 0–27°) en ambas ventanas.
-- **0.14.28 (2026-10-21):** diámetro del círculo «sin medir» en lugar de 1975 px fijos.
-- **0.14.27 (2026-10-20):** la calibración se mantiene entre fotos y se recuerda la última; máscara predeterminada de 60°; registro de la calibración en el lote.
-- **0.14.26 (2026-10-20):** modelos de proyección filtrados por tipo de lente; corrección de «math domain error» con el círculo entero dentro de la foto.
-- **0.14.25 (2026-10-20):** ayuda: interpretación de la prueba de dos círculos.
-- **0.14.24 (2026-10-19):** ayuda: recomendación para teléfonos y círculos de tamaño GLAMA.
-- **0.14.23 (2026-10-19):** auditoría: método Mínimo con dosel saturado, centro de la calibración en el lote, mediciones degeneradas, error del botón recomendado, confirmación al reemplazar calibraciones, CSV con BOM.
-- **0.14.22 (2026-10-19):** corrección: el modelo de proyección de una calibración cargada se muestra correctamente; ayuda: tipo de lente y modelos de proyección.
-- **0.14.21 (2026-10-19):** ayuda: procedimiento de calibración, círculo grande y prueba con dos círculos.
-- **0.14.20 (2026-10-19):** ayuda: orientación EXIF y recorte en los bordes cortos.
-- **0.14.19 (2026-10-19):** ayuda: una calibración por modelo de teléfono.
-- **0.14.18 (2026-10-19):** ayuda ampliada (convención de la máscara, corte heredado, fotos sin dos modos).
-- **0.14.17 (2026-10-19):** inspector de píxeles en la vista previa del umbral.
-- **0.14.16 (2026-10-19):** texto del método del corte sin repetición.
-- **0.14.15 (2026-10-19):** superposición de umbral con el área analizada (fuera de la máscara en verde azulado).
-- **0.14.14 (2026-10-19):** leyenda de la vista de anillos sin símbolo ilegible; indica la máscara mínima para quedar dentro de la foto.
-- **0.14.13 (2026-10-19):** el corte de la foto anterior se marca como heredado y se avisa al ejecutar.
-- **0.14.12 (2026-10-19):** comprobación del corte recomendado también en el análisis de una foto, con aviso y método «no comprobado».
-- **0.14.11 (2026-10-18):** control de calidad de la medición con veredicto global y mensajes agrupados (fotografía / medición).
-- **0.14.10 (2026-10-18):** ayuda con protocolo de campo, CaCo frente a fracción de claros sin ponderar y comparabilidad (Bianchi et al. 2017).
-- **0.14.9 (2026-10-18):** método del nivel de corte registrado en panel, informe HTML y CSV (foto y lote).
-- **0.14.8 (2026-10-18):** sin remisiones a figuras o páginas del manual de GLAMA (se mantiene la cita de Tichý 2015 para la Tabla 1); vista previa con la guía de cada modo.
-- **0.14.7 (2026-10-18):** líneas que no se cruzan en su punto medio: nota si los 4 puntos están sobre un mismo círculo, advertencia si no; textos de control de calidad más claros.
-- **0.14.6 (2026-10-18):** dos diámetros: diámetro y centro del círculo que pasa por los 4 puntos (antes intersección de las líneas, desplazada si una línea no era un diámetro); aviso.
-- **0.14.5 (2026-10-18):** nivel de corte automático Otsu o Mínimo (selector + Calcular); vistas Claro/Oscuro; desplazamiento del centro del círculo dibujado en todos los modos, aviso graduado y control del arco de los puntos; recomendaciones de medición en la ayuda; autor fuera de las ventanas.
-- **0.14.4 (2026-10-18):** misma opacidad en las vistas Claro y Oscuro, ajustable.
-- **0.14.3 (2026-10-18):** lente regular por defecto; menos menciones de GLAMA; sin fórmula atan(D/H)/2 ni radio equivalente GLAMA; informe alineado a la izquierda; zoom con la rueda y arrastre en la vista previa.
-- **0.14.2 (2026-10-18):** exportaciones en la carpeta de la foto; se cita Tichý (2016); vista «Anillos cenitales».
-- **0.14.1 (2026-10-18):** corrección: las calibraciones medidas se guardaban como «diámetro escrito a mano» y la medición en otra foto no se reescalaba; recalibre las calibraciones hechas con 0.11.0–0.14.0.
-- **0.14.0 (2026-10-18):** comprobación del corte automático y revisión visual de cortes en el lote, con registro de decisiones; descripción del procedimiento del corte recomendado y referencias (Kittler e Illingworth 1986; Otsu 1979).
-- **0.13.2 (2026-10-18):** «Recomendado (GLAMA)» pasa a «Recomendado (log-normal)»; la ayuda explica el origen del método (app GLAMA, archivos APK) y que 128 es solo el punto de partida.
-- **0.13.1 (2026-10-18):** informes del lote en la carpeta de fotos y opción de abrir el HTML; botón «Registrar cámara…» para calibraciones antiguas.
-- **0.13.0 (2026-10-18):** herramienta de uso general: se elimina el umbral de cobertura y las referencias legales; «formulario de fotos» (antes Formulario 8) y botón «Crear formulario desde las fotos…»; información de la calibración en el lote.
-- **0.12.4 (2026-10-18):** comprobación de cámara/lente (EXIF) entre la calibración y cada foto; resoluciones distintas de la misma lente se reescalan; otras lentes se excluyen.
-- **0.12.3 (2026-10-17):** «Recomendado (GLAMA)» iterado desde 128; ya no depende del valor previo del control.
-- **0.12.2 (2026-10-17):** vista de anillos: intervalo automático según el cenit que cubre la foto, etiquetas visibles, aviso de máscara fuera de la foto.
-- **0.12.1 (2026-10-17):** máscara fija de 60° por defecto en el lote; grupos de dosel en lugar de altura; columna de altura eliminada del Formulario 8.
-- **0.12.0 (2026-10-17):** procesamiento por sitio (lote) con el Formulario 8 digital; plantilla Excel/CSV.
-- **0.11.1 (2026-10-17):** la geometría de pantalla de GLAMA usa el centro del hemisferio desplazado 39 px en la vista (ajustable), que reproduce exactamente «(in Frame)» y «Part of Hemisph.» de la app.
-- **0.11.0 (2026-10-17):** nuevo nombre **CobDosel**.
-  - Análisis hasta la máscara de horizonte (antes se limitaba al semiángulo del lado corto).
-  - Radio *R* y equivalente GLAMA visibles; trazabilidad de la medición del círculo y aviso al cargar calibraciones de otra proporción o sin trazabilidad.
-  - Medición con dos diámetros o ajuste de círculo.
-  - Calibración con el radio de GLAMA y modo «geometría de pantalla de GLAMA».
-  - Aviso de círculo parcialmente fuera de la foto.
-  - Vista «Anillos cenitales» nueva y fracción de claros por sector.
-  - Orientación y rumbo EXIF.
-  - Encabezado de resultados y CaCo identificado como cobertura del dosel.
-  - Calibraciones en `~/.cobdosel` (se leen las de `~/.canopy`).
-- **0.10.1 (2026-10-17):** corrige la calibración cuando el círculo se mide en una foto de otra resolución.
-- **0.10.0 (2026-10-17):** LAI con rango propio y Miller normalizado; índices con el método GLAMA; nivel de corte recomendado; compatibilidad Qt5/Qt6.
-- **0.9.0:** versión inicial.
+El historial de versiones está en [CHANGELOG.md](https://github.com/jfallas56-CR/CobDosel/blob/main/CHANGELOG.md) del repositorio.
 
 ---
 

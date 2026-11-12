@@ -1,5 +1,5 @@
 """CobDosel 0.15.0: herramienta «Cobertura del suelo» (foto vertical hacia abajo): vegetación verde automática
-(Canopeo, comprobada con ExG − ExR), cuadro enderezado o área fija, intercepción de puntos para vegetación seca,
+(Canopeo, comprobada con ExG − ExR), cuadro rectificado o área fija, intercepción de puntos para vegetación seca,
 hojarasca y suelo desnudo, CSV e informe HTML; entrada de menú.
 
 Uso: python3 -I test_suelo_v01500.py <carpeta_padre_plugin> <dir_salida> <PyQt5|PyQt6>
@@ -130,7 +130,7 @@ dk = np.zeros((10, 10, 3), np.uint8); dk[:, :5] = (40, 50, 40); dk[:, 5:] = SOIL
 r = gc.summarize(dk, [None] * 4)
 chk("1 verde oscuro (ExG = 20): Canopeo no, ExG − ExR sí → diferencia 50 puntos, «a revisar»",
     r["verde_canopeo_pct"] == 0 and r["verde_exgexr_pct"] == 50 and r["revisar"], r["diferencia_pct"])
-# 2) cuadro en perspectiva enderezado
+# 2) cuadro en perspectiva rectificado
 H, W, n = 1200, 1600, 600
 big = np.full((H, W, 3), 210, np.uint8)
 sq = np.zeros((n, n, 3), np.uint8); sq[:, :n // 2] = GREEN; sq[:, n // 2:] = SOIL

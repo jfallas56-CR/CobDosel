@@ -850,7 +850,7 @@ class GroundCoverDialog(QDialog):
         return ans == QMessageBox.StandardButton.Yes
 
     def prepare_area(self, confirm=True):
-        """Prepara el área (cuadro enderezado o área fija), la vegetación verde y la cuadrícula de puntos (con la
+        """Prepara el área (cuadro rectificado o área fija), la vegetación verde y la cuadrícula de puntos (con la
         semilla del campo «Semilla de la cuadrícula»)."""
         if self.rgb is None:
             raise ValueError("Cargue una foto primero.")

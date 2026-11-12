@@ -3,7 +3,7 @@
 Autor: Jorge Fallas (jfallas56@gmail.com)
 """
 
-VERSION = "0.16.3"
+VERSION = "1.0.0"
 
 
 def fmt_int(value):

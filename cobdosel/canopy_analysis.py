@@ -35,9 +35,9 @@ LAI_MIN_RELIABLE_ZENITH_DEG = 45.0
 
 
 # ======================================================================
-# Tabla 1 del Manual de GLAMA (Tichý 2015, pág. 7):
-# Ángulos de máscara de horizonte (° sobre el horizonte) según tamaño de
-# parcela y altura máxima del dosel cuando la foto se toma en el centro.
+# Ángulos de máscara de horizonte recomendados por Tichý (2015) (° sobre el
+# horizonte) según tamaño de parcela y altura máxima del dosel cuando la foto
+# se toma en el centro de la parcela.
 # Nota: ángulo_cenital_máx = 90° - ángulo_horizonte
 # ======================================================================
 GLAMA_HORIZON_MASK_TABLE = {
@@ -50,7 +50,7 @@ GLAMA_HORIZON_MASK_TABLE = {
 
 def recommended_horizon_mask_deg(plot_size_key, canopy_height_m):
     """
-    Devuelve (horizon_mask_deg, zenith_max_deg) según la Tabla 1 de GLAMA.
+    Devuelve (horizon_mask_deg, zenith_max_deg) recomendados por Tichý (2015) según parcela y altura del dosel.
     """
     row = GLAMA_HORIZON_MASK_TABLE.get(str(plot_size_key), {})
     horiz_deg = row.get(int(canopy_height_m))

@@ -1,7 +1,7 @@
 """Cobertura del suelo con fotos verticales hacia abajo (CobDosel, v0.15.0). Sin Qt ni QGIS.
 
 Herramienta general (no supone un diseño de muestreo):
-- Área de muestreo: un cuadro físico en la foto (se marcan sus 4 esquinas y se endereza a un cuadrado de tamaño
+- Área de muestreo: un cuadro físico en la foto (se marcan sus 4 esquinas y se rectifica a un cuadrado de tamaño
   conocido) o un área fija calculada con la altura de la cámara y la focal de la calibración del teléfono.
 - Vegetación verde: automática, con la regla de Canopeo (Patrignani y Ochsner 2015: R/G < P1, B/G < P2,
   2G − R − B > P3; por defecto 0,95, 0,95 y 20). Se compara con ExG − ExR > 0 (Meyer y Neto 2008); si difieren
@@ -49,7 +49,7 @@ GREEN_SHADE_COLOR = (255, 0, 255)       # magenta: verde según Canopeo
 CANOPEO_DEFAULT = (0.95, 0.95, 20.0)
 AGREEMENT_LIMIT = 5.0          # puntos de diferencia Canopeo − ExG−ExR que dejan la foto «a revisar»
 DEFAULT_POINTS = 100
-QUADRAT_PX = 1000              # lado del cuadro enderezado (px)
+QUADRAT_PX = 1000              # lado del cuadro rectificado (px)
 
 
 # ---------------------------------------------------------------- vegetación verde

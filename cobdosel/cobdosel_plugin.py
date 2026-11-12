@@ -3,6 +3,7 @@
 Autor: Jorge Fallas (jfallas56@gmail.com)
 
 Historial:
+- 1.0.0: primera versión estable (el historial completo está en CHANGELOG.md del repositorio).
 - 0.16.1: icon.png (PNG RGB 64×64) como icono del repositorio de complementos; el SVG sigue en el menú.
 - 0.16.0: entrada de menú «Cobertura del suelo — procesamiento por sitio».
 - 0.15.0: entrada de menú «Cobertura del suelo».

@@ -13,7 +13,7 @@ v0.9.0:
 - Panel redimensionable horizontal y verticalmente mediante QSplitter y QScrollArea.
 - Pestañas al estilo QGIS: "Parámetros", "Registro" (ventana de bitácora detallada) y "Ayuda".
 - Panel lateral desplegable de "Ayuda corta" contextual y pestaña de "Ayuda completa".
-- Incluye máscara de horizonte artificial interactiva y calculadora de la Tabla 1 de GLAMA
+- Incluye máscara de horizonte artificial interactiva y la máscara recomendada según parcela y altura del dosel (Tichý 2015)
   (Tamaño de parcela × Altura máxima del dosel) y el óptimo > 45° demostrado por Tichý (2016).
 - Reporta todos los resultados de GLAMA en pantalla, CSV, capa GNSS e Informe HTML.
 - Créditos: Jorge Fallas (jfallas56@gmail.com).
@@ -666,7 +666,7 @@ class CobDoselDialog(QDialog):
         dirs_row.addWidget(self.horizon_dirs_edit, stretch=1)
         zen_layout.addRow("Direcciones de máscara:", dirs_row)
 
-        # Calculadora de Tabla 1 del Manual de GLAMA (Parcela x Altura del dosel)
+        # Máscara recomendada según tamaño de parcela y altura del dosel (Tichý 2015)
         table1_row = QHBoxLayout()
         self.plot_size_combo = QComboBox()
         self.plot_size_combo.addItem("10 × 10 m", userData="10x10")
@@ -684,10 +684,10 @@ class CobDoselDialog(QDialog):
         table1_row.addWidget(QLabel("Altura dosel:"))
         table1_row.addWidget(self.canopy_height_combo)
 
-        apply_t1_btn = QPushButton("Aplicar máscara recomendada (Tabla 1)")
+        apply_t1_btn = QPushButton("Aplicar máscara recomendada")
         apply_t1_btn.setToolTip(
-            "Calcula y aplica el ángulo de máscara de horizonte artificial de la Tabla 1\n"
-            "(Tichý 2015) según el tamaño de la parcela y la altura de los árboles."
+            "Calcula y aplica el ángulo de máscara de horizonte artificial recomendado por Tichý (2015)\n"
+            "según el tamaño de la parcela y la altura de los árboles, con la foto tomada en el centro."
         )
         apply_t1_btn.clicked.connect(self._on_apply_glama_table1)
         table1_row.addWidget(apply_t1_btn)
@@ -948,7 +948,7 @@ class CobDoselDialog(QDialog):
         horiz_deg, zen_deg = recommended_horizon_mask_deg(plot_key, height_m)
         self.zenith_max.setValue(zen_deg)
         self._log(
-            "Máscara de horizonte (Tabla 1) aplicada para parcela {} m y altura {} m: "
+            "Máscara de horizonte recomendada (Tichý 2015) aplicada para parcela {} m y altura {} m: "
             "horizonte = {:.0f}° (ángulo cenital máx. = {:.0f}°).".format(
                 plot_key, height_m, horiz_deg, zen_deg
             )

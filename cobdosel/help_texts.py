@@ -11,7 +11,7 @@ SHORT_HELP_TOPICS = {
   <li><b>1. Imagen:</b> fotografía tomada con el teléfono nivelado, apuntando al cenit.</li>
   <li><b>2. Calibración:</b> círculo de diámetro conocido <i>D</i> a la distancia <i>H</i> (recomendado: dos diámetros E–O y N–S), o el radio del hemisferio de la app GLAMA.</li>
   <li><b>3. Nivel de corte (1–254):</b> elija un criterio objetivo (recomendado log-normal, o automático: Mínimo u Otsu) y úselo en todas las fotos.</li>
-  <li><b>4. Máscara de horizonte:</b> Tichý (2016) recomienda <b>&gt; 45°</b> sobre el horizonte; o la Tabla 1 (Tichý 2015). El valor es el ángulo <i>sobre el horizonte</i>: 63° analiza el cenit 0–27°. <b>Estándar de CobDosel: 63°</b>: con la lente normal de un teléfono de 23–25 mm el borde corto de la foto está a 27,4–29,4° del cenit, de modo que el círculo de análisis cabe entero y el modelo de teléfono no influye en la geometría. Tichý (2016) usó 60° (cenit 0–30°), con el que los teléfonos de 24–25 mm dejan fuera del 2 al 4 % del círculo.</li>
+  <li><b>4. Máscara de horizonte:</b> Tichý (2016) recomienda <b>&gt; 45°</b> sobre el horizonte; o la máscara recomendada según parcela y altura del dosel (Tichý 2015; sección 3). El valor es el ángulo <i>sobre el horizonte</i>: 63° analiza el cenit 0–27°. <b>Estándar de CobDosel: 63°</b>: con la lente normal de un teléfono de 23–25 mm el borde corto de la foto está a 27,4–29,4° del cenit, de modo que el círculo de análisis cabe entero y el modelo de teléfono no influye en la geometría. Tichý (2016) usó 60° (cenit 0–30°), con el que los teléfonos de 24–25 mm dejan fuera del 2 al 4 % del círculo.</li>
   <li><b>5. Ejecutar</b> y exportar el informe HTML y el CSV.</li>
 </ol>
 <p><b>Sitios completos:</b> menú <i>CobDosel → Procesamiento por sitio (lote)</i> (parcelas × fotos, formulario de fotos).</p>
@@ -108,7 +108,7 @@ FULL_HELP_HTML = """
 
 <hr/>
 """ + """
-<h3>3. Tabla 1: Ángulos de Máscara de Horizonte según Parcela y Altura del Dosel</h3>
+<h3>3. Máscara de horizonte recomendada según parcela y altura del dosel (Tichý 2015)</h3>
 <p>Cuando la fotografía se toma desde el centro de una parcela cuadrada, Tichý (2015) recomienda los siguientes ángulos de máscara sobre el horizonte (y entre paréntesis su ángulo cenital máximo equivalente <code>θ_máx = 90° − horizonte</code>):</p>
 <table border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; width: 100%; text-align: center;">
   <tr style="background-color: #e6f2f5;">
@@ -308,7 +308,7 @@ GROUND_HELP_HTML = """
 <ul>
   <li><b>Sol directo con sombras duras:</b> aumenta «No identificable» y las dos reglas del verde fallan en la sombra
   profunda.</li>
-  <li><b>Cámara inclinada:</b> lo cercano ocupa más píxeles que lo lejano. Con cuadro, el enderezado lo corrige para el
+  <li><b>Cámara inclinada:</b> lo cercano ocupa más píxeles que lo lejano. Con cuadro, la rectificación lo corrige para el
   área, pero no la vista oblicua de las plantas; con área fija, el área queda mal.</li>
   <li><b>Plantas altas o a distintas alturas</b> (macetas, arbustos, hojas cerca del lente): lo que está cerca de la
   cámara se ve más grande y pesa más en los puntos y en los píxeles.</li>
@@ -329,7 +329,7 @@ GROUND_HELP_HTML = """
   cuarta esquina.</li>
   <li><b>Cuadro:</b> un marco físico cuadrado sobre el suelo (por ejemplo, de 1 × 1 m). Haga clic en sus 4 esquinas
   interiores, en cualquier orden; el contador indica cuántas lleva y el <b>clic derecho</b> quita la última.
-  CobDosel endereza el cuadro a un cuadrado de 1000 × 1000 px, aunque la cámara no esté perfectamente vertical.
+  CobDosel rectifica el cuadro a un cuadrado de 1000 × 1000 px, aunque la cámara no esté perfectamente vertical.
   <b>Lado del cuadrado</b> = lado interior del marco; solo fija el área que se registra (los porcentajes no dependen
   de él). Si la foto no tiene marco, use el área fija.</li>
   <li><b>Área fija:</b> sin marco. Indique la <b>altura de la cámara</b> sobre el suelo, el <b>lado</b> del cuadrado y
