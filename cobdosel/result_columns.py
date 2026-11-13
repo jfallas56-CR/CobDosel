@@ -32,12 +32,17 @@ DESCRIPTIONS = {
     "measurement_type": "Tipo de medida (caco = Índice CaCo, Tichý 2016)",
     "channel_mode": "Canal de color usado para el corte",
     "cut_level_threshold": "Nivel de corte (0–255)",
-    "total_pixels_in_circle": "Píxeles dentro del área analizada",
-    "total_pixels_in_frame": "Píxeles de la foto",
-    "light_pixels": "Píxeles claros (cielo)",
-    "dark_pixels": "Píxeles oscuros (copa)",
-    "gap_fraction_selected_area_pct": "Fracción de claros del área analizada (%)",
-    "gap_fraction_unmasked_pct": "Fracción de claros sin máscara (%)",
+    # v1.1.2: descripciones corregidas; estas cinco variables siguen la convención de GLAMA (círculo del
+    # hemisferio completo, πR², que con lente regular queda en su mayor parte fuera de la foto)
+    "total_pixels_in_circle": "Píxeles del círculo del hemisferio completo, πR² (convención de GLAMA; con lente "
+                              "regular la mayor parte queda fuera de la foto)",
+    "total_pixels_in_frame": "Píxeles del círculo del hemisferio que caen dentro de la foto (convención de GLAMA)",
+    "light_pixels": "Píxeles claros (cielo) del área analizada",
+    "dark_pixels": "Píxeles oscuros, convención de GLAMA: círculo del hemisferio menos los claros (incluye lo que "
+                   "queda fuera de la foto y bajo la máscara; no es el número de píxeles de copa)",
+    "gap_fraction_selected_area_pct": "Fracción de claros, convención de GLAMA: claros / píxeles del círculo del "
+                                      "hemisferio completo (%)",
+    "gap_fraction_unmasked_pct": "Fracción de claros del área analizada: claros / píxeles analizados (%)",
     "canopy_openness_pct": "Apertura del dosel, convención de GLAMA (%)",
     "canopy_closure_pct": "Cierre del dosel, convención de GLAMA (%)",
     "canopy_openness_analysed_pct": "Apertura del área analizada (%)",

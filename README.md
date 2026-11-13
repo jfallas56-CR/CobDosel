@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-1.1.1-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.1.2-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 
@@ -85,6 +85,10 @@ Menú **CobDosel → Cobertura del suelo (foto hacia abajo)**. Herramienta gener
 - **Nivel de corte:** todos los índices dependen del umbral cielo/dosel; fije un criterio y regístrelo.
 - **Validación pendiente:** ni GLAMA ni CobDosel se han validado en Costa Rica contra una referencia independiente (tubo de observación vertical o LiDAR).
 - **Formato numérico:** punto decimal y espacio como separador de miles en pantalla e informe; el CSV guarda números sin separador.
+
+## Ejemplo de resultados
+
+Un informe HTML y el CSV de una foto real están en [`docs/ejemplos/`](docs/ejemplos/): [ver el informe](https://jfallas56-cr.github.io/CobDosel/ejemplos/Informe_CobDosel_ejemplo.html).
 
 ## Registro de cambios
 

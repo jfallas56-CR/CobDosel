@@ -2787,13 +2787,13 @@ class CobDoselDialog(QDialog):
         lines.append("")
         lines.append("── RESULTADOS (basado en Tichý 2016) ─────────────────────────────")
         lines.append(
-            "  N.º total de píxeles en el círculo (en fotograma): {} px ({} px)".format(
+            "  Píxeles del círculo del hemisferio, πR² (en la foto): {} px ({} px)  [convención de GLAMA]".format(
                 fmt_int(metrics["total_pixels_in_circle"]),
                 fmt_int(metrics["total_pixels_in_frame"]),
             )
         )
         lines.append(
-            "  N.º de píxeles claros / cielo (oscuros / dosel):   {} px ({} px)".format(
+            "  Píxeles claros del área analizada (oscuros):        {} px ({} px)  [oscuros = círculo − claros]".format(
                 fmt_int(metrics["light_pixels"]),
                 fmt_int(metrics["dark_pixels"]),
             )

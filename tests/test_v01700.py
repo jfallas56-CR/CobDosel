@@ -205,5 +205,13 @@ chk("4 HTML: el Total del detalle es el mismo número que el Índice CaCo del in
     and "{:.2f}%".format(metrics["canopy_cover_index_pct"]) in ht)
 chk("5 ayuda: peso en el CaCo y cobertura llevada a la vertical", "peso en el caco" in FULL_HELP_HTML.lower()
     and "llevada a la vertical" in FULL_HELP_HTML)
+# 6 (1.1.2) descripciones del CSV de las variables con convención de GLAMA
+chk("6 CSV: total_pixels_in_circle descrito como círculo del hemisferio πR² (no «área analizada»)",
+    "πR²" in describe("total_pixels_in_circle") and "área analizada" not in describe("total_pixels_in_circle"))
+chk("6 CSV: gap_fraction_selected_area_pct = convención de GLAMA; unmasked = área analizada",
+    "convención de GLAMA" in describe("gap_fraction_selected_area_pct")
+    and "área analizada" in describe("gap_fraction_unmasked_pct") and "no es el número de píxeles de copa" in describe("dark_pixels"))
+chk("6 panel y HTML: oscuros = círculo − claros (convención de GLAMA)", "[oscuros = círculo − claros]" in txt
+    and "convención de GLAMA: círculo completo menos claros" in ht)
 print("\nTodo OK" if ok_all else "\nHAY FALLAS")
 sys.exit(0 if ok_all else 1)

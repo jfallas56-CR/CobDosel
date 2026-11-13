@@ -1,0 +1,108 @@
+﻿variable;descripcion;valor
+image_id;Archivo de la foto;GLAMA_20260618_091342.jpg
+latitude;Latitud del EXIF (grados, WGS84);Sin datos
+longitude;Longitud del EXIF (grados, WGS84);Sin datos
+elevation_m;Altitud del EXIF (m);Sin datos
+capture_datetime;Fecha y hora de captura (EXIF);2026-06-18T09:13:49
+projection;Modelo de proyección del lente;Rectilínea (geométrica)
+circle_diameter_cm;Calibración: diámetro del círculo D (cm);12,1
+camera_height_cm;Calibración: altura de la cámara sobre el círculo H (cm);39,8
+pixel_diameter_px;Calibración: diámetro medido del círculo en la foto (px);567,5072
+focal_length_px;Focal del lente f (px, en el tamaño de la foto);1866,6765752066112
+half_fov_deg;Semiángulo de visión del lente (grados);27,21598786211144
+full_fov_deg;Ángulo de visión completo del lente (grados);54,43197572422288
+hemisphere_fraction_pct;Fracción del hemisferio de referencia (convención de GLAMA) dentro de la foto (%);67,80384129127492
+horizon_mask_deg;Máscara de horizonte artificial (grados sobre el horizonte);63,0
+zenith_max_deg;Ángulo cenital máximo analizado (grados);27,0
+n_rings;Número de anillos cenitales;4
+measurement_type;Tipo de medida (caco = Índice CaCo, Tichý 2016);caco
+channel_mode;Canal de color usado para el corte;blue_red
+cut_level_threshold;Nivel de corte (0–255);225
+total_pixels_in_circle;"Píxeles del círculo del hemisferio completo, πR² (convención de GLAMA; con lente regular la mayor parte queda fuera de la foto)";31661330
+total_pixels_in_frame;Píxeles del círculo del hemisferio que caen dentro de la foto (convención de GLAMA);4906244
+light_pixels;Píxeles claros (cielo) del área analizada;62242
+dark_pixels;"Píxeles oscuros, convención de GLAMA: círculo del hemisferio menos los claros (incluye lo que queda fuera de la foto y bajo la máscara; no es el número de píxeles de copa)";31599088
+gap_fraction_selected_area_pct;Fracción de claros, convención de GLAMA: claros / píxeles del círculo del hemisferio completo (%);0,1965868142620667
+gap_fraction_unmasked_pct;Fracción de claros del área analizada: claros / píxeles analizados (%);2,1934928150874193
+canopy_openness_pct;Apertura del dosel, convención de GLAMA (%);0,9520713872902933
+canopy_closure_pct;Cierre del dosel, convención de GLAMA (%);99,04792861270971
+canopy_openness_analysed_pct;Apertura del área analizada (%);2,164197813912861
+canopy_cover_caco_index_pct;Índice CaCo: cobertura del dosel estimada (%);97,34487047565126
+lai_effective;"LAI efectivo (Miller 1967; solo ojo de pez de 180°)";No aplica
+lai_zenith_max_deg;Ángulo cenital máximo usado en el LAI (grados);No aplica
+lai_reliable;LAI fiable (Sí/No);No aplica
+sky_is_bright;El cielo es la parte clara de la foto (Sí/No);Sí
+calibration_approx_formula;Calibración con la fórmula aproximada de GLAMA (Sí/No);No
+horizon_angles;"Máscara por direcciones: ángulos del horizonte (grados, separados por «;»)";No aplica
+plugin;Complemento;CobDosel
+plugin_version;Versión del complemento;1.1.1
+hemisphere_radius_px;Radio del hemisferio en la foto R (px);3174,6045904246307
+zenith_frame_max_deg;Ángulo cenital máximo que alcanza la foto (grados);40,60114288330078
+circle_visible_pct;Parte del círculo de análisis visible en la foto (%);100,0
+calibration_method;Método de calibración;circulo_DH
+measurement_mode;Medición del círculo: modo;ajuste
+measurement_file;Medición del círculo: archivo;PXL_20261021_23_5cm.jpg
+measurement_image_size;Medición del círculo: tamaño de la foto (px);4000x3000
+measurement_diff_pct;Medición del círculo: diferencia entre los dos diámetros (%);No aplica
+measurement_fit_rms_px;Medición del círculo: residuo del ajuste (px);0,5267731596886394
+measurement_centre_offset_pct;Medición del círculo: desplazamiento del centro (%);4,189682844908911
+exif_orientation;Orientación EXIF (etiqueta 274);6
+exif_image_direction_deg;Rumbo de la cámara del EXIF (grados);No aplica
+cut_level_method;Método del nivel de corte;recomendado (log-normal)
+site_name;Sitio;Prueba
+analyst;Analista;JF
+glama_reference_zenith_deg;Cenit de referencia de la apertura y el cierre (convención de GLAMA, grados);40,998225245134414
+hemisphere_fraction_abs_pct;Fracción del hemisferio real que cubre la foto (%);16,63025483243835
+analysed_fraction_abs_pct;Fracción del hemisferio real que cubre el área analizada (%);10,899100250337533
+cover_pct_ring1;Cobertura del anillo 1 (%);98,28790576633338
+cover_pct_ring2;Cobertura del anillo 2 (%);97,70928596552938
+cover_pct_ring3;Cobertura del anillo 3 (%);98,47739318349059
+cover_pct_ring4;Cobertura del anillo 4 (%);97,3601460143352
+gap_fraction_ring1;Fracción de claros del anillo 1;0,01712094233666621
+gap_fraction_ring2;Fracción de claros del anillo 2;0,022907140344706298
+gap_fraction_ring3;Fracción de claros del anillo 3;0,015226068165094033
+gap_fraction_ring4;Fracción de claros del anillo 4;0,026398539856648
+cover_vertical_pct_ring1;"Cobertura del anillo 1 llevada a la vertical (%; Beer–Lambert, follaje al azar, G = 0,5)";98,26399367290941
+cover_vertical_pct_ring2;"Cobertura del anillo 2 llevada a la vertical (%; Beer–Lambert, follaje al azar, G = 0,5)";97,63395576876512
+cover_vertical_pct_ring3;"Cobertura del anillo 3 llevada a la vertical (%; Beer–Lambert, follaje al azar, G = 0,5)";98,08993662521036
+cover_vertical_pct_ring4;"Cobertura del anillo 4 llevada a la vertical (%; Beer–Lambert, follaje al azar, G = 0,5)";96,49787172195651
+caco_weight_pct_ring1;Peso del anillo 1 en el Índice CaCo (%);6,702617586279655
+caco_weight_pct_ring2;Peso del anillo 2 en el Índice CaCo (%);19,7375314343491
+caco_weight_pct_ring3;Peso del anillo 3 en el Índice CaCo (%);31,681334493631336
+caco_weight_pct_ring4;Peso del anillo 4 en el Índice CaCo (%);41,87851648573991
+gap_pct_ring1_S1;Fracción de claros del anillo 1, sector S1 (%);1,3179142574360576
+gap_pct_ring1_S2;Fracción de claros del anillo 1, sector S2 (%);2,158574191188
+gap_pct_ring1_S3;Fracción de claros del anillo 1, sector S3 (%);0,32296713028077306
+gap_pct_ring1_S4;Fracción de claros del anillo 1, sector S4 (%);0,07317200648094914
+gap_pct_ring1_S5;Fracción de claros del anillo 1, sector S5 (%);1,2501302218981143
+gap_pct_ring1_S6;Fracción de claros del anillo 1, sector S6 (%);3,3763654419066533
+gap_pct_ring1_S7;Fracción de claros del anillo 1, sector S7 (%);3,6307756420274
+gap_pct_ring1_S8;Fracción de claros del anillo 1, sector S8 (%);1,5679715674489103
+gap_pct_ring2_S1;Fracción de claros del anillo 2, sector S1 (%);1,0177946666220266
+gap_pct_ring2_S2;Fracción de claros del anillo 2, sector S2 (%);1,736244951314753
+gap_pct_ring2_S3;Fracción de claros del anillo 2, sector S3 (%);2,4507424209451427
+gap_pct_ring2_S4;Fracción de claros del anillo 2, sector S4 (%);0,9887881479495215
+gap_pct_ring2_S5;Fracción de claros del anillo 2, sector S5 (%);2,348628153405762
+gap_pct_ring2_S6;Fracción de claros del anillo 2, sector S6 (%);8,532068578323752
+gap_pct_ring2_S7;Fracción de claros del anillo 2, sector S7 (%);0,7281919078627986
+gap_pct_ring2_S8;Fracción de claros del anillo 2, sector S8 (%);0,5262364041629657
+gap_pct_ring3_S1;Fracción de claros del anillo 3, sector S1 (%);0,565219010727056
+gap_pct_ring3_S2;Fracción de claros del anillo 3, sector S2 (%);1,4796593429119844
+gap_pct_ring3_S3;Fracción de claros del anillo 3, sector S3 (%);1,152786054827175
+gap_pct_ring3_S4;Fracción de claros del anillo 3, sector S4 (%);3,047837349285328
+gap_pct_ring3_S5;Fracción de claros del anillo 3, sector S5 (%);0,9311680572109654
+gap_pct_ring3_S6;Fracción de claros del anillo 3, sector S6 (%);3,2062391681109186
+gap_pct_ring3_S7;Fracción de claros del anillo 3, sector S7 (%);1,6835518474374256
+gap_pct_ring3_S8;Fracción de claros del anillo 3, sector S8 (%);0,11554015020219527
+gap_pct_ring4_S1;Fracción de claros del anillo 4, sector S1 (%);0,21175538113011125
+gap_pct_ring4_S2;Fracción de claros del anillo 4, sector S2 (%);1,1592676316381239
+gap_pct_ring4_S3;Fracción de claros del anillo 4, sector S3 (%);1,4763727131306081
+gap_pct_ring4_S4;Fracción de claros del anillo 4, sector S4 (%);6,187494822056265
+gap_pct_ring4_S5;Fracción de claros del anillo 4, sector S5 (%);7,487149760740079
+gap_pct_ring4_S6;Fracción de claros del anillo 4, sector S6 (%);1,393606570958541
+gap_pct_ring4_S7;Fracción de claros del anillo 4, sector S7 (%);2,9539284172172504
+gap_pct_ring4_S8;Fracción de claros del anillo 4, sector S8 (%);0,24854129927923024
+lai_ring1;LAI del anillo 1;No aplica
+lai_ring2;LAI del anillo 2;No aplica
+lai_ring3;LAI del anillo 3;No aplica
+lai_ring4;LAI del anillo 4;No aplica

@@ -2,6 +2,10 @@
 
 Historial de versiones del complemento QGIS CobDosel, desde la versión inicial hasta la 1.0.0. Se mantiene fuera del complemento (no va en el ZIP ni en metadata.txt) para la trazabilidad del proceso de desarrollo; a partir de 1.0.0 cada versión nueva se anota aquí y en el campo `changelog` de metadata.txt solo con su entrada.
 
+## 1.1.2 (2026-11-13)
+
+CSV de una foto: las descripciones de `total_pixels_in_circle`, `total_pixels_in_frame`, `light_pixels`, `dark_pixels`, `gap_fraction_selected_area_pct` y `gap_fraction_unmasked_pct` decían «área analizada» o «foto» para lo que, siguiendo a GLAMA, se refiere al círculo del hemisferio completo (πR², en su mayor parte fuera de la foto con lente regular). Corregidas, y rótulos más claros en el panel y en el informe HTML. Los valores no cambian. Ejemplo de informe y CSV en `docs/ejemplos/`.
+
 ## 1.1.1 (2026-11-12)
 
 El detalle por anillos (cobertura vertical, peso en el CaCo y aporte) se calcula ahora con los mismos 90 anillos finos y los mismos términos del Índice CaCo, agrupados en los anillos del informe (un anillo fino que cruza un límite se reparte por ángulo sólido). La suma de los aportes es exactamente el CaCo; en 1.1.0 se calculaba con los 4 anillos anchos y difería en centésimas (94,59 frente a 94,58 en una foto del usuario).

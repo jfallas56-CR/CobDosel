@@ -728,8 +728,8 @@ def generate_html_report(results, output_path, include_images=True, log=None):
       <tr><td>Nivel de corte (1–254)</td><td class="num"><strong>{threshold}</strong></td>
           <td>{cut_method} · canal: {channel_label}</td></tr>
       <tr><td>Índice de área foliar efectivo (Miller)</td><td class="num">{lai_eff_str}</td><td>{lai_note}</td></tr>
-      <tr><td>Píxeles claros (oscuros)</td><td class="num">{light_px}</td><td>({dark_px} oscuros)</td></tr>
-      <tr><td>Píxeles del círculo completo (en la foto)</td><td class="num">{total_circle_px}</td><td>({total_frame_px} en la foto)</td></tr>
+      <tr><td>Píxeles claros del área analizada</td><td class="num">{light_px}</td><td>({dark_px} oscuros, convención de GLAMA: círculo completo menos claros)</td></tr>
+      <tr><td>Píxeles del círculo completo del hemisferio, πR² (en la foto)</td><td class="num">{total_circle_px}</td><td>({total_frame_px} en la foto; con lente regular casi todo el círculo queda fuera, convención de GLAMA)</td></tr>
     </table>
 
     <div class="meas-box">
