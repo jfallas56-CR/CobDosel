@@ -3,7 +3,7 @@ name=CobDosel
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Cobertura del dosel (Índice CaCo, Tichý 2016; apertura, cierre, LAI) y cobertura del suelo (Canopeo e intercepción de puntos) a partir de fotos de teléfono / canopy and ground cover from smartphone photos.
-version=1.0.1
+version=1.1.0
 author=Jorge Fallas (método de Lubomír Tichý, 2016)
 email=jfallas56@gmail.com
 about=ES: CobDosel tiene dos herramientas. (1) Cobertura del dosel con el método de Tichý (2016, Journal of Vegetation Science 27: 427–435, https://doi.org/10.1111/jvs.12350): Índice de Cobertura del Dosel (CaCo, proyección vertical), apertura y cierre del dosel, fracción de claros, máscara de horizonte artificial (única o por 4, 8 o 16 direcciones; Tabla 1 de GLAMA), fracción de claros por sector de acimut y LAI efectivo de Miller (solo con ojo de pez de 180°). Calibración de teléfonos con un círculo de diámetro conocido (dos diámetros o ajuste de círculo, con control de calidad y trazabilidad) o con baldosas o un rectángulo conocido (una o dos alturas), o de lentes ojo de pez (detección automática). Umbral interactivo, métodos automáticos Otsu y Mínimo, y nivel recomendado (log-normal); vista «Anillos cenitales»; procesamiento por sitio (lote) con un formulario de fotos, media por parcela y del sitio, comprobación de cámara y lente; capa de puntos GNSS, CSV e informe HTML autocontenido. (2) Cobertura del suelo con fotos hacia abajo: área de un cuadro rectificado o área fija desde la altura de la cámara; vegetación verde automática con la regla de Canopeo (Patrignani y Ochsner 2015), comprobada con ExG − ExR (Meyer y Neto 2008) y con las diferencias sombreadas; vegetación seca, hojarasca, suelo desnudo y clases propias por intercepción de puntos (cuadrícula con semilla registrada, IC 95 %% de Wilson); modo reglamentario y comparación entre analistas (kappa de Cohen); procesamiento por sitio con resumen (media e IC 95 %% de t de Student por fotos o parcelas); CSV e informe HTML. Requiere numpy y Pillow; scipy, opencv y pillow-heif son opcionales.
@@ -18,5 +18,6 @@ experimental=False
 deprecated=False
 server=False
 hasProcessingProvider=no
-changelog=1.0.1 (2026-11-12): Ayuda: cuándo usar (y cuándo no) la máscara recomendada según parcela y altura del dosel. Sin cambios en los cálculos.
+changelog=1.1.0 (2026-11-12): Detalle por anillos: cobertura llevada a la vertical (Beer–Lambert), peso del anillo en el Índice CaCo y aporte al CaCo, en el panel, el informe HTML y el CSV.
+    1.0.1 (2026-11-12): Ayuda: cuándo usar (y cuándo no) la máscara recomendada según parcela y altura del dosel. Sin cambios en los cálculos.
     1.0.0 (2026-11-11): Primera versión estable: cobertura del dosel (Índice CaCo, Tichý 2016) y cobertura del suelo (Canopeo e intercepción de puntos), ambas con procesamiento por sitio, CSV con descripción en español, informes HTML y ayuda. El historial completo está en CHANGELOG.md del repositorio.

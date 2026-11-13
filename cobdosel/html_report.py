@@ -30,6 +30,7 @@ import datetime
 from .canopy_analysis import (
     classify_measurement_type,
     compute_hemisphere_fraction,
+    ring_caco_detail,
     CHANNEL_LABELS,
     LAI_NOT_APPLICABLE,
 )
@@ -338,6 +339,10 @@ def generate_html_report(results, output_path, include_images=True, log=None):
             _warn("El informe se generó sin una o más visualizaciones.")
 
     ring_rows_html = []
+    detail = ring_caco_detail(cover.get("per_ring", []), boundaries)    # v1.1.0
+
+    def _p2(v):
+        return "{:.2f}".format(v) if v is not None else "n/d"
     for i, r in enumerate(cover.get("per_ring", [])):
         lo, hi = boundaries[i] if i < len(boundaries) else (0.0, 0.0)
         cov_s = (
@@ -360,6 +365,9 @@ def generate_html_report(results, output_path, include_images=True, log=None):
             "<td class='num'>{n_dark}</td>"
             "<td class='num'><strong>{cov}</strong></td>"
             "<td class='num'>{gap}</td>"
+            "<td class='num'>{vert}</td>"
+            "<td class='num'>{wt}</td>"
+            "<td class='num'>{contrib}</td>"
             "</tr>".format(
                 ring=r["ring"],
                 lo=lo,
@@ -371,8 +379,19 @@ def generate_html_report(results, output_path, include_images=True, log=None):
                 n_dark=fmt_int(n_dark),
                 cov=cov_s,
                 gap=gap_s,
+                vert=_p2(detail[i]["cover_vertical_pct"]) + "%" if i < len(detail) and
+                detail[i]["cover_vertical_pct"] is not None else "n/d",
+                wt=_p2(detail[i]["weight_pct"]) + "%" if i < len(detail) and detail[i]["weight_pct"] is not None
+                else "n/d",
+                contrib=_p2(detail[i]["contribution_pct"]) if i < len(detail) else "n/d",
             )
         )
+    if detail:
+        ring_rows_html.append(
+            "<tr><td colspan='7'><strong>Total</strong></td><td class='num'><strong>{}%</strong></td>"
+            "<td class='num'><strong>{}</strong></td></tr>".format(
+                _p2(sum(d["weight_pct"] for d in detail if d["weight_pct"] is not None)),
+                _p2(sum(d["contribution_pct"] for d in detail if d["contribution_pct"] is not None))))
 
     lai_rows_html = []
     lai_bounds = lai.get("ring_boundaries", boundaries)
@@ -770,12 +789,24 @@ def generate_html_report(results, output_path, include_images=True, log=None):
           <th class="num">Píxeles oscuros (dosel)</th>
           <th class="num">Cobertura (%)</th>
           <th class="num">Fracción de claros (%)</th>
+          <th class="num">Cobertura llevada a la vertical (%)</th>
+          <th class="num">Peso en el CaCo (%)</th>
+          <th class="num">Aporte al CaCo (puntos %)</th>
         </tr>
       </thead>
       <tbody>
         {ring_rows}
       </tbody>
     </table>
+    <p class="note-small"><strong>Peso en el CaCo:</strong> peso de proyección horizontal del anillo,
+    ½(sin² θ<sub>sup</sub> − sin² θ<sub>inf</sub>), normalizado sobre los anillos analizados. <strong>Aporte:</strong>
+    peso × cobertura llevada a la vertical; su suma se aproxima al Índice CaCo, que hace el mismo cálculo con 90
+    anillos finos (la diferencia es de décimas de punto). La columna «Cobertura (%)» es la del ángulo de cada
+    anillo: no se promedia ni se informa como cobertura. <strong>Cobertura llevada a la vertical:</strong> 1 − (fracción de
+    claros)<sup>cos θ̄</sup>, con θ̄ el ángulo medio del anillo (Beer–Lambert; supone follaje distribuido al azar y
+    distribución esférica de ángulos foliares, G = 0,5). En un anillo oblicuo la línea de visión cruza más follaje
+    que la vertical, por eso la cobertura vertical es menor; con follaje agrupado la diferencia real es algo menor
+    que la calculada.</p>
     <h3 style="margin-top:18px;">LAI efectivo por anillo — {lai_note}</h3>
     <table class="data-table">
       <thead>

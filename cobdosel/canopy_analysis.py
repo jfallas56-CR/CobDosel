@@ -736,6 +736,51 @@ def compute_canopy_metrics(per_ring_results, ring_boundaries, cover_summary=None
     }
 
 
+def ring_caco_detail(per_ring_results, ring_boundaries):
+    """Por anillo (CobDosel 1.1.0): peso en el CaCo, aporte al CaCo y cobertura llevada a la vertical.
+
+    - Peso en el CaCo (%): peso de proyección horizontal del anillo, ∫ cos θ sin θ dθ = ½(sin² θ_hi − sin² θ_lo),
+      normalizado sobre los anillos con dato (suma 100 %). Es el peso que el Índice CaCo (glama_engine,
+      90 anillos finos) da a esa franja cenital.
+    - Aporte al CaCo (puntos %): peso × cobertura llevada a la vertical. El CaCo convierte cada anillo fino a la
+      vertical (T^cos θ) antes de ponderarlo, así que la suma de los aportes se aproxima al CaCo informado; la
+      diferencia (décimas de punto) viene de convertir 4 anillos anchos en lugar de 90 finos.
+    - Cobertura llevada a la vertical (%): con Beer–Lambert (Nilson 1971), P(θ) = exp(−G·LAI / cos θ),
+      la fracción de claros vertical es P_v = P(θ)^cos θ̄, con cos θ̄ = ∫ cos θ sin θ dθ / ∫ sin θ dθ (coseno
+      medio del anillo ponderado por ángulo sólido). Supone follaje distribuido al azar y G(θ) constante
+      (distribución esférica de ángulos foliares, G = 0,5, la misma hipótesis del LAI).
+
+    Devuelve una lista con un dict por anillo: ring, weight_pct, contribution_pct, mean_cos, cover_vertical_pct
+    (None donde el anillo no tiene dato).
+    """
+    rows, weights = [], []
+    for i, (lo, hi) in enumerate(ring_boundaries):
+        r = per_ring_results[i] if i < len(per_ring_results) else {}
+        cf = r.get("cover_fraction")
+        a, b = math.radians(lo), math.radians(hi)
+        w = max(1e-12, 0.5 * (math.sin(b) ** 2 - math.sin(a) ** 2))
+        sw = max(1e-12, math.cos(a) - math.cos(b))
+        mean_cos = w / sw
+        gf = r.get("gap_fraction")
+        if cf is not None and gf is None:
+            gf = 1.0 - cf
+        vert = None if gf is None else 100.0 * (1.0 - max(0.0, gf) ** mean_cos)
+        rows.append({"ring": r.get("ring", i + 1), "mean_cos": mean_cos, "cover_vertical_pct": vert,
+                     "_w": w if cf is not None else None, "_cf": cf})
+        if cf is not None:
+            weights.append(w)
+    tot = sum(weights)
+    for row in rows:
+        w, cf = row.pop("_w"), row.pop("_cf")
+        if w is None or tot <= 0:
+            row["weight_pct"] = row["contribution_pct"] = None
+        else:
+            row["weight_pct"] = 100.0 * w / tot
+            v = row["cover_vertical_pct"]
+            row["contribution_pct"] = row["weight_pct"] * v / 100.0 if v is not None else None
+    return rows
+
+
 # ======================================================================
 # Clasificación del tipo de medición según el ángulo de visión
 # ======================================================================

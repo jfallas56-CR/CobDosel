@@ -123,6 +123,7 @@ from .canopy_analysis import (
     SKY_FRAGMENTED_NOTE,
     lai_applies,
     compute_canopy_metrics,
+    ring_caco_detail,
     classify_measurement_type,
     compute_hemisphere_fraction,
     extract_channel,
@@ -2906,11 +2907,16 @@ class CobDoselDialog(QDialog):
         lines.append("")
         lines.append("── DETALLE POR ANILLOS CENITALES ─────────────────────────────────")
         lines.append(
-            "{:<8}{:<15}{:>13}{:>13}{:>13}{:>11}{:>11}".format(
+            "{:<8}{:<15}{:>13}{:>13}{:>13}{:>11}{:>11}{:>12}{:>12}{:>12}".format(
                 "Anillo", "Rango cenital", "Píxeles", "Claros", "Oscuros",
-                "Cobert. %", "Claros %"
+                "Cobert. %", "Claros %", "Cob.vert.%", "Peso CaCo%", "Aporte"
             )
         )
+        # v1.1.0: cobertura llevada a la vertical, peso del anillo en el CaCo y su aporte
+        detail = ring_caco_detail(cover["per_ring"], boundaries)
+
+        def _f2(v):
+            return "{:.2f}".format(v) if v is not None else "n/d"
 
         for i, ring in enumerate(cover["per_ring"]):
             lo, hi = boundaries[i]
@@ -2922,8 +2928,9 @@ class CobDoselDialog(QDialog):
                 "{:.2f}".format(100.0 * ring["gap_fraction"])
                 if ring["gap_fraction"] is not None else "n/d"
             )
+            dt = detail[i] if i < len(detail) else {}
             lines.append(
-                "{:<8}{:>5.1f}–{:<7.1f}°{:>13}{:>13}{:>13}{:>11}{:>11}".format(
+                "{:<8}{:>5.1f}–{:<7.1f}°{:>14}{:>13}{:>13}{:>11}{:>11}{:>12}{:>12}{:>12}".format(
                     ring["ring"],
                     lo,
                     hi,
@@ -2932,8 +2939,20 @@ class CobDoselDialog(QDialog):
                     fmt_int(ring.get("n_dark_pixels", 0)),
                     cover_s,
                     gap_s,
+                    _f2(dt.get("cover_vertical_pct")),
+                    _f2(dt.get("weight_pct")),
+                    _f2(dt.get("contribution_pct")),
                 )
             )
+        tot_w = sum(d["weight_pct"] for d in detail if d.get("weight_pct") is not None)
+        tot_c = sum(d["contribution_pct"] for d in detail if d.get("contribution_pct") is not None)
+        lines.append("{:<96}{:>12}{:>12}".format("Total", _f2(tot_w), _f2(tot_c)))
+        lines.append("  Peso CaCo: peso de proyección horizontal del anillo, ½(sin² θ_sup − sin² θ_inf), normalizado. "
+                     "Aporte = peso × cobertura vertical; la suma ({}) se aproxima al Índice CaCo ({}), que hace lo "
+                     "mismo con 90 anillos finos.".format(_f2(tot_c), _f2(metrics.get("canopy_cover_pct"))))
+        lines.append("  Cob.vert.: cobertura llevada a la vertical, 1 − (claros)^cos θ̄ (Beer–Lambert, follaje al azar, "
+                     "G = 0,5); en anillos oblicuos la línea de visión cruza más follaje que la vertical. «Cobert. %» "
+                     "es la del ángulo: no la promedie ni la informe como cobertura.")
 
         sectors = res.get("sectors") or []
         n_sec = int(res.get("n_sectors") or 0)
@@ -3105,6 +3124,8 @@ class CobDoselDialog(QDialog):
             ]
             + ["cover_pct_ring{}".format(i + 1) for i in range(n)]
             + ["gap_fraction_ring{}".format(i + 1) for i in range(n)]
+            + ["cover_vertical_pct_ring{}".format(i + 1) for i in range(n)]      # v1.1.0
+            + ["caco_weight_pct_ring{}".format(i + 1) for i in range(n)]
             + ["gap_pct_ring{}_S{}".format(sc["ring"], sc["sector"]) for sc in (res.get("sectors") or [])]
             + ([
                 "lai_ring{}_{:g}-{:g}deg".format(i + 1, lai_bounds[i][0], lai_bounds[i][1])
@@ -3171,6 +3192,8 @@ class CobDoselDialog(QDialog):
             ]
             + [r["cover_pct"] for r in cover["per_ring"]]
             + [r["gap_fraction"] for r in cover["per_ring"]]
+            + [d["cover_vertical_pct"] for d in ring_caco_detail(cover["per_ring"], res["ring_boundaries"])]
+            + [d["weight_pct"] for d in ring_caco_detail(cover["per_ring"], res["ring_boundaries"])]
             + [sc["gap_pct"] for sc in (res.get("sectors") or [])]
             + (list(lai["lai_per_ring"]) if lai_ok else [None] * n)
         )

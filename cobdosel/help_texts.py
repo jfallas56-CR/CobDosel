@@ -81,6 +81,13 @@ SHORT_HELP_TOPICS = {
   <li><b>CaCo frente a fracción de claros:</b> la fracción de claros es un conteo de píxeles sin ponderar por el ángulo cenital; no es la cobertura ni se compara con la «apertura del dosel» de otros estudios (con fotos de teléfono, el conteo sin ponderar fue 165 % de la apertura ponderada en Bianchi et al. 2017).</li>
   <li><b>Sectores:</b> fracción de claros por anillo × sector de acimut (S1 arriba, horario).</li>
   <li><b>Anillos del informe:</b> franjas de igual ancho en ángulo cenital («Número de anillos cenitales», 4 por defecto: 0–6,75°, …, 20,25–27° con máscara de 63°). Su «Cobertura» es el cierre del dosel en ese ángulo, sin conversión a la vertical: no la informe como cobertura ni promedie los anillos (el Índice CaCo ya los convierte y los pondera; con 4 anillos el exterior pesa ≈ 42 % y el central ≈ 7 %). Sirven para ver si el dosel es parejo (anillos parecidos: el CaCo es confiable) y, con la tabla por sectores, para ubicar claros.</li>
+  <li><b>Cobertura llevada a la vertical, peso en el CaCo y aporte</b> (columnas «Cob.vert.%», «Peso CaCo%» y «Aporte» del detalle por
+  anillos): la cobertura vertical es <code>1 − (claros)<sup>cos θ̄</sup></code>, con θ̄ el ángulo medio del anillo (Beer–Lambert:
+  la línea de visión oblicua cruza 1/cos θ veces más follaje; supone follaje al azar y G = 0,5, como el LAI). El
+  <b>peso en el CaCo</b> es la proyección horizontal del anillo, <code>½(sin² θ<sub>sup</sub> − sin² θ<sub>inf</sub>)</code>,
+  normalizada (suma 100 %); el <b>aporte</b> es peso × cobertura vertical y su suma se aproxima al Índice CaCo, que hace el
+  mismo cálculo con 90 anillos finos. Muestran cuánto decide cada franja cenital: con la máscara de 63° el anillo exterior
+  pesa ≈ 42 % y el central ≈ 7 %.</li>
   <li><b>Anillos cenitales:</b> anillos cada 5° o 10° con etiqueta, cielo en naranja, zona enmascarada en verde azulado, contorno de la máscara y sectores.</li>
   <li><b>LAI efectivo:</b> solo con lente ojo de pez de 180°, con rango cenital propio (por defecto 0–60°; la foto debe llegar a 45° o más). Con la lente regular del teléfono la foto llega a unos 40° y el LAI es «No aplica» en el panel, el informe y el CSV.</li>
 </ul>
@@ -174,6 +181,14 @@ dosel ≥ 15 m; 15 × 15, ≥ 20 m; 20 × 20, ≥ 30 m; 25 × 25, 40 m). La mism
   <tr><td><b>LAI efectivo</b></td><td>Miller (1967) normalizado al rango cenital observado (por defecto 0–60°). Solo con ojo de pez de 180°; con lente regular, «No aplica».</td></tr>
   <tr><td><b>Círculo de análisis visible</b></td><td>% del círculo de la máscara dentro de la foto; si es &lt; 100 %, parte del círculo se excluye.</td></tr>
   <tr><td><b>Tabla por sectores</b></td><td>Fracción de claros por anillo × sector de acimut (S1 = arriba, sentido horario).</td></tr>
+  <tr><td><b>Detalle por anillos: cobertura llevada a la vertical</b></td><td><code>1 − (fracción de claros)<sup>cos θ̄</sup></code>,
+  con θ̄ el ángulo medio del anillo ponderado por ángulo sólido (Beer–Lambert, Nilson 1971: una línea de visión oblicua cruza
+  1/cos θ veces más follaje que la vertical; supone follaje al azar y G = 0,5). Siempre ≤ la cobertura del ángulo; con follaje
+  agrupado la diferencia real es algo menor.</td></tr>
+  <tr><td><b>Detalle por anillos: peso en el CaCo y aporte</b></td><td>Peso = <code>½(sin² θ<sub>sup</sub> − sin² θ<sub>inf</sub>)</code>
+  normalizado sobre los anillos analizados (suma 100 %): la parte del Índice CaCo que decide esa franja cenital. Aporte = peso ×
+  cobertura vertical; la suma de los aportes se aproxima al Índice CaCo (que usa 90 anillos finos). Con máscara de 63° y 4
+  anillos: 6,7 %, 19,7 %, 31,7 % y 41,9 %, del centro hacia afuera.</td></tr>
 </table>
 <p><b>Valor que se informa como cobertura:</b> el <b>Índice CaCo</b>, ponderado por el ángulo cenital. La fracción de claros es un conteo de píxeles sin ponderar: con fotos de teléfono, Bianchi et al. (2017) hallaron que ese conteo («total gap») fue en promedio 165 % de la apertura del dosel ponderada de una cámara hemisférica tradicional (diferencia media 0.12), mientras que la apertura calculada con ponderación angular sobre fotos de teléfono unidas fue 102 % (diferencia 0.004). Por eso la fracción de claros no debe usarse como cobertura ni compararse con la apertura del dosel de otros estudios.</p>
 

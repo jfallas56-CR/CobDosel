@@ -73,6 +73,9 @@ DESCRIPTIONS = {
 _PATTERNS = (
     (re.compile(r"^cover_pct_ring(\d+)$"), "Cobertura del anillo {0} (%)"),
     (re.compile(r"^gap_fraction_ring(\d+)$"), "Fracción de claros del anillo {0}"),
+    (re.compile(r"^cover_vertical_pct_ring(\d+)$"),
+     "Cobertura del anillo {0} llevada a la vertical (%; Beer–Lambert, follaje al azar, G = 0,5)"),
+    (re.compile(r"^caco_weight_pct_ring(\d+)$"), "Peso del anillo {0} en el Índice CaCo (%)"),
     (re.compile(r"^gap_pct_ring(\d+)_S(\d+)$"), "Fracción de claros del anillo {0}, sector S{1} (%)"),
     (re.compile(r"^lai_ring(\d+)_([\d.]+)-([\d.]+)deg$"), "LAI del anillo {0} ({1}–{2}°)"),
     (re.compile(r"^lai_ring(\d+)$"), "LAI del anillo {0}"),
