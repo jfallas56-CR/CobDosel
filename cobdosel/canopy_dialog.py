@@ -138,6 +138,7 @@ from .glama_engine import (
     horizon_zenith_limit,
     glama_ring_counts,
     glama_indices,
+    glama_ring_detail,
     glama_cut_iterated,
     glama_cut_diagnosis,
     glama_ring_counts_with_gray,
@@ -2599,6 +2600,7 @@ class CobDoselDialog(QDialog):
                 else float(min(horizon_angles))
             )
             r_virt = self.calibration.get("virtual_radius_px")
+            ring_detail = None
             if r_virt:            # siempre (v0.14.67: sin R no se analiza)
                 counts = glama_ring_counts(
                     sky_mask, self.center_xy, r_virt, glama_zarg,
@@ -2606,6 +2608,9 @@ class CobDoselDialog(QDialog):
                     projection=self.calibration.get("projection", "polar"),
                 )
                 g_idx = glama_indices(counts, calibration=self.calibration, radius_px=r_virt)
+                # v1.1.1: detalle por anillo con los mismos anillos finos del CaCo (Σ aportes = CaCo)
+                ring_detail = glama_ring_detail(counts, ring_boundaries, calibration=self.calibration,
+                                                radius_px=r_virt)
                 for key in ("gap_fraction_pct", "canopy_openness_pct", "canopy_closure_pct",
                             "canopy_cover_index_pct", "hemisphere_fraction_pct",
                             "total_pixels_in_circle",
@@ -2691,6 +2696,7 @@ class CobDoselDialog(QDialog):
                 "metrics": metrics,
                 "lai": lai,
                 "ring_boundaries": ring_boundaries,
+                "ring_detail": ring_detail,
                 "sky_mask": sky_mask,
                 "horizon_angles": horizon_angles,
                 "zenith_frame_max_deg": zen_frame_max,
@@ -2913,7 +2919,7 @@ class CobDoselDialog(QDialog):
             )
         )
         # v1.1.0: cobertura llevada a la vertical, peso del anillo en el CaCo y su aporte
-        detail = ring_caco_detail(cover["per_ring"], boundaries)
+        detail = res.get("ring_detail") or ring_caco_detail(cover["per_ring"], boundaries)
 
         def _f2(v):
             return "{:.2f}".format(v) if v is not None else "n/d"
@@ -2948,10 +2954,10 @@ class CobDoselDialog(QDialog):
         tot_c = sum(d["contribution_pct"] for d in detail if d.get("contribution_pct") is not None)
         lines.append("{:<96}{:>12}{:>12}".format("Total", _f2(tot_w), _f2(tot_c)))
         lines.append("  Peso CaCo: peso de proyección horizontal del anillo, ½(sin² θ_sup − sin² θ_inf), normalizado. "
-                     "Aporte = peso × cobertura vertical; la suma ({}) se aproxima al Índice CaCo ({}), que hace lo "
-                     "mismo con 90 anillos finos.".format(_f2(tot_c), _f2(metrics.get("canopy_cover_pct"))))
-        lines.append("  Cob.vert.: cobertura llevada a la vertical, 1 − (claros)^cos θ̄ (Beer–Lambert, follaje al azar, "
-                     "G = 0,5); en anillos oblicuos la línea de visión cruza más follaje que la vertical. «Cobert. %» "
+                     "Aporte = peso × cobertura vertical; la suma de los aportes es el Índice CaCo ({}), calculado con "
+                     "los mismos 90 anillos finos agrupados en estos anillos.".format(_f2(metrics.get("canopy_cover_pct"))))
+        lines.append("  Cob.vert.: cobertura llevada a la vertical, 1 − (claros)^cos θ en cada anillo fino del CaCo "
+                     "(Beer–Lambert, follaje al azar, G = 0,5); en anillos oblicuos la línea de visión cruza más follaje que la vertical. «Cobert. %» "
                      "es la del ángulo: no la promedie ni la informe como cobertura.")
 
         sectors = res.get("sectors") or []
@@ -3192,8 +3198,10 @@ class CobDoselDialog(QDialog):
             ]
             + [r["cover_pct"] for r in cover["per_ring"]]
             + [r["gap_fraction"] for r in cover["per_ring"]]
-            + [d["cover_vertical_pct"] for d in ring_caco_detail(cover["per_ring"], res["ring_boundaries"])]
-            + [d["weight_pct"] for d in ring_caco_detail(cover["per_ring"], res["ring_boundaries"])]
+            + [d["cover_vertical_pct"] for d in (res.get("ring_detail")
+                                                  or ring_caco_detail(cover["per_ring"], res["ring_boundaries"]))]
+            + [d["weight_pct"] for d in (res.get("ring_detail")
+                                         or ring_caco_detail(cover["per_ring"], res["ring_boundaries"]))]
             + [sc["gap_pct"] for sc in (res.get("sectors") or [])]
             + (list(lai["lai_per_ring"]) if lai_ok else [None] * n)
         )

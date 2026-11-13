@@ -339,7 +339,7 @@ def generate_html_report(results, output_path, include_images=True, log=None):
             _warn("El informe se generó sin una o más visualizaciones.")
 
     ring_rows_html = []
-    detail = ring_caco_detail(cover.get("per_ring", []), boundaries)    # v1.1.0
+    detail = results.get("ring_detail") or ring_caco_detail(cover.get("per_ring", []), boundaries)   # v1.1.1
 
     def _p2(v):
         return "{:.2f}".format(v) if v is not None else "n/d"
@@ -800,10 +800,10 @@ def generate_html_report(results, output_path, include_images=True, log=None):
     </table>
     <p class="note-small"><strong>Peso en el CaCo:</strong> peso de proyección horizontal del anillo,
     ½(sin² θ<sub>sup</sub> − sin² θ<sub>inf</sub>), normalizado sobre los anillos analizados. <strong>Aporte:</strong>
-    peso × cobertura llevada a la vertical; su suma se aproxima al Índice CaCo, que hace el mismo cálculo con 90
-    anillos finos (la diferencia es de décimas de punto). La columna «Cobertura (%)» es la del ángulo de cada
+    peso × cobertura llevada a la vertical; la suma de los aportes es el Índice CaCo, calculado con los mismos 90
+    anillos finos agrupados en estos anillos. La columna «Cobertura (%)» es la del ángulo de cada
     anillo: no se promedia ni se informa como cobertura. <strong>Cobertura llevada a la vertical:</strong> 1 − (fracción de
-    claros)<sup>cos θ̄</sup>, con θ̄ el ángulo medio del anillo (Beer–Lambert; supone follaje distribuido al azar y
+    claros)<sup>cos θ</sup> en cada anillo fino del CaCo, agrupado en el anillo del informe (Beer–Lambert; supone follaje distribuido al azar y
     distribución esférica de ángulos foliares, G = 0,5). En un anillo oblicuo la línea de visión cruza más follaje
     que la vertical, por eso la cobertura vertical es menor; con follaje agrupado la diferencia real es algo menor
     que la calculada.</p>

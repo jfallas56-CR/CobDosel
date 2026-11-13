@@ -2,6 +2,10 @@
 
 Historial de versiones del complemento QGIS CobDosel, desde la versión inicial hasta la 1.0.0. Se mantiene fuera del complemento (no va en el ZIP ni en metadata.txt) para la trazabilidad del proceso de desarrollo; a partir de 1.0.0 cada versión nueva se anota aquí y en el campo `changelog` de metadata.txt solo con su entrada.
 
+## 1.1.1 (2026-11-12)
+
+El detalle por anillos (cobertura vertical, peso en el CaCo y aporte) se calcula ahora con los mismos 90 anillos finos y los mismos términos del Índice CaCo, agrupados en los anillos del informe (un anillo fino que cruza un límite se reparte por ángulo sólido). La suma de los aportes es exactamente el CaCo; en 1.1.0 se calculaba con los 4 anillos anchos y difería en centésimas (94,59 frente a 94,58 en una foto del usuario).
+
 ## 1.1.0 (2026-11-12)
 
 Detalle por anillos cenitales: tres columnas nuevas en el panel de resultados, el informe HTML (con fila Total y nota) y el CSV (`cover_vertical_pct_ringN`, `caco_weight_pct_ringN`): cobertura llevada a la vertical, 1 − (claros)^cos θ̄ (Beer–Lambert, follaje al azar, G = 0,5); peso del anillo en el Índice CaCo, ½(sin² θ_sup − sin² θ_inf) normalizado; y aporte (peso × cobertura vertical), cuya suma se aproxima al CaCo de 90 anillos finos. Corregido también el desalineo de una columna entre el encabezado y las filas de esa tabla en el panel. El cálculo del CaCo no cambia.

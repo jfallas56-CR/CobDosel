@@ -159,13 +159,32 @@ chk("1 anillo sin dato: n/d y el peso se reparte entre los demás", d2[0]["weigh
 # 2 en el análisis real: la suma de los aportes se aproxima al CaCo de 90 anillos finos
 res = d.last_results
 cover, metrics = res["cover"], res["metrics"]
-det = ring_caco_detail(cover["per_ring"], res.get("ring_boundaries") or [(i * 6.75, (i + 1) * 6.75) for i in range(4)])
+det = res["ring_detail"]
 s_ap = sum(x["contribution_pct"] for x in det if x["contribution_pct"] is not None)
-chk("2 Σ aportes ≈ Índice CaCo (diferencia < 1 punto)", abs(s_ap - metrics["canopy_cover_pct"]) < 1.0,
-    (round(s_ap, 2), round(metrics["canopy_cover_pct"], 2)))
+chk("2 (1.1.1) Σ aportes = Índice CaCo exactamente (mismos 90 anillos finos)", abs(s_ap - metrics["canopy_cover_index_pct"]) < 1e-9,
+    (s_ap, metrics["canopy_cover_index_pct"]))
+chk("2 pesos suman 100 y cob. vert. = aporte / peso", abs(sum(x["weight_pct"] for x in det) - 100) < 1e-9
+    and all(abs(x["cover_vertical_pct"] - 100 * x["contribution_pct"] / x["weight_pct"]) < 1e-9 for x in det))
+apr = ring_caco_detail(cover["per_ring"], res["ring_boundaries"])
+chk("2 pesos cercanos a los analíticos ½(sin² θ_sup − sin² θ_inf) (< 0,5 puntos)",
+    all(abs(x["weight_pct"] - y["weight_pct"]) < 0.5 for x, y in zip(det, apr)),
+    [(round(x["weight_pct"], 2), round(y["weight_pct"], 2)) for x, y in zip(det, apr)])
+from cobdosel.glama_engine import glama_ring_counts, glama_indices, glama_ring_detail
+cal_ = res["calibration"]; R_ = cal_["virtual_radius_px"]
+cnt = glama_ring_counts(res["sky_mask"], res["center_xy"], R_, res["zenith_max_deg"], calibration=cal_,
+                        projection=cal_.get("projection", "polar"))
+caco = glama_indices(cnt, calibration=cal_, radius_px=R_)["canopy_cover_index_pct"]
+ok_b = True
+for bb in ([(0, 27.0)], [(0, 5.3), (5.3, 11.1), (11.1, 27.0)], [(i * 2.7, (i + 1) * 2.7) for i in range(10)]):
+    dd2 = glama_ring_detail(cnt, bb, calibration=cal_, radius_px=R_)
+    ok_b &= abs(sum(x["contribution_pct"] for x in dd2 if x["contribution_pct"] is not None) - caco) < 1e-9
+chk("2 Σ aportes = CaCo con 1, 3 y 10 anillos (límites que cortan anillos finos)", ok_b)
+tl = [l for l in d.results_text.toPlainText().splitlines() if l.startswith("Total")][0]
+chk("2 la fila Total del panel muestra el mismo valor que el CaCo del panel",
+    tl.split()[-1] == "{:.2f}".format(metrics["canopy_cover_index_pct"]), tl)
 txt = d.results_text.toPlainText()
 chk("2 texto: columnas «Cob.vert.%», «Peso CaCo%», «Aporte», fila Total y notas", all(k in txt for k in (
-    "Cob.vert.%", "Peso CaCo%", "Aporte", "Total", "se aproxima al Índice CaCo", "no la promedie")), txt[-600:])
+    "Cob.vert.%", "Peso CaCo%", "Aporte", "Total", "la suma de los aportes es el Índice CaCo", "no la promedie")), txt[-600:])
 hdr = [l for l in txt.splitlines() if l.startswith("Anillo  Rango")][0]
 r1 = [l for l in txt.splitlines() if l.startswith("1 ") and "–" in l][0]
 chk("2 texto: filas alineadas con el encabezado", len(r1) == len(hdr), (len(r1), len(hdr)))
@@ -175,11 +194,15 @@ chk("3 CSV: cover_vertical_pct_ringN y caco_weight_pct_ringN con descripción", 
     and describe("caco_weight_pct_ring2") == "Peso del anillo 2 en el Índice CaCo (%)"
     and describe("cover_vertical_pct_ring1").startswith("Cobertura del anillo 1 llevada a la vertical"))
 chk("3 CSV: pesos del CSV iguales a los del cálculo", abs(float(rr["caco_weight_pct_ring4"]) - det[3]["weight_pct"]) < 1e-6)
+ht_ = None
 hp = os.path.join(OUT, "inf.html")
 generate_html_report(res, hp, include_images=False)
 ht = open(hp, encoding="utf-8").read()
 chk("4 HTML: columnas «Cobertura llevada a la vertical», «Peso en el CaCo», «Aporte» y fila Total",
     all(k in ht for k in ("Cobertura llevada a la vertical (%)", "Peso en el CaCo (%)", "Aporte al CaCo", "<strong>Total</strong>")))
+chk("4 HTML: el Total del detalle es el mismo número que el Índice CaCo del informe",
+    "<td class='num'><strong>{:.2f}</strong></td></tr>".format(metrics["canopy_cover_index_pct"]) in ht
+    and "{:.2f}%".format(metrics["canopy_cover_index_pct"]) in ht)
 chk("5 ayuda: peso en el CaCo y cobertura llevada a la vertical", "peso en el caco" in FULL_HELP_HTML.lower()
     and "llevada a la vertical" in FULL_HELP_HTML)
 print("\nTodo OK" if ok_all else "\nHAY FALLAS")

@@ -1,6 +1,6 @@
 # CobDosel — cobertura del dosel a partir de fotografías
 
-![version](https://img.shields.io/badge/version-1.1.0-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.1.1-green) ![QGIS](https://img.shields.io/badge/QGIS-3.28%E2%80%934.x-blue) ![licencia](https://img.shields.io/badge/licencia-GPL--2.0-lightgrey)
 
 Complemento de QGIS con dos herramientas:
 

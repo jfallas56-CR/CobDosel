@@ -316,6 +316,66 @@ def glama_indices(counts, calibration=None, radius_px=None, papa=90):
     }
 
 
+def glama_ring_detail(counts, ring_boundaries, calibration=None, radius_px=None, papa=90):
+    """Detalle del Índice CaCo por anillo del informe (CobDosel 1.1.1), con los mismos anillos finos y los mismos
+    términos que glama_indices, de modo que la suma de los aportes es EXACTAMENTE el CaCo informado.
+
+    Para cada anillo fino i que entra en el CaCo: w_i = (pos+negneg)/celk · rozdil · cos(horiz) (término del
+    denominador) y u_i = posupr/celk · rozdil · cos(horiz), con posupr = (pos+negneg)·T^cos(expo) (término del
+    numerador). Un anillo fino que cruza el límite entre dos anillos del informe se reparte en proporción a su
+    ángulo sólido (cos θ_lo − cos θ_hi) a cada lado. Por anillo del informe k:
+      Peso CaCo % = 100 · Σw_k / Σw;  Aporte = 100 · Σ(w − u)_k / Σw;  Cob. vert. % = 100 · (1 − Σu_k / Σw_k).
+    Σ Aporte = 100 · (1 − Σu / Σw) = canopy_cover_index_pct. Devuelve una lista de dicts (ring, weight_pct,
+    contribution_pct, cover_vertical_pct, mean_cos=None); None donde el anillo no tiene anillos finos válidos.
+    """
+    pos, neg, negneg, celk = (counts[k] for k in ("pos", "neg", "negneg", "celk"))
+    lo, hi, expo, horiz = _ring_angles(counts["mode"], calibration, radius_px)
+    n = int(min(papa, N_BINS))
+    K = len(ring_boundaries)
+    W, U = [0.0] * K, [0.0] * K
+    has = [False] * K
+    for i in range(n):
+        posneg = pos[i] + neg[i]
+        posnegneg = pos[i] + negneg[i]
+        if posneg <= 0.0 or celk[i] <= 0.0 or not (posnegneg > 0.0 and pos[i] > 0.0):
+            continue                       # mismas condiciones que glama_indices
+        a, b = float(lo[i]), float(hi[i])
+        rozdil = math.cos(math.radians(a)) - math.cos(math.radians(b))
+        c_exp = math.cos(math.radians(expo[i]))
+        c_hor = math.cos(math.radians(horiz[i]))
+        w = (posnegneg / celk[i]) * rozdil * c_hor
+        u = (posnegneg * (pos[i] / posnegneg) ** c_exp / celk[i]) * rozdil * c_hor
+        span = math.cos(math.radians(a)) - math.cos(math.radians(b))
+        placed = 0.0
+        for k, (L, H) in enumerate(ring_boundaries):
+            if k == K - 1:
+                H = max(H, b)              # lo que pase del último límite va al último anillo
+            if k == 0:
+                L = min(L, a)
+            o_lo, o_hi = max(a, L), min(b, H)
+            if o_hi <= o_lo:
+                continue
+            f = ((math.cos(math.radians(o_lo)) - math.cos(math.radians(o_hi))) / span) if span > 0 else 1.0
+            f = min(f, 1.0 - placed)
+            W[k] += w * f
+            U[k] += u * f
+            has[k] = True
+            placed += f
+    tot_w = sum(W)
+    out = []
+    for k in range(K):
+        if not has[k] or tot_w <= 0 or W[k] <= 0:
+            out.append({"ring": k + 1, "weight_pct": None, "contribution_pct": None, "cover_vertical_pct": None,
+                        "mean_cos": None})
+            continue
+        out.append({"ring": k + 1,
+                    "weight_pct": 100.0 * W[k] / tot_w,
+                    "contribution_pct": 100.0 * (W[k] - U[k]) / tot_w,
+                    "cover_vertical_pct": 100.0 * (1.0 - U[k] / W[k]),
+                    "mean_cos": None})
+    return out
+
+
 def glama_cut_details(histogram, current_cut):
     """
     Nivel de corte recomendado (cruce de dos log-normales; procedimiento del «Recommended cut level»

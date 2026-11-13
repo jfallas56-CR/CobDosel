@@ -3,6 +3,7 @@
 Autor: Jorge Fallas (jfallas56@gmail.com)
 
 Historial:
+- 1.1.1: detalle por anillos con los anillos finos del CaCo (Σ aportes = CaCo).
 - 1.1.0: detalle por anillos con cobertura vertical, peso y aporte al CaCo.
 - 1.0.1: ayuda sobre la máscara recomendada según parcela y altura del dosel.
 - 1.0.0: primera versión estable (el historial completo está en CHANGELOG.md del repositorio).
