@@ -2,7 +2,7 @@
 
 Informe y CSV de una foto de cobertura del dosel, tal como los produce «Cobertura del dosel» (CobDosel 1.1.1; las descripciones del CSV se actualizaron a las de 1.1.2, los valores no cambian).
 
-- **[Informe_CobDosel_Lote_ejemplo.html]()**: informe de ejecucion por lote (Índice CaCo, detalle por anillos con cobertura llevada a la vertical, peso y aporte al CaCo, tabla por sectores, figuras). GitHub muestra el código de un archivo HTML; para verlo como página use el enlace (GitHub Pages) o descárguelo y ábralo en el navegador.
+- **[Informe_CobDosel_Lote_ejemplo.html](https://github.com/jfallas56-CR/CobDosel/ejemplos/CobDosel_Por%20Sitio_informe.html)**: informe de ejecucion por lote (Índice CaCo, detalle por parcela y foto, avisos, parámetros. GitHub muestra el código de un archivo HTML; para verlo como página use el enlace (GitHub Pages) o descárguelo y ábralo en el navegador.
   
 - **[Resultados_CobDosel_ejemplo.csv](Resultados_CobDosel_ejemplo.csv)**: el CSV de la misma foto, una fila por variable (`variable`, `descripcion`, `valor`), con separador «;» y coma decimal.
 
